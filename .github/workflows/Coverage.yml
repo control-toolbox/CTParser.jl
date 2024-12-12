@@ -1,0 +1,10 @@
+# [.github/workflows/coverage.yml]
+name: coverage
+on:
+  push:
+    branches:
+      - main
+    tags: '*'
+jobs:
+  test:
+    uses: control-toolbox/CTActions/.github/workflows/coverage.yml@main
