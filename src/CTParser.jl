@@ -1,4 +1,4 @@
-module CTApp
+module CTParser
 
 greet() = print("Hello World!")
 
