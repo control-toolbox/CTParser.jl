@@ -1,6 +1,6 @@
-# CTApp
+# CTParser
 
-Documentation for [CTApp](https://github.com/control-toolbox/CTApp.jl).
+Documentation for [CTParser](https://github.com/control-toolbox/CTParser.jl).
 
 ## Dependencies
 
