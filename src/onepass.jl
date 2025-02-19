@@ -2,7 +2,6 @@
 # todo:
 # - cannot call solve if problem not fully defined (dynamics not defined...)
 # - doc: explain projections wrt to t0, tf, t; (...x1...x2...)(t) -> ...gensym1...gensym2... (most internal first)
-# - test non autonomous cases
 # - robustify repl
 # - additional checks: when generating functions (constraints, dynamics, costs), there should not be any x or u left
 #   (but the user might indeed do so); meaning that has(ee, x/u/t) must be false (postcondition)
@@ -27,13 +26,12 @@ $(TYPEDEF)
     aliases::OrderedDict{Symbol,Union{Real,Symbol,Expr}} = __init_aliases()
     lnum::Int = 0
     line::String = ""
-    t_dep::Bool = false
 end
 
 __init_aliases(; max_dim=20) = begin
     al = OrderedDict{Symbol,Union{Real,Symbol,Expr}}()
     for i in 1:max_dim
-        al[Symbol(:R, ctupperscripts(i))] = :(R^$i)
+        al[Symbol(:R, CTBase.ctupperscripts(i))] = :(R^$i)
     end
     al[:<=] = :≤
     al[:>=] = :≥
@@ -60,8 +58,6 @@ __wrap(e, n, line) = quote
     end
 end
 
-__t_dep(p) = p.t_dep
-
 __v_dep(p) = !isnothing(p.v)
 
 """
@@ -71,10 +67,10 @@ Parse the expression `e` and update the `ParsingInfo` structure `p`.
 
 # Example
 ```@example
-parse!(p, :ocp, :(v ∈ R, variable))
+parse!(p, :p_ocp, :(v ∈ R, variable))
 ```
 """
-parse!(p, ocp, e; log=false) = begin
+parse!(p, p_ocp, e; log=false) = begin
     #
     p.lnum = p.lnum + 1
     p.line = string(e)
@@ -86,111 +82,111 @@ parse!(p, ocp, e; log=false) = begin
         # aliases
         :($a = $e1) => @match e1 begin
             :(($names) ∈ R^$q, variable) =>
-                p_variable!(p, ocp, a, q; components_names=names, log)
+                p_variable!(p, p_ocp, a, q; components_names=names, log)
             :([$names] ∈ R^$q, variable) =>
-                p_variable!(p, ocp, a, q; components_names=names, log)
+                p_variable!(p, p_ocp, a, q; components_names=names, log)
             :(($names) ∈ R^$n, state) =>
-                p_state!(p, ocp, a, n; components_names=names, log)
+                p_state!(p, p_ocp, a, n; components_names=names, log)
             :([$names] ∈ R^$n, state) =>
-                p_state!(p, ocp, a, n; components_names=names, log)
+                p_state!(p, p_ocp, a, n; components_names=names, log)
             :(($names) ∈ R^$m, control) =>
-                p_control!(p, ocp, a, m; components_names=names, log)
+                p_control!(p, p_ocp, a, m; components_names=names, log)
             :([$names] ∈ R^$m, control) =>
-                p_control!(p, ocp, a, m; components_names=names, log)
-            _ => p_alias!(p, ocp, a, e1; log) # alias
+                p_control!(p, p_ocp, a, m; components_names=names, log)
+            _ => p_alias!(p, p_ocp, a, e1; log) # alias
         end
         # variable                    
-        :($v ∈ R^$q, variable) => p_variable!(p, ocp, v, q; log)
-        :($v ∈ R, variable) => p_variable!(p, ocp, v, 1; log)
+        :($v ∈ R^$q, variable) => p_variable!(p, p_ocp, v, q; log)
+        :($v ∈ R, variable) => p_variable!(p, p_ocp, v, 1; log)
         # time                        
-        :($t ∈ [$t0, $tf], time) => p_time!(p, ocp, t, t0, tf; log)
+        :($t ∈ [$t0, $tf], time) => p_time!(p, p_ocp, t, t0, tf; log)
         # state                       
-        :($x ∈ R^$n, state) => p_state!(p, ocp, x, n; log)
-        :($x ∈ R, state) => p_state!(p, ocp, x, 1; log)
+        :($x ∈ R^$n, state) => p_state!(p, p_ocp, x, n; log)
+        :($x ∈ R, state) => p_state!(p, p_ocp, x, 1; log)
         # control                     
-        :($u ∈ R^$m, control) => p_control!(p, ocp, u, m; log)
-        :($u ∈ R, control) => p_control!(p, ocp, u, 1; log)
+        :($u ∈ R^$m, control) => p_control!(p, p_ocp, u, m; log)
+        :($u ∈ R, control) => p_control!(p, p_ocp, u, 1; log)
         # dynamics                    
-        :(∂($x)($t) == $e1) => p_dynamics!(p, ocp, x, t, e1; log)
-        :(∂($x)($t) == $e1, $label) => p_dynamics!(p, ocp, x, t, e1, label; log)
+        :(∂($x)($t) == $e1) => p_dynamics!(p, p_ocp, x, t, e1; log)
+        :(∂($x)($t) == $e1, $label) => p_dynamics!(p, p_ocp, x, t, e1, label; log)
         # constraints                 
-        :($e1 == $e2) => p_constraint!(p, ocp, e2, e1, e2; log)
-        :($e1 == $e2, $label) => p_constraint!(p, ocp, e2, e1, e2, label; log)
-        :($e1 ≤ $e2 ≤ $e3) => p_constraint!(p, ocp, e1, e2, e3; log)
-        :($e1 ≤ $e2 ≤ $e3, $label) => p_constraint!(p, ocp, e1, e2, e3, label; log)
-        :($e2 ≤ $e3) => p_constraint!(p, ocp, nothing, e2, e3; log)
-        :($e2 ≤ $e3, $label) => p_constraint!(p, ocp, nothing, e2, e3, label; log)
-        :($e3 ≥ $e2 ≥ $e1) => p_constraint!(p, ocp, e1, e2, e3; log)
-        :($e3 ≥ $e2 ≥ $e1, $label) => p_constraint!(p, ocp, e1, e2, e3, label; log)
-        :($e2 ≥ $e1) => p_constraint!(p, ocp, e1, e2, nothing; log)
-        :($e2 ≥ $e1, $label) => p_constraint!(p, ocp, e1, e2, nothing, label; log)
+        :($e1 == $e2) => p_constraint!(p, p_ocp, e2, e1, e2; log)
+        :($e1 == $e2, $label) => p_constraint!(p, p_ocp, e2, e1, e2, label; log)
+        :($e1 ≤ $e2 ≤ $e3) => p_constraint!(p, p_ocp, e1, e2, e3; log)
+        :($e1 ≤ $e2 ≤ $e3, $label) => p_constraint!(p, p_ocp, e1, e2, e3, label; log)
+        :($e2 ≤ $e3) => p_constraint!(p, p_ocp, nothing, e2, e3; log)
+        :($e2 ≤ $e3, $label) => p_constraint!(p, p_ocp, nothing, e2, e3, label; log)
+        :($e3 ≥ $e2 ≥ $e1) => p_constraint!(p, p_ocp, e1, e2, e3; log)
+        :($e3 ≥ $e2 ≥ $e1, $label) => p_constraint!(p, p_ocp, e1, e2, e3, label; log)
+        :($e2 ≥ $e1) => p_constraint!(p, p_ocp, e1, e2, nothing; log)
+        :($e2 ≥ $e1, $label) => p_constraint!(p, p_ocp, e1, e2, nothing, label; log)
         # lagrange cost
-        :(∫($e1) → min) => p_lagrange!(p, ocp, e1, :min; log)
-        :(-∫($e1) → min) => p_lagrange!(p, ocp, :(-$e1), :min; log)
+        :(∫($e1) → min) => p_lagrange!(p, p_ocp, e1, :min; log)
+        :(-∫($e1) → min) => p_lagrange!(p, p_ocp, :(-$e1), :min; log)
         :($e1 * ∫($e2) → min) => if has(e1, p.t)
             (return __throw("time $(p.t) must not appear in $e1", p.lnum, p.line))
         else
-            p_lagrange!(p, ocp, :($e1 * $e2), :min; log)
+            p_lagrange!(p, p_ocp, :($e1 * $e2), :min; log)
         end
-        :(∫($e1) → max) => p_lagrange!(p, ocp, e1, :max; log)
-        :(-∫($e1) → max) => p_lagrange!(p, ocp, :(-$e1), :max; log)
+        :(∫($e1) → max) => p_lagrange!(p, p_ocp, e1, :max; log)
+        :(-∫($e1) → max) => p_lagrange!(p, p_ocp, :(-$e1), :max; log)
         :($e1 * ∫($e2) → max) => if has(e1, p.t)
             (return __throw("time $(p.t) must not appear in $e1", p.lnum, p.line))
         else
-            p_lagrange!(p, ocp, :($e1 * $e2), :max; log)
+            p_lagrange!(p, p_ocp, :($e1 * $e2), :max; log)
         end
         # bolza cost
-        :($e1 + ∫($e2) → min) => p_bolza!(p, ocp, e1, e2, :min; log)
+        :($e1 + ∫($e2) → min) => p_bolza!(p, p_ocp, e1, e2, :min; log)
         :($e1 + $e2 * ∫($e3) → min) => if has(e2, p.t)
             (return __throw("time $(p.t) must not appear in $e2", p.lnum, p.line))
         else
-            p_bolza!(p, ocp, e1, :($e2 * $e3), :min; log)
+            p_bolza!(p, p_ocp, e1, :($e2 * $e3), :min; log)
         end
-        :($e1 - ∫($e2) → min) => p_bolza!(p, ocp, e1, :(-$e2), :min; log)
+        :($e1 - ∫($e2) → min) => p_bolza!(p, p_ocp, e1, :(-$e2), :min; log)
         :($e1 - $e2 * ∫($e3) → min) => if has(e2, p.t)
             (return __throw("time $(p.t) must not appear in $e2", p.lnum, p.line))
         else
-            p_bolza!(p, ocp, e1, :(-$e2 * $e3), :min; log)
+            p_bolza!(p, p_ocp, e1, :(-$e2 * $e3), :min; log)
         end
-        :($e1 + ∫($e2) → max) => p_bolza!(p, ocp, e1, e2, :max; log)
+        :($e1 + ∫($e2) → max) => p_bolza!(p, p_ocp, e1, e2, :max; log)
         :($e1 + $e2 * ∫($e3) → max) => if has(e2, p.t)
             (return __throw("time $(p.t) must not appear in $e2", p.lnum, p.line))
         else
-            p_bolza!(p, ocp, e1, :($e2 * $e3), :max; log)
+            p_bolza!(p, p_ocp, e1, :($e2 * $e3), :max; log)
         end
-        :($e1 - ∫($e2) → max) => p_bolza!(p, ocp, e1, :(-$e2), :max; log)
+        :($e1 - ∫($e2) → max) => p_bolza!(p, p_ocp, e1, :(-$e2), :max; log)
         :($e1 - $e2 * ∫($e3) → max) => if has(e2, p.t)
             (return __throw("time $(p.t) must not appear in $e2", p.lnum, p.line))
         else
-            p_bolza!(p, ocp, e1, :(-$e2 * $e3), :max; log)
+            p_bolza!(p, p_ocp, e1, :(-$e2 * $e3), :max; log)
         end
-        :(∫($e2) + $e1 → min) => p_bolza!(p, ocp, e1, e2, :min; log)
+        :(∫($e2) + $e1 → min) => p_bolza!(p, p_ocp, e1, e2, :min; log)
         :($e2 * ∫($e3) + $e1 → min) => if has(e2, p.t)
             (return __throw("time $(p.t) must not appear in $e2", p.lnum, p.line))
         else
-            p_bolza!(p, ocp, e1, :($e2 * $e3), :min; log)
+            p_bolza!(p, p_ocp, e1, :($e2 * $e3), :min; log)
         end
-        :(∫($e2) - $e1 → min) => p_bolza!(p, ocp, :(-$e1), e2, :min; log)
+        :(∫($e2) - $e1 → min) => p_bolza!(p, p_ocp, :(-$e1), e2, :min; log)
         :($e2 * ∫($e3) - $e1 → min) => if has(e2, p.t)
             (return __throw("time $(p.t) must not appear in $e2", p.lnum, p.line))
         else
-            p_bolza!(p, ocp, :(-$e1), :($e2 * $e3), :min; log)
+            p_bolza!(p, p_ocp, :(-$e1), :($e2 * $e3), :min; log)
         end
-        :(∫($e2) + $e1 → max) => p_bolza!(p, ocp, e1, e2, :max; log)
+        :(∫($e2) + $e1 → max) => p_bolza!(p, p_ocp, e1, e2, :max; log)
         :($e2 * ∫($e3) + $e1 → max) => if has(e2, p.t)
             (return __throw("time $(p.t) must not appear in $e2", p.lnum, p.line))
         else
-            p_bolza!(p, ocp, e1, :($e2 * $e3), :max; log)
+            p_bolza!(p, p_ocp, e1, :($e2 * $e3), :max; log)
         end
-        :(∫($e2) - $e1 → max) => p_bolza!(p, ocp, :(-$e1), e2, :max; log)
+        :(∫($e2) - $e1 → max) => p_bolza!(p, p_ocp, :(-$e1), e2, :max; log)
         :($e2 * ∫($e3) - $e1 → max) => if has(e2, p.t)
             (return __throw("time $(p.t) must not appear in $e2", p.lnum, p.line))
         else
-            p_bolza!(p, ocp, :(-$e1), :($e2 * $e3), :max; log)
+            p_bolza!(p, p_ocp, :(-$e1), :($e2 * $e3), :max; log)
         end
         # mayer cost
-        :($e1 → min) => p_mayer!(p, ocp, e1, :min; log)
-        :($e1 → max) => p_mayer!(p, ocp, e1, :max; log)
+        :($e1 → min) => p_mayer!(p, p_ocp, e1, :min; log)
+        :($e1 → max) => p_mayer!(p, p_ocp, e1, :max; log)
         #
         _ => begin
             if e isa LineNumberNode
@@ -198,7 +194,7 @@ parse!(p, ocp, e; log=false) = begin
                 e
             elseif e isa Expr && e.head == :block
                 p.lnum = p.lnum - 1
-                Expr(:block, map(e -> parse!(p, ocp, e; log), e.args)...)
+                Expr(:block, map(e -> parse!(p, p_ocp, e; log), e.args)...)
                 # !!! assumes that map is done sequentially for side effects on p
             else
                 return __throw("unknown syntax", p.lnum, p.line)
@@ -207,23 +203,23 @@ parse!(p, ocp, e; log=false) = begin
     end
 end
 
-function p_variable!(p, ocp, v, q; components_names=nothing, log=false)
+function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
     log && println("variable: $v, dim: $q")
     v isa Symbol || return __throw("forbidden variable name: $v", p.lnum, p.line)
     p.v = v
     vv = QuoteNode(v)
     qq = q isa Int ? q : 9
     for i in 1:qq
-        p.aliases[Symbol(v, ctindices(i))] = :($v[$i])
+        p.aliases[Symbol(v, CTBase.ctindices(i))] = :($v[$i])
     end # make: v₁, v₂... if the variable is named v
     for i in 1:qq
         p.aliases[Symbol(v, i)] = :($v[$i])
     end # make: v1, v2... if the variable is named v
     for i in 1:9
-        p.aliases[Symbol(v, ctupperscripts(i))] = :($v^$i)
+        p.aliases[Symbol(v, CTBase.ctupperscripts(i))] = :($v^$i)
     end # make: v¹, v²... if the variable is named v
     if (isnothing(components_names))
-        code = :(variable!($ocp, $q, $vv))
+        code = :(variable!($p_ocp, $q, $vv))
     else
         qq == length(components_names.args) ||
             return __throw("the number of variable components must be $qq", p.lnum, p.line)
@@ -231,25 +227,25 @@ function p_variable!(p, ocp, v, q; components_names=nothing, log=false)
             p.aliases[components_names.args[i]] = :($v[$i])
         end # aliases from names given by the user
         ss = QuoteNode(string.(components_names.args))
-        code = :(variable!($ocp, $q, $vv, $ss))
+        code = :(variable!($p_ocp, $q, $vv, $ss))
     end
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_alias!(p, ocp, a, e; log=false)
+function p_alias!(p, p_ocp, a, e; log=false)
     log && println("alias: $a = $e")
     a isa Symbol || return __throw("forbidden alias name: $a", p.lnum, p.line)
     aa = QuoteNode(a)
     ee = QuoteNode(e)
     for i in 1:9
-        p.aliases[Symbol(a, ctupperscripts(i))] = :($a^$i)
+        p.aliases[Symbol(a, CTBase.ctupperscripts(i))] = :($a^$i)
     end
     p.aliases[a] = e
     code = :(LineNumberNode(0, "alias: " * string($aa) * " = " * string($ee)))
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_time!(p, ocp, t, t0, tf; log=false)
+function p_time!(p, p_ocp, t, t0, tf; log=false)
     log && println("time: $t, initial time: $t0, final time: $tf")
     t isa Symbol || return __throw("forbidden time name: $t", p.lnum, p.line)
     p.t = t
@@ -257,58 +253,58 @@ function p_time!(p, ocp, t, t0, tf; log=false)
     p.tf = tf
     tt = QuoteNode(t)
     code = @match (has(t0, p.v), has(tf, p.v)) begin
-        (false, false) => :(time!($ocp; t0=$t0, tf=$tf, name=$tt))
+        (false, false) => :(time!($p_ocp; t0=$t0, tf=$tf, name=$tt))
         (true, false) => @match t0 begin
             :($v1[$i]) && if (v1 == p.v)
-            end => :(time!($ocp; ind0=$i, tf=$tf, name=$tt))
+            end => :(time!($p_ocp; ind0=$i, tf=$tf, name=$tt))
             :($v1) && if (v1 == p.v)
             end => quote
-                ($ocp.variable_dimension ≠ 1) && throw(
+                ($p_ocp.variable_dimension ≠ 1) && throw(
                     IncorrectArgument("variable must be of dimension one for a time"),
                 )
-                time!($ocp; ind0=1, tf=$tf, name=$tt)
+                time!($p_ocp; ind0=1, tf=$tf, name=$tt)
             end
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         (false, true) => @match tf begin
             :($v1[$i]) && if (v1 == p.v)
-            end => :(time!($ocp; t0=$t0, indf=$i, name=$tt))
+            end => :(time!($p_ocp; t0=$t0, indf=$i, name=$tt))
             :($v1) && if (v1 == p.v)
             end => quote
-                ($ocp.variable_dimension ≠ 1) && throw(
+                ($p_ocp.variable_dimension ≠ 1) && throw(
                     IncorrectArgument("variable must be of dimension one for a time"),
                 )
-                time!($ocp; t0=$t0, indf=1, name=$tt)
+                time!($p_ocp; t0=$t0, indf=1, name=$tt)
             end
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         _ => @match (t0, tf) begin
             (:($v1[$i]), :($v2[$j])) && if (v1 == v2 == p.v)
-            end => :(time!($ocp; ind0=$i, indf=$j, name=$tt))
+            end => :(time!($p_ocp; ind0=$i, indf=$j, name=$tt))
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
     end
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_state!(p, ocp, x, n; components_names=nothing, log=false)
+function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
     log && println("state: $x, dim: $n")
     x isa Symbol || return __throw("forbidden state name: $x", p.lnum, p.line)
     p.x = x
     xx = QuoteNode(x)
     nn = n isa Int ? n : 9
     for i in 1:nn
-        p.aliases[Symbol(x, ctindices(i))] = :($x[$i])
+        p.aliases[Symbol(x, CTBase.ctindices(i))] = :($x[$i])
     end # Make x₁, x₂... if the state is named x
     for i in 1:nn
         p.aliases[Symbol(x, i)] = :($x[$i])
     end # Make x1, x2... if the state is named x
     for i in 1:9
-        p.aliases[Symbol(x, ctupperscripts(i))] = :($x^$i)
+        p.aliases[Symbol(x, CTBase.ctupperscripts(i))] = :($x^$i)
     end # Make x¹, x²... if the state is named x
     p.aliases[Symbol(Unicode.normalize(string(x, "̇")))] = :(∂($x))
     if (isnothing(components_names))
-        code = :(state!($ocp, $n, $xx))
+        code = :(state!($p_ocp, $n, $xx))
     else
         nn == length(components_names.args) ||
             return __throw("the number of state components must be $nn", p.lnum, p.line)
@@ -317,28 +313,28 @@ function p_state!(p, ocp, x, n; components_names=nothing, log=false)
             # todo: add aliases for state components (scalar) derivatives
         end # Aliases from names given by the user
         ss = QuoteNode(string.(components_names.args))
-        code = :(state!($ocp, $n, $xx, $ss))
+        code = :(state!($p_ocp, $n, $xx, $ss))
     end
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_control!(p, ocp, u, m; components_names=nothing, log=false)
+function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
     log && println("control: $u, dim: $m")
     u isa Symbol || return __throw("forbidden control name: $u", p.lnum, p.line)
     p.u = u
     uu = QuoteNode(u)
     mm = m isa Int ? m : 9
     for i in 1:mm
-        p.aliases[Symbol(u, ctindices(i))] = :($u[$i])
+        p.aliases[Symbol(u, CTBase.ctindices(i))] = :($u[$i])
     end # make: u₁, u₂... if the control is named u
     for i in 1:mm
         p.aliases[Symbol(u, i)] = :($u[$i])
     end # make: u1, u2... if the control is named u
     for i in 1:9
-        p.aliases[Symbol(u, ctupperscripts(i))] = :($u^$i)
+        p.aliases[Symbol(u, CTBase.ctupperscripts(i))] = :($u^$i)
     end # make: u¹, u²... if the control is named u
     if (isnothing(components_names))
-        code = :(control!($ocp, $m, $uu))
+        code = :(control!($p_ocp, $m, $uu))
     else
         mm == length(components_names.args) ||
             return __throw("the number of control components must be $mm", p.lnum, p.line)
@@ -346,22 +342,23 @@ function p_control!(p, ocp, u, m; components_names=nothing, log=false)
             p.aliases[components_names.args[i]] = :($u[$i])
         end # aliases from names given by the user
         ss = QuoteNode(string.(components_names.args))
-        code = :(control!($ocp, $m, $uu, $ss))
+        code = :(control!($p_ocp, $m, $uu, $ss))
     end
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_constraint!(p, ocp, e1, e2, e3, label=gensym(); log=false)
+function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
     c_type = constraint_type(e2, p.t, p.t0, p.tf, p.x, p.u, p.v)
     log && println("constraint ($c_type): $e1 ≤ $e2 ≤ $e3,    ($label)")
     label isa Int && (label = Symbol(:eq, label))
     label isa Symbol || return __throw("forbidden label: $label", p.lnum, p.line)
     llabel = QuoteNode(label)
     code = @match c_type begin
-        (:initial, rg) =>
-            :(constraint!($ocp, :initial; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
-        (:final, rg) => :(constraint!($ocp, :final; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
-        :boundary => begin
+        (:initial, rg) => # debug: boundary (but needs specific treatment)
+            :(constraint!($p_ocp, :initial; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
+        (:final, rg) => # debug: boundary (but needs specific treatment)
+            :(constraint!($p_ocp, :final; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
+        :boundary || :variable_fun => begin
             gs = gensym()
             x0 = gensym()
             xf = gensym()
@@ -375,64 +372,16 @@ function p_constraint!(p, ocp, e1, e2, e3, label=gensym(); log=false)
                     @views $r[:] .= $ee2
                     return nothing
                 end
-                constraint!($ocp, :boundary; f=$gs, lb=$e1, ub=$e3, label=$llabel)
+                constraint!($p_ocp, :boundary; f=$gs, lb=$e1, ub=$e3, label=$llabel)
             end
         end
         (:control_range, rg) =>
-            :(constraint!($ocp, :control; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
-        :control_fun => begin
-            gs = gensym()
-            ut = gensym()
-            r = gensym()
-            ee2 = replace_call(e2, p.u, p.t, ut)
-            p.t_dep = p.t_dep || has(ee2, p.t)
-            args = [r]
-            __t_dep(p) && push!(args, p.t)
-            push!(args, ut)
-            __v_dep(p) && push!(args, p.v)
-            quote
-                function $gs($(args...))
-                    @views $r[:] .= $ee2
-                    return nothing
-                end
-                constraint!($ocp, :control; f=$gs, lb=$e1, ub=$e3, label=$llabel)
-            end
-        end
+            :(constraint!($p_ocp, :control; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
         (:state_range, rg) =>
-            :(constraint!($ocp, :state; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
-        :state_fun => begin
-            gs = gensym()
-            xt = gensym()
-            r = gensym()
-            ee2 = replace_call(e2, p.x, p.t, xt)
-            p.t_dep = p.t_dep || has(ee2, p.t)
-            args = [r]
-            __t_dep(p) && push!(args, p.t)
-            push!(args, xt)
-            __v_dep(p) && push!(args, p.v)
-            quote
-                function $gs($(args...))
-                    @views $r[:] .= $ee2
-                    return nothing
-                end
-                constraint!($ocp, :state; f=$gs, lb=$e1, ub=$e3, label=$llabel)
-            end
-        end
+            :(constraint!($p_ocp, :state; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
         (:variable_range, rg) =>
-            :(constraint!($ocp, :variable; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
-        :variable_fun => begin
-            gs = gensym()
-            r = gensym()
-            args = [r, p.v]
-            quote
-                function $gs($(args...))
-                    @views $r[:] .= $e2
-                    return nothing
-                end
-                constraint!($ocp, :variable; f=$gs, lb=$e1, ub=$e3, label=$llabel)
-            end
-        end
-        :mixed => begin
+            :(constraint!($p_ocp, :variable; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
+        :state_fun || control_fun || :mixed => begin # debug: path
             gs = gensym()
             xt = gensym()
             ut = gensym()
@@ -448,7 +397,7 @@ function p_constraint!(p, ocp, e1, e2, e3, label=gensym(); log=false)
                     @views $r[:] .= $ee2
                     return nothing
                 end
-                constraint!($ocp, :mixed; f=$gs, lb=$e1, ub=$e3, label=$llabel)
+                constraint!($p_ocp, :mixed; f=$gs, lb=$e1, ub=$e3, label=$llabel)
             end
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
@@ -456,7 +405,7 @@ function p_constraint!(p, ocp, e1, e2, e3, label=gensym(); log=false)
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_dynamics!(p, ocp, x, t, e, label=nothing; log=false)
+function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
     ẋ = Symbol(x, "̇")
     log && println("dynamics: $ẋ($t) == $e")
     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
@@ -480,12 +429,12 @@ function p_dynamics!(p, ocp, x, t, e, label=nothing; log=false)
             @views $r[:] .= $e
             return nothing
         end
-        dynamics!($ocp, $gs)
+        dynamics!($p_ocp, $gs)
     end
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_lagrange!(p, ocp, e, type; log=false)
+function p_lagrange!(p, p_ocp, e, type; log=false) # debug: check new objective! interface
     log && println("objective (Lagrange): ∫($e) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
@@ -506,12 +455,12 @@ function p_lagrange!(p, ocp, e, type; log=false)
             @views $r[:] .= $e
             return nothing
         end
-        objective!($ocp, :lagrange, $gs, $ttype)
+        objective!($p_ocp, :lagrange, $gs, $ttype)
     end
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_mayer!(p, ocp, e, type; log=false)
+function p_mayer!(p, p_ocp, e, type; log=false) # debug: check new objective! interface
     log && println("objective (Mayer): $e → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.t0) && return __throw("time not yet declared", p.lnum, p.line)
@@ -535,12 +484,12 @@ function p_mayer!(p, ocp, e, type; log=false)
             @views $r[:] .= $e
             return nothing
         end
-        objective!($ocp, :mayer, $gs, $ttype)
+        objective!($p_ocp, :mayer, $gs, $ttype)
     end
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_bolza!(p, ocp, e1, e2, type; log=false)
+function p_bolza!(p, p_ocp, e1, e2, type; log=false) # debug: check new objective! interface
     log && println("objective (Bolza): $e1 + ∫($e2) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.t0) && return __throw("time not yet declared", p.lnum, p.line)
@@ -575,20 +524,9 @@ function p_bolza!(p, ocp, e1, e2, type; log=false)
             $r2[:] .= $e2
             return nothing
         end
-        objective!($ocp, :bolza, $gs1, $gs2, $ttype)
+        objective!($p_ocp, :bolza, $gs1, $gs2, $ttype)
     end
     return __wrap(code, p.lnum, p.line)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Redirection to [`Model`](@ref) to avoid confusion with other functions Model from other packages
-if imported. This function is used by [`@def`](@ref).
-
-"""
-function __OCPModel(args...; kwargs...)
-    return CTBase.Model(args...; kwargs...)
 end
 
 """

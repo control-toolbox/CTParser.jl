@@ -4,13 +4,15 @@ authors = ["Jean-Baptiste Caillau <jean-baptiste.caillau@univ-cotedazur.fr>"]
 version = "0.1.0"
 
 [deps]
+CTBase = "54762871-cc72-4466-b8e8-f6c8b58076cd"
 CTModels = "34c4fa32-2049-4079-8329-de33c2a22e2d"
 MLStyle = "d8e11817-5142-5d16-987a-aa16d5891078"
 
+[sources]
+CTModels = {rev = "main", url = "https://github.com/control-toolbox/CTModels.jl"}
+
 [compat]
+CTBase = "0.14.0"
 CTModels = "0.1.0"
 MLStyle = "0.4.17"
 julia = "1.11"
-
-[sources]
-CTModels = {url = "https://github.com/control-toolbox/CTModels.jl", rev = "main"}
