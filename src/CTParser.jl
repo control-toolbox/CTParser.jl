@@ -1,3 +1,14 @@
+"""
+[`CTParser`](@ref) module.
+
+Lists all the imported modules and packages:
+
+$(IMPORTS)
+
+List of all the exported names:
+
+$(EXPORTS)
+"""
 module CTParser
 
 # imports
