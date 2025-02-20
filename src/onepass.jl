@@ -19,7 +19,7 @@ $(TYPEDEF)
 
 """
 @with_kw mutable struct ParsingInfo
-    v::Union{Symbol,Nothing} = nothing
+    v::Symbol = Symbol(:unset_, gensym()) # not nothing as, if unset, this name is still used in function args
     t::Union{Symbol,Nothing} = nothing
     t0::Union{Real,Symbol,Expr,Nothing} = nothing
     tf::Union{Real,Symbol,Expr,Nothing} = nothing
@@ -382,7 +382,6 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
             ut = gensym()
             r = gensym()
             ee2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
-            p.t_dep = p.t_dep || has(ee2, p.t)
             args = [r, p.t, xt, ut, p.v]
             quote
                 function $gs($(args...))
@@ -430,7 +429,6 @@ function p_lagrange!(p, p_ocp, e, type; log=false) # debug: check new objective!
     xt = gensym()
     ut = gensym()
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
-    p.t_dep = p.t_dep || has(e, p.t)
     ttype = QuoteNode(type)
     gs = gensym()
     r = gensym()
