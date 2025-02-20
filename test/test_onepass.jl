@@ -1,6 +1,22 @@
 # test onepass
 
-function test_onepass()
+function test_onepass() # debug
+
+    # ---------------------------------------------------------------
+    # ---------------------------------------------------------------
+    @testset "@def o syntax" begin
+        println("@def o syntax testset...")
+
+        oo = @def begin
+            λ ∈ R^2, variable
+            tf = λ₂
+            t ∈ [0, tf], time
+        end
+        @test 0 == 0 
+    end
+end
+
+function debug_test_onepass() # debug
 
     # ---------------------------------------------------------------
     # ---------------------------------------------------------------
