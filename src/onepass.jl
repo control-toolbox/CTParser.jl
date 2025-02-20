@@ -47,7 +47,7 @@ end
 __throw(ex, n, line) = quote
     local info
     info = string("\nLine ", $n, ": ", $line)
-    throw(ParsingError(info * "\n" * $ex))
+    throw(CTBase.ParsingError(info * "\n" * $ex))
 end
 
 __wrap(e, n, line) = quote
@@ -59,8 +59,6 @@ __wrap(e, n, line) = quote
         throw(ex)
     end
 end
-
-__v_dep(p) = !isnothing(p.v)
 
 """
 $(TYPEDSIGNATURES)
@@ -567,24 +565,16 @@ macro def(e)
     return esc(code)
 end
 
-macro def(ocp, e, log=false)
+macro def(ocp, e, log=false) # debug: update
     try
-        p0 = ParsingInfo()
-        parse!(p0, ocp, e; log=false) # initial pass to get the dependencies (time and variable)
+        p_ocp = gensym()
+        code = :($p_ocp = CTModels.PreModel())
         p = ParsingInfo()
-        p.t_dep = p0.t_dep
-        p.v = p0.v
-        code = parse!(p, ocp, e; log=log)
-        in_place = true # todo: remove?
-        init = @match (__t_dep(p), __v_dep(p)) begin
-            (false, false) => :($ocp = __OCPModel(; in_place=$in_place))
-            (true, false) => :($ocp = __OCPModel(; autonomous=false, in_place=$in_place))
-            (false, true) => :($ocp = __OCPModel(; variable=true, in_place=$in_place))
-            _ => :($ocp = __OCPModel(; autonomous=false, variable=true, in_place=$in_place))
-        end
+        code = Expr(:block, code, parse!(p, p_ocp, e; log=log))
         ee = QuoteNode(e)
-        code = Expr(:block, init, code, :($ocp.model_expression = $ee; $ocp))
-        esc(code)
+        code = Expr(:block, code, :(CTModels.definition!($p_ocp, $ee)))
+        code = Expr(:block, code, :($ocp = CTModels.build_model($p_ocp)))
+        return esc(code)
     catch ex
         :(throw($ex)) # can be caught by user
     end

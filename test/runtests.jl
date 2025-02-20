@@ -1,6 +1,7 @@
+using CTParser
 using Test
 using Aqua
-using CTParser
+import CTModels # debug: should eventually be OptimalControl (that will reexport CTModels func. primitives)
 
 #
 @testset verbose = true showtiming = true "CTParser tests" begin
