@@ -1,7 +1,7 @@
 using CTParser
 using Test
 using Aqua
-import CTModels # debug: should eventually be OptimalControl (that will reexport CTModels func. primitives)
+#import CTModels # debug: should eventually be OptimalControl (that will reexport CTModels func. primitives)
 
 #
 @testset verbose = true showtiming = true "CTParser tests" begin

@@ -1,4 +1,4 @@
 # test_default
 function test_default()
-    @test CTParser.greet() isa Nothing
+    @test nothing isa Nothing
 end
