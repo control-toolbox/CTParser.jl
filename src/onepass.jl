@@ -1,5 +1,5 @@
 # onepass
-# todo:
+# todo: change PREFIX from :CTModels to :OptimalControl
 # - cannot call solve if problem not fully defined (dynamics not defined...)
 # - doc: explain projections wrt to t0, tf, t; (...x1...x2...)(t) -> ...gensym1...gensym2... (most internal first)
 # - robustify repl
@@ -9,6 +9,8 @@
 # - add assert for pre/post conditions and invariants
 # - add tests on ParsingError + run time errors (wrapped in try ... catch's - use string to be precise)
 # - currently "t ∈ [ 0+0, 1 ], time" is allowed, and compels to declare "x(0+0) == ..."
+
+const PREFIX = :CTModels # debug: to be set to :OptimalControl, eventually 
 
 """
 $(TYPEDEF)
@@ -219,7 +221,7 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
         p.aliases[Symbol(v, CTBase.ctupperscripts(i))] = :($v^$i)
     end # make: v¹, v²... if the variable is named v
     if (isnothing(components_names))
-        code = :(variable!($p_ocp, $q, $vv))
+        code = :($PREFIX.variable!($p_ocp, $q, $vv))
     else
         qq == length(components_names.args) ||
             return __throw("the number of variable components must be $qq", p.lnum, p.line)
@@ -227,7 +229,7 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
             p.aliases[components_names.args[i]] = :($v[$i])
         end # aliases from names given by the user
         ss = QuoteNode(string.(components_names.args))
-        code = :(variable!($p_ocp, $q, $vv, $ss))
+        code = :($PREFIX.variable!($p_ocp, $q, $vv, $ss))
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -253,34 +255,34 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
     p.tf = tf
     tt = QuoteNode(t)
     code = @match (has(t0, p.v), has(tf, p.v)) begin
-        (false, false) => :(time!($p_ocp; t0=$t0, tf=$tf, name=$tt))
+        (false, false) => :($PREFIX.time!($p_ocp; t0=$t0, tf=$tf, time_name=$tt))
         (true, false) => @match t0 begin
             :($v1[$i]) && if (v1 == p.v)
-            end => :(time!($p_ocp; ind0=$i, tf=$tf, name=$tt))
+            end => :($PREFIX.time!($p_ocp; ind0=$i, tf=$tf, time_name=$tt))
             :($v1) && if (v1 == p.v)
             end => quote
                 ($p_ocp.variable_dimension ≠ 1) && throw(
                     IncorrectArgument("variable must be of dimension one for a time"),
                 )
-                time!($p_ocp; ind0=1, tf=$tf, name=$tt)
+                $PREFIX.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt)
             end
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         (false, true) => @match tf begin
             :($v1[$i]) && if (v1 == p.v)
-            end => :(time!($p_ocp; t0=$t0, indf=$i, name=$tt))
+            end => :($PREFIX.time!($p_ocp; t0=$t0, indf=$i, time_name=$tt))
             :($v1) && if (v1 == p.v)
             end => quote
                 ($p_ocp.variable_dimension ≠ 1) && throw(
                     IncorrectArgument("variable must be of dimension one for a time"),
                 )
-                time!($p_ocp; t0=$t0, indf=1, name=$tt)
+                $PREFIX.time!($p_ocp; t0=$t0, indf=1, time_name=$tt)
             end
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         _ => @match (t0, tf) begin
             (:($v1[$i]), :($v2[$j])) && if (v1 == v2 == p.v)
-            end => :(time!($p_ocp; ind0=$i, indf=$j, name=$tt))
+            end => :($PREFIX.time!($p_ocp; ind0=$i, indf=$j, time_name=$tt))
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
     end
@@ -304,7 +306,7 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
     end # Make x¹, x²... if the state is named x
     p.aliases[Symbol(Unicode.normalize(string(x, "̇")))] = :(∂($x))
     if (isnothing(components_names))
-        code = :(state!($p_ocp, $n, $xx))
+        code = :($PREFIX.state!($p_ocp, $n, $xx))
     else
         nn == length(components_names.args) ||
             return __throw("the number of state components must be $nn", p.lnum, p.line)
@@ -313,7 +315,7 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
             # todo: add aliases for state components (scalar) derivatives
         end # Aliases from names given by the user
         ss = QuoteNode(string.(components_names.args))
-        code = :(state!($p_ocp, $n, $xx, $ss))
+        code = :($PREFIX.state!($p_ocp, $n, $xx, $ss))
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -334,7 +336,7 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
         p.aliases[Symbol(u, CTBase.ctupperscripts(i))] = :($u^$i)
     end # make: u¹, u²... if the control is named u
     if (isnothing(components_names))
-        code = :(control!($p_ocp, $m, $uu))
+        code = :($PREFIX.control!($p_ocp, $m, $uu))
     else
         mm == length(components_names.args) ||
             return __throw("the number of control components must be $mm", p.lnum, p.line)
@@ -342,7 +344,7 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
             p.aliases[components_names.args[i]] = :($u[$i])
         end # aliases from names given by the user
         ss = QuoteNode(string.(components_names.args))
-        code = :(control!($p_ocp, $m, $uu, $ss))
+        code = :($PREFIX.control!($p_ocp, $m, $uu, $ss))
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -354,25 +356,20 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
     label isa Symbol || return __throw("forbidden label: $label", p.lnum, p.line)
     llabel = QuoteNode(label)
     code = @match c_type begin
-        (:initial, rg) => # debug: boundary (but needs specific treatment)
-            :(constraint!($p_ocp, :initial; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
-        (:final, rg) => # debug: boundary (but needs specific treatment)
-            :(constraint!($p_ocp, :final; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
-        :boundary || :variable_fun => begin
+        :boundary || :variable_fun || (:initial, rg) || (:final, rg) => begin # :initial and :final now treated as boundary
             gs = gensym()
             x0 = gensym()
             xf = gensym()
             r = gensym()
             ee2 = replace_call(e2, p.x, p.t0, x0)
             ee2 = replace_call(ee2, p.x, p.tf, xf)
-            args = [r, x0, xf]
-            __v_dep(p) && push!(args, p.v)
+            args = [r, x0, xf, p.v]
             quote
                 function $gs($(args...))
                     @views $r[:] .= $ee2
                     return nothing
                 end
-                constraint!($p_ocp, :boundary; f=$gs, lb=$e1, ub=$e3, label=$llabel)
+                $PREFIX.constraint!($p_ocp, :boundary; f=$gs, lb=$e1, ub=$e3, label=$llabel)
             end
         end
         (:control_range, rg) =>
@@ -381,23 +378,20 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
             :(constraint!($p_ocp, :state; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
         (:variable_range, rg) =>
             :(constraint!($p_ocp, :variable; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
-        :state_fun || control_fun || :mixed => begin # debug: path
+        :state_fun || control_fun || :mixed => begin # now all treated as path
             gs = gensym()
             xt = gensym()
             ut = gensym()
             r = gensym()
             ee2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
             p.t_dep = p.t_dep || has(ee2, p.t)
-            args = [r]
-            __t_dep(p) && push!(args, p.t)
-            push!(args, xt, ut)
-            __v_dep(p) && push!(args, p.v)
+            args = [r, p.t, xt, ut, p.v]
             quote
                 function $gs($(args...))
                     @views $r[:] .= $ee2
                     return nothing
                 end
-                constraint!($p_ocp, :mixed; f=$gs, lb=$e1, ub=$e3, label=$llabel)
+                constraint!($p_ocp, :path; f=$gs, lb=$e1, ub=$e3, label=$llabel)
             end
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
@@ -417,19 +411,15 @@ function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
     xt = gensym()
     ut = gensym()
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
-    p.t_dep = p.t_dep || has(e, t)
     gs = gensym()
     r = gensym()
-    args = [r]
-    __t_dep(p) && push!(args, p.t)
-    push!(args, xt, ut)
-    __v_dep(p) && push!(args, p.v)
+    args = [r, p.t, xt, ut, p.v]
     code = quote
         function $gs($(args...))
             @views $r[:] .= $e
             return nothing
         end
-        dynamics!($p_ocp, $gs)
+        $PREFIX.dynamics!($p_ocp, $gs)
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -446,16 +436,13 @@ function p_lagrange!(p, p_ocp, e, type; log=false) # debug: check new objective!
     ttype = QuoteNode(type)
     gs = gensym()
     r = gensym()
-    args = [r]
-    __t_dep(p) && push!(args, p.t)
-    push!(args, xt, ut)
-    __v_dep(p) && push!(args, p.v)
+    args = [r, p.t, xt, ut, p.v]
     code = quote
         function $gs($(args...))
             @views $r[:] .= $e
             return nothing
         end
-        objective!($p_ocp, :lagrange, $gs, $ttype)
+        $PREFIX.objective!($p_ocp, $ttype; lagrange=$gs)
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -477,14 +464,13 @@ function p_mayer!(p, p_ocp, e, type; log=false) # debug: check new objective! in
     e = replace_call(e, p.x, p.t0, x0)
     e = replace_call(e, p.x, p.tf, xf)
     ttype = QuoteNode(type)
-    args = [r, x0, xf]
-    __v_dep(p) && push!(args, p.v)
+    args = [r, x0, xf, p.v]
     code = quote
         function $gs($(args...))
             @views $r[:] .= $e
             return nothing
         end
-        objective!($p_ocp, :mayer, $gs, $ttype)
+        $PREFIX.objective!($p_ocp, $ttype; mayer=$gs)
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -502,18 +488,13 @@ function p_bolza!(p, p_ocp, e1, e2, type; log=false) # debug: check new objectiv
     r1 = gensym()
     e1 = replace_call(e1, p.x, p.t0, x0)
     e1 = replace_call(e1, p.x, p.tf, xf)
-    args1 = [r1, x0, xf]
-    __v_dep(p) && push!(args1, p.v)
+    args1 = [r1, x0, xf, p.v]
     gs2 = gensym()
     xt = gensym()
     ut = gensym()
     r2 = gensym()
     e2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
-    p.t_dep = p.t_dep || has(e2, p.t)
-    args2 = [r2]
-    __t_dep(p) && push!(args2, p.t)
-    push!(args2, xt, ut)
-    __v_dep(p) && push!(args2, p.v)
+    args2 = [r2, p.t, xt, ut, p.v]
     ttype = QuoteNode(type)
     code = quote
         function $gs1($(args1...))
@@ -524,7 +505,7 @@ function p_bolza!(p, p_ocp, e1, e2, type; log=false) # debug: check new objectiv
             $r2[:] .= $e2
             return nothing
         end
-        objective!($p_ocp, :bolza, $gs1, $gs2, $ttype)
+        $PREFIX.objective!($p_ocp, $ttype; mayer=$gs1, lagrange=$gs2)
     end
     return __wrap(code, p.lnum, p.line)
 end
