@@ -3,7 +3,7 @@ function test_aqua()
         Aqua.test_all(
             CTParser;
             ambiguities=false,
-            #stale_deps=(ignore=[:SomePackage],),
+            #stale_deps=(ignore=[:MLStyle],),
             deps_compat=(ignore=[:LinearAlgebra, :Unicode],),
             piracies=true,
         )
