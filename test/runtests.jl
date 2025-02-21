@@ -6,8 +6,8 @@ include("temporary1.jl") # debug
 
 #
 @testset verbose = true showtiming = true "CTParser tests" begin
-	#for name in (:aqua, :utils)
-	for name in (:utils,)
+	for name in (:aqua, :utils)
+	#for name in (:utils,)
         @testset "$(name)" begin
             test_name = Symbol(:test_, name)
             include("$(test_name).jl")
