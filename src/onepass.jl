@@ -432,11 +432,10 @@ function p_lagrange!(p, p_ocp, e, type; log=false) # debug: check new objective!
     ttype = QuoteNode(type)
     gs = gensym()
     r = gensym()
-    args = [r, p.t, xt, ut, p.v]
+    args = [p.t, xt, ut, p.v]
     code = quote
         function $gs($(args...))
-            @views $r[:] .= $e
-            return nothing
+            return @views $e
         end
         $PREFIX.objective!($p_ocp, $ttype; lagrange=$gs)
     end
@@ -463,8 +462,7 @@ function p_mayer!(p, p_ocp, e, type; log=false) # debug: check new objective! in
     args = [r, x0, xf, p.v]
     code = quote
         function $gs($(args...))
-            @views $r[:] .= $e
-            return nothing
+            return @views $e
         end
         $PREFIX.objective!($p_ocp, $ttype; mayer=$gs)
     end
@@ -484,22 +482,20 @@ function p_bolza!(p, p_ocp, e1, e2, type; log=false) # debug: check new objectiv
     r1 = gensym()
     e1 = replace_call(e1, p.x, p.t0, x0)
     e1 = replace_call(e1, p.x, p.tf, xf)
-    args1 = [r1, x0, xf, p.v]
+    args1 = [x0, xf, p.v]
     gs2 = gensym()
     xt = gensym()
     ut = gensym()
     r2 = gensym()
     e2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
-    args2 = [r2, p.t, xt, ut, p.v]
+    args2 = [p.t, xt, ut, p.v]
     ttype = QuoteNode(type)
     code = quote
         function $gs1($(args1...))
-            $r1[:] .= $e1
-            return nothing
+            return @views $e1
         end
         function $gs2($(args2...))
-            $r2[:] .= $e2
-            return nothing
+            return @views $e2
         end
         $PREFIX.objective!($p_ocp, $ttype; mayer=$gs1, lagrange=$gs2)
     end
