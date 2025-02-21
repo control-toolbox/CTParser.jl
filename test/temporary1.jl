@@ -7,6 +7,8 @@ module OptimalControl
 
 import CTModels
 
+# setters
+
 variable! = CTModels.variable!
 time! = CTModels.time!
 state! = CTModels.state!
@@ -17,5 +19,8 @@ objective! = CTModels.objective!
 definition! = CTModels.definition!
 PreModel = CTModels.PreModel
 build_model = CTModels.build_model
+
+# getters
+initial_time = CTModels.initial_time
 
 end

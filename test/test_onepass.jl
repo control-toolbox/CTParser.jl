@@ -1,5 +1,9 @@
 # test onepass
 
+# mapping towards new getters
+
+initial_time = OptimalControl.initial_time
+
 function test_onepass() # debug
 
     # ---------------------------------------------------------------
@@ -11,8 +15,12 @@ function test_onepass() # debug
             λ ∈ R^2, variable
             tf = λ₂
             t ∈ [0, tf], time
+            x ∈ R, state
+            u ∈ R, control
+            ẋ(t) == u(t)
+            tf → min 
         end
-        @test 0 == 0 
+        @test initial_time(oo) == 0
     end
 end
 
