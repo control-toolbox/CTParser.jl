@@ -1,13 +1,13 @@
 using CTParser: CTParser, subs, replace_call, has, constraint_type, @def 
 using Test
 using Aqua
-using Pkg # debug: also remove Pkg from test/Project.toml
-Pkg.add(url="https://github.com/control-toolbox/CTModels.jl") # debug
-import CTModels # debug: should eventually be OptimalControl (that will reexport CTModels func. primitives)
+
+include("temporary1.jl") # debug
 
 #
 @testset verbose = true showtiming = true "CTParser tests" begin
-	for name in (:aqua, :utils)
+	#for name in (:aqua, :utils)
+	for name in (:utils,)
         @testset "$(name)" begin
             test_name = Symbol(:test_, name)
             include("$(test_name).jl")
@@ -16,4 +16,4 @@ import CTModels # debug: should eventually be OptimalControl (that will reexport
     end
 end
 
-Pkg.rm("CTModels") # debug
+include("temporary2.jl") # debug

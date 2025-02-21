@@ -12,7 +12,7 @@ $(EXPORTS)
 module CTParser
 
 # imports
-import CTBase
+import CTBase # indices utilities only
 using DocStringExtensions
 using MLStyle
 using OrderedCollections

@@ -1,5 +1,5 @@
 # onepass
-# todo: change PREFIX from :CTModels to :OptimalControl
+# todo:
 # - cannot call solve if problem not fully defined (dynamics not defined...)
 # - doc: explain projections wrt to t0, tf, t; (...x1...x2...)(t) -> ...gensym1...gensym2... (most internal first)
 # - robustify repl
@@ -10,7 +10,7 @@
 # - add tests on ParsingError + run time errors (wrapped in try ... catch's - use string to be precise)
 # - currently "t ∈ [ 0+0, 1 ], time" is allowed, and compels to declare "x(0+0) == ..."
 
-const PREFIX = :CTModels # debug: to be set to :OptimalControl, eventually 
+const PREFIX = :OptimalControl # prefix for generated code, assumed to be evaluated within OptimalControl.jl
 
 """
 $(TYPEDEF)
@@ -47,7 +47,7 @@ end
 __throw(ex, n, line) = quote
     local info
     info = string("\nLine ", $n, ": ", $line)
-    throw(CTBase.ParsingError(info * "\n" * $ex))
+    throw($PREFIX.ParsingError(info * "\n" * $ex))
 end
 
 __wrap(e, n, line) = quote
@@ -566,12 +566,12 @@ end
 macro def(ocp, e, log=false) # debug: update
     try
         p_ocp = gensym()
-        code = :($p_ocp = CTModels.PreModel())
+        code = :($p_ocp = $PREFIX.PreModel())
         p = ParsingInfo()
         code = Expr(:block, code, parse!(p, p_ocp, e; log=log))
         ee = QuoteNode(e)
-        code = Expr(:block, code, :(CTModels.definition!($p_ocp, $ee)))
-        code = Expr(:block, code, :($ocp = CTModels.build_model($p_ocp)))
+        code = Expr(:block, code, :($PREFIX.definition!($p_ocp, $ee)))
+        code = Expr(:block, code, :($ocp = $PREFIX.build_model($p_ocp)))
         return esc(code)
     catch ex
         :(throw($ex)) # can be caught by user
