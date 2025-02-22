@@ -25,6 +25,7 @@ $(TYPEDEF)
     tf::Union{Real,Symbol,Expr,Nothing} = nothing
     x::Union{Symbol,Nothing} = nothing
     u::Union{Symbol,Nothing} = nothing
+    is_scalar_x::Bool = false # todo: remove when allowing componentwise declaration of dynamics
     aliases::OrderedDict{Symbol,Union{Real,Symbol,Expr}} = __init_aliases()
     lnum::Int = 0
     line::String = ""
@@ -107,6 +108,16 @@ parse!(p, p_ocp, e; log=false) = begin
         :($u ∈ R^$m, control) => p_control!(p, p_ocp, u, m; log)
         :($u ∈ R, control) => p_control!(p, p_ocp, u, 1; log)
         # dynamics                    
+        :(∂($x[1])($t) == $e1) => if p.is_scalar_x # todo: remove in future
+            p_dynamics!(p, p_ocp, x, t, e1; log)
+        else
+            (return __throw("Wrong dynamics declaration", p.lnum, p.line))
+        end
+        :(∂($x[1])($t) == $e1, $label) => if p.is_scalar_x # todo: remove in future
+            p_dynamics!(p, p_ocp, x, t, e1, label; log)
+        else
+            (return __throw("Wrong dynamics declaration", p.lnum, p.line))
+        end
         :(∂($x)($t) == $e1) => p_dynamics!(p, p_ocp, x, t, e1; log)
         :(∂($x)($t) == $e1, $label) => p_dynamics!(p, p_ocp, x, t, e1, label; log)
         # constraints                 
@@ -295,8 +306,15 @@ end
 function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
     log && println("state: $x, dim: $n")
     x isa Symbol || return __throw("forbidden state name: $x", p.lnum, p.line)
-    p.x = x
+    p.aliases[Symbol(Unicode.normalize(string(x, "̇")))] = :(∂($x))
     xx = QuoteNode(x)
+    if n == 1
+        xg = Symbol(x, gensym())
+        p.aliases[x] = :($xg[1])
+        x = xg 
+        p.is_scalar_x = true # todo: remove in future
+    end
+    p.x = x
     nn = n isa Int ? n : 9
     for i in 1:nn
         p.aliases[Symbol(x, CTBase.ctindices(i))] = :($x[$i])
@@ -307,7 +325,6 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
     for i in 1:9
         p.aliases[Symbol(x, CTBase.ctupperscripts(i))] = :($x^$i)
     end # Make x¹, x²... if the state is named x
-    p.aliases[Symbol(Unicode.normalize(string(x, "̇")))] = :(∂($x))
     if (isnothing(components_names))
         code = :($PREFIX.state!($p_ocp, $n, $xx))
     else
@@ -326,8 +343,13 @@ end
 function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
     log && println("control: $u, dim: $m")
     u isa Symbol || return __throw("forbidden control name: $u", p.lnum, p.line)
-    p.u = u
     uu = QuoteNode(u)
+    if m == 1
+        ug = Symbol(u, gensym())
+        p.aliases[u] = :($ug[1])
+        u = ug 
+    end
+    p.u = u
     mm = m isa Int ? m : 9
     for i in 1:mm
         p.aliases[Symbol(u, CTBase.ctindices(i))] = :($u[$i])
@@ -402,8 +424,8 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
 end
 
 function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
-    ẋ = Symbol(x, "̇")
-    log && println("dynamics: $ẋ($t) == $e")
+    ∂x = Symbol(:∂, x)
+    log && println("dynamics: $∂x($t) == $e")
     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
