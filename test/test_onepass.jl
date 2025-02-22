@@ -1,6 +1,6 @@
 # test onepass
 
-# mapping towards new getters
+# mapping
 
 initial_time = OptimalControl.initial_time
 final_time = OptimalControl.initial_time
@@ -13,6 +13,8 @@ dynamics = OptimalControl.dynamics
 __dynamics = OptimalControl.__dynamics
 mayer = OptimalControl.mayer
 lagrange = OptimalControl.lagrange
+
+ParsingError = OptimalControl.ParsingError
 
 function test_onepass() # debug
 
@@ -296,12 +298,12 @@ function debug_test_onepass() # debug
         @test initial_time(o) == Index(1)
         @test final_time(o) == Index(2)
 
-        @test_throws IncorrectArgument @def o begin
+        @test_throws ParsingError @def o begin
             t0 ∈ R², variable
             t ∈ [t0, 1], time
         end
 
-        @test_throws IncorrectArgument @def o begin
+        @test_throws ParsingError @def o begin
             tf ∈ R², variable
             t ∈ [0, tf], time
         end

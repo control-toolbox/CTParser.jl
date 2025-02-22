@@ -1,5 +1,5 @@
 # onepass
-# todo:
+# todo: x/u scalar -> x1/u1
 # - cannot call solve if problem not fully defined (dynamics not defined...)
 # - doc: explain projections wrt to t0, tf, t; (...x1...x2...)(t) -> ...gensym1...gensym2... (most internal first)
 # - robustify repl
@@ -260,7 +260,7 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
             :($v1) && if (v1 == p.v)
             end => quote
                 ($p_ocp.variable_dimension ≠ 1) && throw(
-                    IncorrectArgument("variable must be of dimension one for a time"),
+                    $PREFIX.ParsingError("variable must be of dimension one for a time"),
                 )
                 $PREFIX.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt)
             end
@@ -272,7 +272,7 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
             :($v1) && if (v1 == p.v)
             end => quote
                 ($p_ocp.variable_dimension ≠ 1) && throw(
-                    IncorrectArgument("variable must be of dimension one for a time"),
+                    $PREFIX.ParsingError("variable must be of dimension one for a time"),
                 )
                 $PREFIX.time!($p_ocp; t0=$t0, indf=1, time_name=$tt)
             end
