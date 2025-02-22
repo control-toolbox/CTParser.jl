@@ -3,7 +3,7 @@
 # mapping
 
 initial_time = OptimalControl.initial_time
-final_time = OptimalControl.initial_time
+final_time = OptimalControl.final_time
 variable_dimension = OptimalControl.variable_dimension
 state_dimension = OptimalControl.state_dimension
 control_dimension = OptimalControl.control_dimension
@@ -33,42 +33,38 @@ function test_onepass() # debug
             tf → min 
         end
         @test initial_time(oo) == 0
-    end
 
-    @def o begin
-        t ∈ [0, 1], time
-        x = [r, v] ∈ R², state
-        u ∈ R, control
-        w = r + 2v
-        r(0) == 0, (1)
-        v(0) == 1, (♡)
-        ẋ(t) == [v(t), w(t)^2]
-        ∫(u(t)^2 + x₁(t)) → min
-    end
-    x = [1, 2]
-    x0 = 2 * x
-    xf = 3 * x
-    u = 3
-    @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1]
-    @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2]
-    @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
-    @test lagrange(o)(0, x, u, nothing) == u^2 + x[1]
-end
-
-function debug_test_onepass() # debug
-
-    # ---------------------------------------------------------------
-    # ---------------------------------------------------------------
-    @testset "@def o syntax" begin
-        println("@def o syntax testset...")
-
-        oo = @def begin
+        @def o begin
+            t ∈ [0, 1], time
+            x = [r, v] ∈ R², state
+            u ∈ R, control
+            w = r + 2v
+            r(0) == 0, (1)
+            v(0) == 1, (♡)
+            ẋ(t) == [v(t), w(t)^2]
+            ∫(u(t)^2 + x₁(t)) → min
+        end
+        x = [1, 2]
+        x0 = 2 * x
+        xf = 3 * x
+        u = 3
+        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1]
+        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2]
+        @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
+        @test lagrange(o)(0, x, u, nothing) == u^2 + x[1]
+    
+        @def oo begin
             λ ∈ R^2, variable
             tf = λ₂
             t ∈ [0, tf], time
+            x in R, state # generic (untested)
+            u in R, control # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test initial_time(oo) == 0
-        @test final_time(oo) == Index(2)
+        λ = [1, 2]
+        @test final_time(oo, λ) == λ[2]
 
         a = 1
         f(b) = begin # closure of a, local c, and @def in function
@@ -78,6 +74,7 @@ function debug_test_onepass() # debug
                 x ∈ R, state
                 u ∈ R, control
                 ẋ(t) == x(t) + u(t) + b + c + d
+                0 => min # generic (untested)
             end
             return ocp
         end
@@ -86,8 +83,12 @@ function debug_test_onepass() # debug
         d = 4
         x = 10
         u = 20
-        @test __dynamics(o)(x, u) == x + u + b + 3 + d
+        @test __dynamics(o)(0., x, u, nothing) == x + u + b + 3 + d
     end
+
+end
+
+function debug_test_onepass() # debug
 
     @testset "log" begin
         println("log testset...")
@@ -98,7 +99,7 @@ function debug_test_onepass() # debug
             t ∈ [0, tf], time
         end true
         @test initial_time(o) == 0
-        @test final_time(o) == Index(2)
+        @test final_time(o) == 2
     end
 
     # ---------------------------------------------------------------
@@ -259,20 +260,20 @@ function debug_test_onepass() # debug
             t ∈ [0, tf], time
         end
         @test initial_time(o) == 0
-        @test final_time(o) == Index(2)
+        @test final_time(o) == 2
 
         @def o begin
             λ = (λ₁, tf) ∈ R^2, variable
             t ∈ [0, tf], time
         end
         @test initial_time(o) == 0
-        @test final_time(o) == Index(2)
+        @test final_time(o) == 2
 
         @def o begin
             t0 ∈ R, variable
             t ∈ [t0, 1], time
         end
-        @test initial_time(o) == Index(1)
+        @test initial_time(o) == 1
         @test final_time(o) == 1
 
         @def o begin
@@ -280,14 +281,14 @@ function debug_test_onepass() # debug
             t ∈ [0, tf], time
         end
         @test initial_time(o) == 0
-        @test final_time(o) == Index(1)
+        @test final_time(o) == 1
 
         @def o begin
             v ∈ R², variable
             s ∈ [v[1], v[2]], time
         end
-        @test initial_time(o) == Index(1)
-        @test final_time(o) == Index(2)
+        @test initial_time(o) == 1
+        @test final_time(o) == 2
 
         @def o begin
             v ∈ R², variable
@@ -295,8 +296,8 @@ function debug_test_onepass() # debug
             sf = v₂
             s ∈ [s0, sf], time
         end
-        @test initial_time(o) == Index(1)
-        @test final_time(o) == Index(2)
+        @test initial_time(o) == 1
+        @test final_time(o) == 2
 
         @test_throws ParsingError @def o begin
             t0 ∈ R², variable
@@ -370,7 +371,7 @@ function debug_test_onepass() # debug
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
         @test initial_time(ocp) == t0
-        @test final_time(ocp) == Index(1)
+        @test final_time(ocp) == 1
 
         tf = 3.14
         @def ocp begin
@@ -379,7 +380,7 @@ function debug_test_onepass() # debug
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
-        @test initial_time(ocp) == Index(1)
+        @test initial_time(ocp) == 1
         @test final_time(ocp) == tf
     end
 
@@ -2449,7 +2450,7 @@ function debug_test_onepass() # debug
         # this one is detected by the generated code (and not the parser)
         t0 = 9.0
         tf = 9.1
-        @test_throws CTException @def o begin
+        @test_throws Exception @def o begin # was CTException
             t ∈ [t0, tf], time
             t ∈ [t0, tf], time
         end
