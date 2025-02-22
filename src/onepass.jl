@@ -459,7 +459,7 @@ function p_mayer!(p, p_ocp, e, type; log=false) # debug: check new objective! in
     e = replace_call(e, p.x, p.t0, x0)
     e = replace_call(e, p.x, p.tf, xf)
     ttype = QuoteNode(type)
-    args = [r, x0, xf, p.v]
+    args = [x0, xf, p.v]
     code = quote
         function $gs($(args...))
             return @views $e
