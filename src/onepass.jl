@@ -398,11 +398,11 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
             end
         end
         (:control_range, rg) =>
-            :(constraint!($p_ocp, :control; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
+            :($PREFIX.constraint!($p_ocp, :control; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
         (:state_range, rg) =>
-            :(constraint!($p_ocp, :state; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
+            :($PREFIX.constraint!($p_ocp, :state; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
         (:variable_range, rg) =>
-            :(constraint!($p_ocp, :variable; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
+            :($PREFIX.constraint!($p_ocp, :variable; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
         :state_fun || control_fun || :mixed => begin # now all treated as path
             gs = gensym()
             xt = gensym()
@@ -415,7 +415,7 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
                     @views $r[:] .= $ee2
                     return nothing
                 end
-                constraint!($p_ocp, :path; f=$gs, lb=$e1, ub=$e3, label=$llabel)
+                $PREFIX.constraint!($p_ocp, :path; f=$gs, lb=$e1, ub=$e3, label=$llabel)
             end
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)

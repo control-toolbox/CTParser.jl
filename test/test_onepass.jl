@@ -41,6 +41,7 @@ function test_onepass() # debug
             w = r + 2v
             r(0) == 0, (1)
             v(0) == 1, (♡)
+            x(t) + [u(t), 1] <= [1, 2], (2)
             ẋ(t) == [v(t), w(t)^2]
             ∫(u(t)^2 + x₁(t)) → min
         end
@@ -50,6 +51,7 @@ function test_onepass() # debug
         u = 3
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1]
         @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2]
+        @test __constraint(o, :eq2)(0, x, u, nothing) == x + [u, 1]
         @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
         @test lagrange(o)(0, x, u, nothing) == u^2 + x[1]
     
