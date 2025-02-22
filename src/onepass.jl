@@ -203,11 +203,29 @@ parse!(p, p_ocp, e; log=false) = begin
     end
 end
 
+function p_alias!(p, p_ocp, a, e; log=false)
+    log && println("alias: $a = $e")
+    a isa Symbol || return __throw("forbidden alias name: $a", p.lnum, p.line)
+    aa = QuoteNode(a)
+    ee = QuoteNode(e)
+    for i in 1:9
+        p.aliases[Symbol(a, CTBase.ctupperscripts(i))] = :($a^$i)
+    end
+    p.aliases[a] = e
+    code = :(LineNumberNode(0, "alias: " * string($aa) * " = " * string($ee)))
+    return __wrap(code, p.lnum, p.line)
+end
+
 function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
     log && println("variable: $v, dim: $q")
     v isa Symbol || return __throw("forbidden variable name: $v", p.lnum, p.line)
-    p.v = v
     vv = QuoteNode(v)
+    if q == 1
+        vg = Symbol(v, gensym())
+        p.aliases[v] = :($vg[1])
+        v = vg 
+    end
+    p.v = v
     qq = q isa Int ? q : 9
     for i in 1:qq
         p.aliases[Symbol(v, CTBase.ctindices(i))] = :($v[$i])
@@ -229,19 +247,6 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
         ss = QuoteNode(string.(components_names.args))
         code = :($PREFIX.variable!($p_ocp, $q, $vv, $ss))
     end
-    return __wrap(code, p.lnum, p.line)
-end
-
-function p_alias!(p, p_ocp, a, e; log=false)
-    log && println("alias: $a = $e")
-    a isa Symbol || return __throw("forbidden alias name: $a", p.lnum, p.line)
-    aa = QuoteNode(a)
-    ee = QuoteNode(e)
-    for i in 1:9
-        p.aliases[Symbol(a, CTBase.ctupperscripts(i))] = :($a^$i)
-    end
-    p.aliases[a] = e
-    code = :(LineNumberNode(0, "alias: " * string($aa) * " = " * string($ee)))
     return __wrap(code, p.lnum, p.line)
 end
 
@@ -421,7 +426,7 @@ function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_lagrange!(p, p_ocp, e, type; log=false) # debug: check new objective! interface
+function p_lagrange!(p, p_ocp, e, type; log=false)
     log && println("objective (Lagrange): ∫($e) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
@@ -442,7 +447,7 @@ function p_lagrange!(p, p_ocp, e, type; log=false) # debug: check new objective!
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_mayer!(p, p_ocp, e, type; log=false) # debug: check new objective! interface
+function p_mayer!(p, p_ocp, e, type; log=false)
     log && println("objective (Mayer): $e → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.t0) && return __throw("time not yet declared", p.lnum, p.line)
@@ -469,7 +474,7 @@ function p_mayer!(p, p_ocp, e, type; log=false) # debug: check new objective! in
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_bolza!(p, p_ocp, e1, e2, type; log=false) # debug: check new objective! interface
+function p_bolza!(p, p_ocp, e1, e2, type; log=false)
     log && println("objective (Bolza): $e1 + ∫($e2) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.t0) && return __throw("time not yet declared", p.lnum, p.line)
@@ -559,7 +564,7 @@ macro def(e)
     return esc(code)
 end
 
-macro def(ocp, e, log=false) # debug: update
+macro def(ocp, e, log=false)
     try
         p_ocp = gensym()
         code = :($p_ocp = $PREFIX.PreModel())
