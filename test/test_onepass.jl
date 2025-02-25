@@ -1,5 +1,6 @@
 # test onepass
 # todo: for all scalar variable/state/control, test with length-1 vectors, now
+# todo: same issue for singletons ranges (now treated as x[i:i], returning a vector)
 # todo: test non-autonomous and / or variable __dynamics, __constraint
  
 # mapping
@@ -54,8 +55,8 @@ function test_onepass() # debug
         x0 = 2 * x
         xf = 3 * x
         u = [3]
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1]
-        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2]
+        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1:1]
+        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
         @test __constraint(o, :eq2)(0, x, u, nothing) == x + [u[1], 1]
 
         println("eq3: ", __constraint(o, :eq3)(0, x, u, nothing)) # debug
@@ -114,7 +115,7 @@ function test_onepass() # debug
             0 => min # generic (untested)
         end true
         @test initial_time(o) == 0
-        @test final_time(o) == 2
+        @test final_time(o, [0, 2]) == 2
     end
 
 end # debug
