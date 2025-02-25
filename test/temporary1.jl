@@ -49,8 +49,22 @@ end
 __dynamics(ocp) = to_out_of_place(dynamics(ocp), state_dimension(ocp))
 
 function __constraint(ocp, label)
+    type = constraint(ocp,label)[1]
+    c = constraint(ocp,label)[2]
     n = length(constraint(ocp,label)[3]) # Size of lb 
-    return to_out_of_place(constraint(ocp, label)[2], n)
+    m = length(constraint(ocp,label)[4]) # Size of ub 
+    @assert(n == m)
+    if type in [:boundary, :path]
+        f = to_out_of_place(c, n)
+    elsif type == :state
+        f(t, x, u, v) = x[r]
+    elsif type == :control
+        f(t, x, u, v) = u[r]
+    elsif type == :variable
+        f(t, x, u, v) = v[r]
+    else
+        throw("Unknow constraint type")
+    end
 end
 
 end
