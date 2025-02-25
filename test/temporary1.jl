@@ -41,7 +41,8 @@ function to_out_of_place(f!, n; T=Float64)
     function f(args...; kwargs...)
         r = zeros(T, n)
         f!(r, args...; kwargs...)
-        return n == 1 ? r[1] : r
+        #return n == 1 ? r[1] : r
+        return r # everything is now a vector
     end
     return isnothing(f!) ? nothing : f
 end
@@ -57,11 +58,11 @@ function __constraint(ocp, label)
     if type in [:boundary, :path]
         f = to_out_of_place(c, n)
     elseif type == :state
-        f = (t, x, u, v) -> x[r]
+        f = (t, x, u, v) -> x[c]
     elseif type == :control
-        f = (t, x, u, v) -> u[r]
+        f = (t, x, u, v) -> u[c]
     elseif type == :variable
-        f = (t, x, u, v) -> v[r]
+        f = (t, x, u, v) -> v[c]
     else
         throw("Unknow constraint type")
     end

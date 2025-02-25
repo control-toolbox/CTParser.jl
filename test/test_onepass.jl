@@ -1,5 +1,5 @@
 # test onepass
-# todo: constraints(o)[:eq1] ; still import OptimalControl.constraint
+# todo: for all scalar variable/state/control, test with length-1 vectors, now
 # todo: test non-autonomous and / or variable __dynamics, __constraint
  
 # mapping
@@ -34,6 +34,7 @@ function test_onepass() # debug
             tf → min 
         end
         @test initial_time(oo) == 0
+        @test final_time(oo, [0, 1]) == 1
 
         @def o begin
             t ∈ [0, 1], time
@@ -52,20 +53,20 @@ function test_onepass() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = 3
+        u = [3]
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1]
         @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2]
-        @test __constraint(o, :eq2)(0, x, u, nothing) == x + [u, 1]
+        @test __constraint(o, :eq2)(0, x, u, nothing) == x + [u[1], 1]
 
-        println("eq3: ", __constraint(o, :eq3)(x)) # debug
-        @test __constraint(o, :eq3)(x) == x
-        println("eq4: ", __constraint(o, :eq4)(x)) # debug
-        @test __constraint(o, :eq4)(x) == x[1:1]
-        println("eq5: ", __constraint(o, :eq5)(x)) # debug
-        @test __constraint(o, :eq5)(u) == u 
+        println("eq3: ", __constraint(o, :eq3)(0, x, u, nothing)) # debug
+        @test __constraint(o, :eq3)(0, x, u, nothing) == x
+        println("eq4: ", __constraint(o, :eq4)(0, x, u, nothing)) # debug
+        @test __constraint(o, :eq4)(0, x, u, nothing) == x[1:1]
+        println("eq5: ", __constraint(o, :eq5)(0, x, u, nothing)) # debug
+        @test __constraint(o, :eq5)(0, x, u, nothing) == u 
 
         @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
-        @test lagrange(o)(0, x, u, nothing) == u^2 + x[1]
+        @test lagrange(o)(0, x, u, nothing) == u[1]^2 + x[1]
     
         @def oo begin
             λ ∈ R^2, variable
@@ -95,9 +96,9 @@ function test_onepass() # debug
         b = 2
         o = f(b)
         d = 4
-        x = 10
-        u = 20
-        @test __dynamics(o)(0., x, u, nothing) == x + u + b + 3 + d
+        x = [10]
+        u = [20]
+        @test __dynamics(o)(0, x, u, nothing) == [x[1] + u[1] + b + 3 + d]
     end
 
     @testset "log" begin
