@@ -1,8 +1,4 @@
 # test onepass
-# todo: for all scalar variable/state/control, test with length-1 vectors, now
-# todo: so screen __constraint, __dynamics, lagrange, mayer (these last being scalar)
-# todo: same issue for singletons ranges (now treated as x[i:i], returning a vector)
-# todo: complete with generic (untested) all partial defs
 # todo: test non-autonomous and / or variable __dynamics, __constraint
  
 # mapping
@@ -117,10 +113,6 @@ function test_onepass() # debug
         @test final_time(o, [0, 2]) == 2
     end
 
-end # debug
-
-function __debug() # debug
-
     # ---------------------------------------------------------------
     # ---------------------------------------------------------------
     @testset "aliases" begin
@@ -130,6 +122,8 @@ function __debug() # debug
             x = (y, z) in R², state
             u = (uu1, uu2, uu3) in R³, control
             v = (vv1, vv2) in R², variable
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test state_components_names(o) == ["y", "z"]
         @test control_components_names(o) == ["uu1", "uu2", "uu3"]
@@ -139,6 +133,8 @@ function __debug() # debug
             x = (y, z) ∈ R², state
             u = (uu1, uu2, uu3) ∈ R³, control
             v = (vv1, vv2) ∈ R², variable
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test state_components_names(o) == ["y", "z"]
         @test control_components_names(o) == ["uu1", "uu2", "uu3"]
@@ -148,6 +144,8 @@ function __debug() # debug
             x = [y, z] ∈ R², state
             u = [uu1, uu2, uu3] ∈ R³, control
             v = [vv1, vv2] ∈ R², variable
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test state_components_names(o) == ["y", "z"]
         @test control_components_names(o) == ["uu1", "uu2", "uu3"]
@@ -176,6 +174,10 @@ function __debug() # debug
         @test_throws ParsingError @def o begin # a name must be provided
             [vv1, vv2] ∈ R², variable
         end
+
+end # debug
+
+function __debug() # debug
 
         @def o begin
             t ∈ [0, 1], time
@@ -209,11 +211,11 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = 3
+        u = [3]
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1:1]
         @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
         @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
-        @test lagrange(o)(0, x, u, nothing) == u^2 + x[1]
+        @test lagrange(o)(0, x, u, nothing) == u[1]^2 + x[1]
 
         @def o begin
             t ∈ [0, 1], time
@@ -229,18 +231,19 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = 3
+        u = [3]
         c = [u, 0]
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1:1]
         @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
         @test __dynamics(o)(0, x, c, nothing) == [x[2], (x[1] + 2x[2])^2]
-        @test lagrange(o)(0, x, c, nothing) == u^2 + x[1]
+        @test lagrange(o)(0, x, c, nothing) == u[1]^2 + x[1]
 
         @def o begin
             t ∈ [0, 1], time
             x ∈ R^3, state
             u = (u₁, v) ∈ R^2, control
             ẋ(t) == [x[1](t) + 2v(t), 2x[3](t), x[1](t) + v(t)]
+            0 => min # generic (untested)
         end
         @test state_dimension(o) == 3
         @test control_dimension(o) == 2
@@ -257,6 +260,8 @@ function __debug() # debug
             r = x[1]
             v = x₂
             a = x₃
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -277,6 +282,10 @@ function __debug() # debug
             λ ∈ R^2, variable
             tf = λ₂
             t ∈ [0, tf], time
+            x in R, state # generic (untested)
+            u in R, control # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)u in R, control # generic (untested)
         end
         @test initial_time(o) == 0
         @test final_time(o) == 2
@@ -284,6 +293,10 @@ function __debug() # debug
         @def o begin
             λ = (λ₁, tf) ∈ R^2, variable
             t ∈ [0, tf], time
+            x in R, state # generic (untested)
+            u in R, control # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test initial_time(o) == 0
         @test final_time(o) == 2
@@ -291,6 +304,10 @@ function __debug() # debug
         @def o begin
             t0 ∈ R, variable
             t ∈ [t0, 1], time
+            x in R, state # generic (untested)
+            u in R, control # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test initial_time(o) == 1
         @test final_time(o) == 1
@@ -298,6 +315,10 @@ function __debug() # debug
         @def o begin
             tf ∈ R, variable
             t ∈ [0, tf], time
+            x in R, state # generic (untested)
+            u in R, control # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test initial_time(o) == 0
         @test final_time(o) == 1
@@ -305,6 +326,10 @@ function __debug() # debug
         @def o begin
             v ∈ R², variable
             s ∈ [v[1], v[2]], time
+            x in R, state # generic (untested)
+            u in R, control # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test initial_time(o) == 1
         @test final_time(o) == 2
@@ -314,6 +339,10 @@ function __debug() # debug
             s0 = v₁
             sf = v₂
             s ∈ [s0, sf], time
+            x in R, state # generic (untested)
+            u in R, control # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test initial_time(o) == 1
         @test final_time(o) == 2
@@ -348,6 +377,10 @@ function __debug() # debug
         @def ocp begin
             t ∈ [t0, tf], time
             a ∈ R, variable
+            x in R, state # generic (untested)
+            u in R, control # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test variable_dimension(ocp) == 1
@@ -358,6 +391,10 @@ function __debug() # debug
         @def ocp begin
             t ∈ [t0, tf], time
             a ∈ R³, variable
+            x in R, state # generic (untested)
+            u in R, control # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test variable_dimension(ocp) == 3
@@ -370,13 +407,25 @@ function __debug() # debug
         println("time testset...")
 
         t0 = 0
-        @def o t ∈ [t0, t0 + 4], time
+        @def o begin
+            t ∈ [t0, t0 + 4], time
+            x in R, state # generic (untested)
+            u in R, control # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
+        end
         @test initial_time(o) == t0
         @test final_time(o) == t0 + 4
 
         @test_throws ParsingError @def o t ∈ 1
 
-        @def ocp t ∈ [0.0, 1.0], time
+        @def ocp begin
+            t ∈ [0.0, 1.0], time
+            x in R, state # generic (untested)
+            u in R, control # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
+        end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
         @test initial_time(ocp) == 0.0
@@ -386,6 +435,10 @@ function __debug() # debug
         @def ocp begin
             tf ∈ R, variable
             t ∈ [t0, tf], time
+            x in R, state # generic (untested)
+            u in R, control # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -396,6 +449,10 @@ function __debug() # debug
         @def ocp begin
             t0 ∈ R, variable
             t ∈ [t0, tf], time
+            x in R, state # generic (untested)
+            u in R, control # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -411,6 +468,8 @@ function __debug() # debug
         @def o begin
             x ∈ R, state
             u ∈ R, control
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test state_dimension(o) == 1
         @test control_dimension(o) == 1
@@ -421,6 +480,9 @@ function __debug() # debug
         @def ocp begin
             t ∈ [t0, tf], time
             u ∈ R, state
+            x in R, state # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -434,6 +496,9 @@ function __debug() # debug
         @def ocp begin
             t ∈ [t0, tf], time
             v ∈ R^4, state
+            u in R, control # generic (untested)
+            derivative(v)(t) == v(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -447,6 +512,9 @@ function __debug() # debug
         @def ocp begin
             t ∈ [t0, tf], time
             w ∈ R^3, state
+            u in R, control # generic (untested)
+            derivative(w)(t) == w(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -460,6 +528,9 @@ function __debug() # debug
         @def ocp begin
             t ∈ [t0, tf], time
             a ∈ R, state
+            u in R, control # generic (untested)
+            derivative(a)(t) == a(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -473,6 +544,9 @@ function __debug() # debug
         @def ocp begin
             t ∈ [t0, tf], time
             b ∈ R¹, state
+            u in R, control # generic (untested)
+            derivative(b)(t) == b(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -486,6 +560,9 @@ function __debug() # debug
         @def ocp begin
             t ∈ [t0, tf], time
             u ∈ R⁹, state
+            x in R, state # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -500,6 +577,9 @@ function __debug() # debug
         @def ocp begin
             t ∈ [t0, tf], time
             u ∈ R^n, state
+            v in R, control # generic (untested)
+            derivative(u)(t) == u(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -514,6 +594,9 @@ function __debug() # debug
         @def ocp begin
             t ∈ [t0, tf], time
             u ∈ R, control
+            x in R, state # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -527,6 +610,9 @@ function __debug() # debug
         @def ocp begin
             t ∈ [t0, tf], time
             v ∈ R^4, control
+            x in R, state # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -540,6 +626,9 @@ function __debug() # debug
         @def ocp begin
             t ∈ [t0, tf], time
             w ∈ R^3, control
+            x in R, state # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -553,6 +642,9 @@ function __debug() # debug
         @def ocp begin
             t ∈ [t0, tf], time
             a ∈ R, control
+            x in R, state # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -566,6 +658,9 @@ function __debug() # debug
         @def ocp begin
             t ∈ [t0, tf], time
             b ∈ R¹, control
+            x in R, state # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -579,6 +674,9 @@ function __debug() # debug
         @def ocp begin
             t ∈ [t0, tf], time
             u ∈ R⁹, control
+            x in R, state # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -593,6 +691,9 @@ function __debug() # debug
         @def ocp begin
             t ∈ [t0, tf], time
             u ∈ R^n, control
+            x in R, state # generic (untested)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -612,6 +713,7 @@ function __debug() # debug
             x ∈ R^3, state
             u ∈ R^2, control
             ẋ(t) == [x[1](t) + 2u[2](t), 2x[3](t), x[1](t) + u[2](t)]
+            0 => min # generic (untested)
         end
         @test state_dimension(o) == 3
         @test control_dimension(o) == 2
@@ -627,11 +729,12 @@ function __debug() # debug
             v = y₄
             aa = y₁
             ẏ(s) == [aa(s), r²(s) + w(s) + z₁, 0, 0]
+            0 => min # generic (untested)
         end
         z = [5, 6]
         y = [1, 2, 3, 4]
-        w = 9
-        @test __dynamics(o)(0, y, w, z) == [y[1], y[3]^2 + w + z[1], 0, 0]
+        w = [9]
+        @test __dynamics(o)(0, y, w, z) == [y[1], y[3]^2 + w[1] + z[1], 0, 0]
 
         @def o begin
             z ∈ R², variable
@@ -642,10 +745,11 @@ function __debug() # debug
             v = y₄
             aa = y₁(__s)
             ẏ(__s) == [aa(__s), r²(__s) + w(__s) + z₁, 0, 0]
+            0 => min # generic (untested)
         end
         z = [5, 6]
         y = [1, 2, 3, 4]
-        w = 9
+        w = [9]
         @test_throws MethodError __dynamics(o)(0, y, w, z)
 
         @def o begin
@@ -657,13 +761,14 @@ function __debug() # debug
             v = y₄
             aa = y₁(s) + v³ + z₂
             ẏ(s) == [aa(s) + w(s)^2, r²(s), 0, 0]
+            0 => min # generic (untested)
         end
         z = [5, 6]
         y = [1, 2, 3, 4]
         y0 = y
         yf = 3y0
-        ww = 19
-        @test __dynamics(o)(0, y, ww, z) == [y[1] + ww^2 + y[4]^3 + z[2], y[3]^2, 0, 0]
+        ww = [19]
+        @test __dynamics(o)(0, y, ww, z) == [y[1] + ww[1]^2 + y[4]^3 + z[2], y[3]^2, 0, 0]
 
         @def o begin
             z ∈ R², variable
@@ -680,7 +785,7 @@ function __debug() # debug
         y = [1, 2, 3, 4]
         y0 = y
         yf = 3y0
-        w = 11
+        w = [11]
         @test_throws MethodError __dynamics(o)(0, y, w, z)
         @test mayer(o)(y0, yf, z) == y0[1] + y0[4]^3 + z[2] + yf[2]
     end
@@ -699,6 +804,7 @@ function __debug() # debug
             v = x₂
             w = r¹ + 2v³
             r(0) + w(tf) - tf² == 0, (1)
+            0 => min # generic (untested)
         end
         tf = 2
         x0 = [1, 2]
@@ -724,6 +830,7 @@ function __debug() # debug
             0 ≤ u₂(t)^2 ≤ 1, (9)
             u₁(t) * x[1:2](t) == [1, 1], (10)
             [0, 0] ≤ u₁(t) * x[1:2](t) .^ 3 ≤ [1, 1], (11)
+            0 => min # generic (untested)
         end
         x = Vector{Float64}(1:n)
         u = 2 * Vector{Float64}(1:m)
@@ -759,6 +866,7 @@ function __debug() # debug
             0 ≤ u₂(t)^2 ≤ 1, (9)
             u₁(t) * x[1:2](t) + z + f() == [1, 1], (10)
             [0, 0] ≤ u₁(t) * x[1:2](t) .^ 3 + z ≤ [1, 1], (11)
+            0 => min # generic (untested)
         end
         f() = [1, 1]
         z = 3 * Vector{Float64}(1:2)
@@ -882,7 +990,7 @@ function __debug() # debug
         z = [4]
         @test __constraint(o, :eq1)(x0, xf, z) == [x0[1] - z[1]]
         @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0[2:2]
-        @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z]
+        @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
         @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
 
         @def o begin
@@ -906,7 +1014,7 @@ function __debug() # debug
         @test __constraint(o, :eq1)(x0, xf, z) == [x0[1] - z[1]]
         @test __constraint(o, :eq2)(x0, xf, z) == [xf[2]^2]
         @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0
-        @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z]
+        @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
         @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
 
         @def o begin
@@ -930,7 +1038,7 @@ function __debug() # debug
         @test __constraint(o, :eq1)(x0, xf, z) == [x0[1] - z[1]]
         @test __constraint(o, :eq2)(x0, xf, z) == [xf[2]^2]
         @test __constraint(o, :eq3)(x0, xf, z) == x0
-        @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z]
+        @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
         @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
         @test constraints(o)[:eq1][3] == [0]
         @test constraints(o)[:eq1][4] == [1]
@@ -1019,38 +1127,40 @@ function __debug() # debug
             x(t) + (u₁^3)(t) ≤ 0, (14)
             v ≤ 0
             v ≤ 0, (15)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
 
-        @test constraints(o)[:eq1][3] == -Inf
-        @test constraints(o)[:eq2][3] == -Inf
-        @test constraints(o)[:eq3][3] == -Inf
-        @test constraints(o)[:eq4][3] == -Inf
-        @test constraints(o)[:eq5][3] == -Inf
-        @test constraints(o)[:eq6][3] == -Inf
-        @test constraints(o)[:eq7][3] == -Inf
-        @test constraints(o)[:eq8][3] == -Inf
-        @test constraints(o)[:eq9][3] == -Inf
-        @test constraints(o)[:eq10][3] == -Inf
-        @test constraints(o)[:eq11][3] == -Inf
-        @test constraints(o)[:eq12][3] == -Inf
-        @test constraints(o)[:eq13][3] == -Inf
-        @test constraints(o)[:eq14][3] == -Inf
-        @test constraints(o)[:eq15][3] == -Inf
-        @test constraints(o)[:eq1][4] == 0
-        @test constraints(o)[:eq2][4] == 0
-        @test constraints(o)[:eq3][4] == 0
-        @test constraints(o)[:eq4][4] == 0
-        @test constraints(o)[:eq5][4] == 0
-        @test constraints(o)[:eq6][4] == 0
-        @test constraints(o)[:eq7][4] == 0
-        @test constraints(o)[:eq8][4] == 0
-        @test constraints(o)[:eq9][4] == 0
-        @test constraints(o)[:eq10][4] == 0
-        @test constraints(o)[:eq11][4] == 0
-        @test constraints(o)[:eq12][4] == 0
-        @test constraints(o)[:eq13][4] == 0
-        @test constraints(o)[:eq14][4] == 0
-        @test constraints(o)[:eq15][4] == 0
+        @test constraints(o)[:eq1][3] == [-Inf]
+        @test constraints(o)[:eq2][3] == [-Inf]
+        @test constraints(o)[:eq3][3] == [-Inf]
+        @test constraints(o)[:eq4][3] == [-Inf]
+        @test constraints(o)[:eq5][3] == [-Inf]
+        @test constraints(o)[:eq6][3] == [-Inf]
+        @test constraints(o)[:eq7][3] == [-Inf]
+        @test constraints(o)[:eq8][3] == [-Inf]
+        @test constraints(o)[:eq9][3] == [-Inf]
+        @test constraints(o)[:eq10][3] == [-Inf]
+        @test constraints(o)[:eq11][3] == [-Inf]
+        @test constraints(o)[:eq12][3] == [-Inf]
+        @test constraints(o)[:eq13][3] == [-Inf]
+        @test constraints(o)[:eq14][3] == [-Inf]
+        @test constraints(o)[:eq15][3] == [-Inf]
+        @test constraints(o)[:eq1][4] == [0]
+        @test constraints(o)[:eq2][4] == [0]
+        @test constraints(o)[:eq3][4] == [0]
+        @test constraints(o)[:eq4][4] == [0]
+        @test constraints(o)[:eq5][4] == [0]
+        @test constraints(o)[:eq6][4] == [0]
+        @test constraints(o)[:eq7][4] == [0]
+        @test constraints(o)[:eq8][4] == [0]
+        @test constraints(o)[:eq9][4] == [0]
+        @test constraints(o)[:eq10][4] == [0]
+        @test constraints(o)[:eq11][4] == [0]
+        @test constraints(o)[:eq12][4] == [0]
+        @test constraints(o)[:eq13][4] == [0]
+        @test constraints(o)[:eq14][4] == [0]
+        @test constraints(o)[:eq15][4] == [0]
 
         @def o begin
             v ∈ R, variable
@@ -1087,38 +1197,40 @@ function __debug() # debug
             x(t) + (u₁^3)(t) ≥ 0, (14)
             v ≥ 0
             v ≥ 0, (15)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
 
-        @test constraints(o)[:eq1][3] == 0
-        @test constraints(o)[:eq2][3] == 0
-        @test constraints(o)[:eq3][3] == 0
-        @test constraints(o)[:eq4][3] == 0
-        @test constraints(o)[:eq5][3] == 0
-        @test constraints(o)[:eq6][3] == 0
-        @test constraints(o)[:eq7][3] == 0
-        @test constraints(o)[:eq8][3] == 0
-        @test constraints(o)[:eq9][3] == 0
-        @test constraints(o)[:eq10][3] == 0
-        @test constraints(o)[:eq11][3] == 0
-        @test constraints(o)[:eq12][3] == 0
-        @test constraints(o)[:eq13][3] == 0
-        @test constraints(o)[:eq14][3] == 0
-        @test constraints(o)[:eq15][3] == 0
-        @test constraints(o)[:eq1][4] == Inf
-        @test constraints(o)[:eq2][4] == Inf
-        @test constraints(o)[:eq3][4] == Inf
-        @test constraints(o)[:eq4][4] == Inf
-        @test constraints(o)[:eq5][4] == Inf
-        @test constraints(o)[:eq6][4] == Inf
-        @test constraints(o)[:eq7][4] == Inf
-        @test constraints(o)[:eq8][4] == Inf
-        @test constraints(o)[:eq9][4] == Inf
-        @test constraints(o)[:eq10][4] == Inf
-        @test constraints(o)[:eq11][4] == Inf
-        @test constraints(o)[:eq12][4] == Inf
-        @test constraints(o)[:eq13][4] == Inf
-        @test constraints(o)[:eq14][4] == Inf
-        @test constraints(o)[:eq15][4] == Inf
+        @test constraints(o)[:eq1][3] == [0]
+        @test constraints(o)[:eq2][3] == [0]
+        @test constraints(o)[:eq3][3] == [0]
+        @test constraints(o)[:eq4][3] == [0]
+        @test constraints(o)[:eq5][3] == [0]
+        @test constraints(o)[:eq6][3] == [0]
+        @test constraints(o)[:eq7][3] == [0]
+        @test constraints(o)[:eq8][3] == [0]
+        @test constraints(o)[:eq9][3] == [0]
+        @test constraints(o)[:eq10][3] == [0]
+        @test constraints(o)[:eq11][3] == [0]
+        @test constraints(o)[:eq12][3] == [0]
+        @test constraints(o)[:eq13][3] == [0]
+        @test constraints(o)[:eq14][3] == [0]
+        @test constraints(o)[:eq15][3] == [0]
+        @test constraints(o)[:eq1][4] == [Inf]
+        @test constraints(o)[:eq2][4] == [Inf]
+        @test constraints(o)[:eq3][4] == [Inf]
+        @test constraints(o)[:eq4][4] == [Inf]
+        @test constraints(o)[:eq5][4] == [Inf]
+        @test constraints(o)[:eq6][4] == [Inf]
+        @test constraints(o)[:eq7][4] == [Inf]
+        @test constraints(o)[:eq8][4] == [Inf]
+        @test constraints(o)[:eq9][4] == [Inf]
+        @test constraints(o)[:eq10][4] == [Inf]
+        @test constraints(o)[:eq11][4] == [Inf]
+        @test constraints(o)[:eq12][4] == [Inf]
+        @test constraints(o)[:eq13][4] == [Inf]
+        @test constraints(o)[:eq14][4] == [Inf]
+        @test constraints(o)[:eq15][4] == [Inf]
 
         @def o begin
             v ∈ R^2, variable
@@ -1145,6 +1257,8 @@ function __debug() # debug
             v ≤ [0, 0], (9)
             [v₁^2, 0] ≤ [0, 0]
             [v₁^2, 0] ≤ [0, 0], (10)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
 
         @test constraints(o)[:eq1][3] == -[Inf, Inf]
@@ -1193,6 +1307,8 @@ function __debug() # debug
             v ≥ [0, 0], (9)
             [v₁^2, 0] ≥ [0, 0]
             [v₁^2, 0] ≥ [0, 0], (10)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
 
         @test constraints(o)[:eq1][4] == [Inf, Inf]
@@ -1236,6 +1352,8 @@ function __debug() # debug
             r0 ≤ x(t)[1] ≤ r1, (trois)
             0 ≤ x₂(t) ≤ vmax, (quatre)
             mf ≤ m(t) ≤ m0, (5)
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -1258,6 +1376,8 @@ function __debug() # debug
             r0 ≤ x(t)[1] ≤ r1
             0 ≤ x₂(t) ≤ vmax
             mf ≤ m(t) ≤ m0
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "t"
@@ -1288,6 +1408,8 @@ function __debug() # debug
             z0 ≤ t(u)[1] ≤ z1
             0 ≤ t₂(u) ≤ kmax
             bf ≤ b(u) ≤ b0
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)u in R, control # generic (untested)
         end
         @test ocp isa OptimalControlModel
         @test time_name(ocp) == "u"
@@ -1328,6 +1450,8 @@ function __debug() # debug
             x[2:3](t0) == y0
             x0_b ≤ x₂(t0) ≤ x0_u
             y0_b ≤ x[2:3](t0) ≤ y0_u
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)u in R, control # generic (untested)
         end
         @test ocp1 isa OptimalControlModel
         @test state_dimension(ocp1) == n
@@ -1349,6 +1473,8 @@ function __debug() # debug
             x[2:3](t0) == [1, 2], initial_3
             x0 ≤ x(t0) ≤ x0 .+ 1, initial_4
             [1, 2] ≤ x[2:3](t0) ≤ [3, 4], initial_5
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp2 isa OptimalControlModel
         @test state_dimension(ocp2) == n
@@ -1378,6 +1504,8 @@ function __debug() # debug
             x[2](tf) == xf2
             x[2:3](tf) == yf
             yf_b ≤ x[2:3](tf) ≤ yf_u
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp3 isa OptimalControlModel
         @test state_dimension(ocp3) == n
@@ -1405,6 +1533,8 @@ function __debug() # debug
             x[2](tf) == xf2, final_3
             x[2:3](tf) == yf, final_4
             yf_b ≤ x[2:3](tf) ≤ yf_u, final_5
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp4 isa OptimalControlModel
         @test state_dimension(ocp4) == n
@@ -1426,6 +1556,8 @@ function __debug() # debug
             1 ≤ x[2](t0)^2 ≤ 2
             x[2](tf)^2 == 1
             1 ≤ x[2](tf)^2 ≤ 2
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp5 isa OptimalControlModel
         @test state_dimension(ocp5) == n
@@ -1446,6 +1578,8 @@ function __debug() # debug
             1 ≤ x[2](t0)^2 ≤ 2, boundary_4
             x[2](tf)^2 == 1, boundary_5
             1 ≤ x[2](tf)^2 ≤ 2, boundary_6
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp6 isa OptimalControlModel
         @test state_dimension(ocp6) == n
@@ -1474,6 +1608,8 @@ function __debug() # debug
             #u[2:3](t) == v_u
             u[1](t)^2 + u[2](t)^2 == 1
             1 ≤ u[1](t)^2 + u[2](t)^2 ≤ 2
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp7 isa OptimalControlModel
         @test state_dimension(ocp7) == n
@@ -1499,6 +1635,8 @@ function __debug() # debug
             [1, v_b] ≤ u[1:2](t) ≤ [2, v_u], control_5
             u[1](t)^2 + u[2](t)^2 == 1, control_7
             1 ≤ u[1](t)^2 + u[2](t)^2 ≤ 2, control_8
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp8 isa OptimalControlModel
         @test state_dimension(ocp8) == n
@@ -1530,6 +1668,8 @@ function __debug() # debug
             x_u ≤ x[10](t) ≤ y_u
             x[1:2](t) + x[3:4](t) == [-1, 1]
             [-1, 1] ≤ x[1:2](t) + x[3:4](t) ≤ [0, 2]
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp9 isa OptimalControlModel
         @test state_dimension(ocp9) == n
@@ -1552,6 +1692,8 @@ function __debug() # debug
             x_u ≤ x[3](t) ≤ y_u, state_6
             x[1:2](t) + x[3:4](t) == [-1, 1], state_7
             [-1, 1] ≤ x[1:2](t) + x[3:4](t) ≤ [0, 2], state_8
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp10 isa OptimalControlModel
         @test state_dimension(ocp10) == n
@@ -1569,6 +1711,8 @@ function __debug() # debug
             u ∈ R^n, control
             u[2](t) * x[1:2](t) == [-1, 1]
             [-1, 1] ≤ u[2](t) * x[1:2](t) ≤ [0, 2]
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp11 isa OptimalControlModel
         @test state_dimension(ocp11) == n
@@ -1582,6 +1726,8 @@ function __debug() # debug
             u ∈ R^n, control
             u[2](t) * x[1:2](t) == [-1, 1], mixed_1
             [-1, 1] ≤ u[2](t) * x[1:2](t) ≤ [0, 2], mixed_2
+            derivative(x)(t) == x(t) # generic (untested)
+            0 => min # generic (untested)
         end
         @test ocp12 isa OptimalControlModel
         @test state_dimension(ocp12) == n
@@ -1598,6 +1744,7 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             ẋ(t) == 2x(t) + u(t)^2
+            0 => min # generic (untested)
         end
         @test ocp13 isa OptimalControlModel
         @test state_dimension(ocp13) == 1
@@ -1615,6 +1762,7 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             ẋ(t) == f(x(t), u(t)), named_dynamics_not_allowed  # but allowed if unnamed !
+            0 => min # generic (untested)
         end
     end
 
@@ -1695,7 +1843,7 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = -1
+        u = [-1]
         A = [
             0 1
             0 0
@@ -1706,7 +1854,7 @@ function __debug() # debug
         ]
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
-        @test lagrange(o)(0, x, u, nothing) == 0.5u^2
+        @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
         @test criterion(o) == :min
 
         t0 = 0
@@ -1967,6 +2115,7 @@ function __debug() # debug
             x ∈ R^3, state
             u ∈ R^3, control
             ∫(0.5u(t)^2) → min
+            derivative(x)(t) == x(t) # generic (untested)
         end
         @test ocp isa OptimalControlModel
 
@@ -1977,6 +2126,7 @@ function __debug() # debug
             x ∈ R^3, state
             u ∈ R^3, control
             ∫(0.5u(t)^2) → max
+            derivative(x)(t) == x(t) # generic (untested)
         end
         @test ocp isa OptimalControlModel
     end
@@ -2018,12 +2168,13 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             (x(0) + 3x(1)) + ∫(x(t) + u(t)) → min
+            derivative(x)(t) == x(t) # generic (untested)
         end
-        x = 1
-        u = 2
-        x0 = 3
-        xf = 4
-        @test mayer(o)(x0, xf, nothing) == x0 + 3xf
+        x = [1]
+        u = [2]
+        x0 = [3]
+        xf = [4]
+        @test mayer(o)(x0, xf, nothing) == x0[1] + 3xf[1]
         @test lagrange(o)(0, x, u, nothing) == x + u
         @test criterion(o) == :min
 
@@ -2031,14 +2182,15 @@ function __debug() # debug
             t ∈ [0, 1], time
             x ∈ R, state
             u ∈ R, control
+            derivative(x)(t) == x(t) # generic (untested)
             (x(0) + 2x(1)) + ∫(x(t) + u(t)) → min
         end
-        x = 1
-        u = 2
-        x0 = 3
-        xf = 4
-        @test mayer(o)(x0, xf, nothing) == x0 + 2xf
-        @test lagrange(o)(0, x, u, nothing) == x + u
+        x = [1]
+        u = [2]
+        x0 = [3]
+        xf = [4]
+        @test mayer(o)(x0, xf, nothing) == x0[1] + 2xf[1]
+        @test lagrange(o)(0, x, u, nothing) == x[1] + u[1]
         @test criterion(o) == :min
 
         @def o begin
@@ -2046,13 +2198,14 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             (x(0) + 2x(1)) + 2 * ∫(x(t) + u(t)) → min
+            derivative(x)(t) == x(t) # generic (untested)
         end
-        x = 1
-        u = 2
-        x0 = 3
-        xf = 4
-        @test mayer(o)(x0, xf, nothing) == x0 + 2xf
-        @test lagrange(o)(0, x, u, nothing) == 2(x + u)
+        x = [1]
+        u = [2]
+        x0 = [3]
+        xf = [4]
+        @test mayer(o)(x0, xf, nothing) == x0[1] + 2xf[1]
+        @test lagrange(o)(0, x, u, nothing) == 2(x[1] + u[1])
         @test criterion(o) == :min
 
         @def o begin
@@ -2060,13 +2213,14 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             (x(0) + 2x(1)) - ∫(x(t) + u(t)) → min
+            derivative(x)(t) == x(t) # generic (untested)
         end
         x = 1
         u = 2
         x0 = 3
         xf = 4
         @test mayer(o)(x0, xf, nothing) == x0 + 2xf
-        @test lagrange(o)(0, x, u, nothing) == -(x + u)
+        @test lagrange(o)(0, x, u, nothing) == -(x[1] + u[1])
         @test criterion(o) == :min
 
         @def o begin
@@ -2074,13 +2228,14 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             (x(0) + 2x(1)) - 2 * ∫(x(t) + u(t)) → min
+            derivative(x)(t) == x(t) # generic (untested)
         end
-        x = 1
-        u = 2
-        x0 = 3
-        xf = 4
-        @test mayer(o)(x0, xf, nothing) == x0 + 2xf
-        @test lagrange(o)(0, x, u, nothing) == -2(x + u)
+        x = [1]
+        u = [2]
+        x0 = [3]
+        xf = [4]
+        @test mayer(o)(x0, xf, nothing) == x0[1] + 2xf[1]
+        @test lagrange(o)(0, x, u, nothing) == -2(x[1] + u[1])
         @test criterion(o) == :min
 
         @test_throws ParsingError @def o begin
@@ -2105,13 +2260,14 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             (x(0) + 5x(1)) + ∫(x(t) + u(t)) → max
+            derivative(x)(t) == x(t) # generic (untested)
         end
-        x = 1
-        u = 2
-        x0 = 3
-        xf = 4
-        @test mayer(o)(x0, xf, nothing) == x0 + 5xf
-        @test lagrange(o)(0, x, u, nothing) == x + u
+        x = [1]
+        u = [2]
+        x0 = [3]
+        xf = [4]
+        @test mayer(o)(x0, xf, nothing) == x0[1] + 5xf[1]
+        @test lagrange(o)(0, x, u, nothing) == x[1] + u[1]
         @test criterion(o) == :max
 
         @def o begin
@@ -2119,13 +2275,14 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             (x(0) + 2x(1)) + 2 * ∫(x(t) + u(t)) → max
+            derivative(x)(t) == x(t) # generic (untested)
         end
-        x = 1
-        u = 2
-        x0 = 3
-        xf = 4
-        @test mayer(o)(x0, xf, nothing) == x0 + 2xf
-        @test lagrange(o)(0, x, u, nothing) == 2(x + u)
+        x = [1]
+        u = [2]
+        x0 = [3]
+        xf = [4]
+        @test mayer(o)(x0, xf, nothing) == x0[1] + 2xf[1]
+        @test lagrange(o)(0, x, u, nothing) == 2(x[1] + u[1])
         @test criterion(o) == :max
 
         @def o begin
@@ -2133,13 +2290,14 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             (x(0) + 2x(1)) - ∫(x(t) + u(t)) → max
+            derivative(x)(t) == x(t) # generic (untested)
         end
-        x = 1
-        u = 2
-        x0 = 3
-        xf = 4
-        @test mayer(o)(x0, xf, nothing) == x0 + 2xf
-        @test lagrange(o)(0, x, u, nothing) == -(x + u)
+        x = [1]
+        u = [2]
+        x0 = [3]
+        xf = [4]
+        @test mayer(o)(x0, xf, nothing) == x0[1] + 2xf[1]
+        @test lagrange(o)(0, x, u, nothing) == -(x[1] + u[1])
         @test criterion(o) == :max
 
         @def o begin
@@ -2147,13 +2305,14 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             (x(0) + 2x(1)) - 2 * ∫(x(t) + u(t)) → max
+            derivative(x)(t) == x(t) # generic (untested)
         end
-        x = 1
-        u = 2
-        x0 = 3
-        xf = 4
-        @test mayer(o)(x0, xf, nothing) == x0 + 2xf
-        @test lagrange(o)(0, x, u, nothing) == -2(x + u)
+        x = [1]
+        u = [2]
+        x0 = [3]
+        xf = [4]
+        @test mayer(o)(x0, xf, nothing) == x0[1] + 2xf[1]
+        @test lagrange(o)(0, x, u, nothing) == -2(x[1] + u[1])
         @test criterion(o) == :max
 
         @test_throws ParsingError @def o begin
@@ -2178,13 +2337,14 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             ∫(x(t) + u(t)) + (x(0) + 2x(1)) → min
+            derivative(x)(t) == x(t) # generic (untested)
         end
-        x = 1
-        u = 2
-        x0 = 3
-        xf = 4
-        @test mayer(o)(x0, xf, nothing) == x0 + 2xf
-        @test lagrange(o)(0, x, u, nothing) == x + u
+        x = [1]
+        u = [2]
+        x0 = [3]
+        xf = [4]
+        @test mayer(o)(x0, xf, nothing) == x0[1] + 2xf[1]
+        @test lagrange(o)(0, x, u, nothing) == x[1] + u[1]
         @test criterion(o) == :min
 
         @def o begin
@@ -2192,13 +2352,14 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             2 * ∫(x(t) + u(t)) + (x(0) + 2x(1)) → min
+            derivative(x)(t) == x(t) # generic (untested)
         end
-        x = 1
-        u = 2
-        x0 = 3
-        xf = 4
-        @test mayer(o)(x0, xf, nothing) == x0 + 2xf
-        @test lagrange(o)(0, x, u, nothing) == 2(x + u)
+        x = [1]
+        u = [2]
+        x0 = [3]
+        xf = [4]
+        @test mayer(o)(x0, xf, nothing) == x0[1] + 2xf[1]
+        @test lagrange(o)(0, x, u, nothing) == 2(x[1] + u[1])
         @test criterion(o) == :min
 
         @def o begin
@@ -2206,13 +2367,14 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             ∫(x(t) + u(t)) - (x(0) + 2x(1)) → min
+            derivative(x)(t) == x(t) # generic (untested)
         end
-        x = 1
-        u = 2
-        x0 = 3
-        xf = 4
-        @test mayer(o)(x0, xf, nothing) == -(x0 + 2xf)
-        @test lagrange(o)(0, x, u, nothing) == x + u
+        x = [1]
+        u = [2]
+        x0 = [3]
+        xf = [4]
+        @test mayer(o)(x0, xf, nothing) == -(x0[1] + 2xf[1])
+        @test lagrange(o)(0, x, u, nothing) == x[1] + u[1]
         @test criterion(o) == :min
 
         @def o begin
@@ -2220,13 +2382,14 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             2 * ∫(x(t) + u(t)) - (x(0) + 2x(1)) → min
+            derivative(x)(t) == x(t) # generic (untested)
         end
-        x = 1
-        u = 2
-        x0 = 3
-        xf = 4
-        @test mayer(o)(x0, xf, nothing) == -(x0 + 2xf)
-        @test lagrange(o)(0, x, u, nothing) == 2(x + u)
+        x = [1]
+        u = [1]
+        x0 = [1]
+        xf = [1]
+        @test mayer(o)(x0, xf, nothing) == -(x0[1] + 2xf[1])
+        @test lagrange(o)(0, x, u, nothing) == 2(x[1] + u[1])
         @test criterion(o) == :min
 
         @test_throws ParsingError @def o begin
@@ -2251,13 +2414,14 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             ∫(x(t) + u(t)) + (x(0) + 2x(1)) → max
+            derivative(x)(t) == x(t) # generic (untested)
         end
-        x = 1
-        u = 2
-        x0 = 3
-        xf = 4
-        @test mayer(o)(x0, xf, nothing) == x0 + 2xf
-        @test lagrange(o)(0, x, u, nothing) == x + u
+        x = [1]
+        u = [2]
+        x0 = [3]
+        xf = [4]
+        @test mayer(o)(x0, xf, nothing) == x0[1] + 2xf[1]
+        @test lagrange(o)(0, x, u, nothing) == x[1] + u[1]
         @test criterion(o) == :max
 
         @def o begin
@@ -2265,13 +2429,14 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             2 * ∫(x(t) + u(t)) + (x(0) + 2x(1)) → max
+            derivative(x)(t) == x(t) # generic (untested)
         end
-        x = 1
-        u = 2
-        x0 = 3
-        xf = 4
-        @test mayer(o)(x0, xf, nothing) == x0 + 2xf
-        @test lagrange(o)(0, x, u, nothing) == 2(x + u)
+        x = [1]
+        u = [2]
+        x0 = [3]
+        xf = [4]
+        @test mayer(o)(x0, xf, nothing) == x0[1] + 2xf[1]
+        @test lagrange(o)(0, x, u, nothing) == 2(x[1] + u[1])
         @test criterion(o) == :max
 
         @def o begin
@@ -2279,13 +2444,14 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             ∫(x(t) + u(t)) - (x(0) + 2x(1)) → max
+            derivative(x)(t) == x(t) # generic (untested)
         end
-        x = 1
-        u = 2
-        x0 = 3
-        xf = 4
-        @test mayer(o)(x0, xf, nothing) == -(x0 + 2xf)
-        @test lagrange(o)(0, x, u, nothing) == x + u
+        x = [1]
+        u = [2]
+        x0 = [3]
+        xf = [4]
+        @test mayer(o)(x0, xf, nothing) == -(x0[1] + 2xf[1])
+        @test lagrange(o)(0, x, u, nothing) == x[1] + u[1]
         @test criterion(o) == :max
 
         @def o begin
@@ -2293,13 +2459,14 @@ function __debug() # debug
             x ∈ R, state
             u ∈ R, control
             2 * ∫(x(t) + u(t)) - (x(0) + 2x(1)) → max
+            derivative(x)(t) == x(t) # generic (untested)
         end
-        x = 1
-        u = 2
-        x0 = 3
-        xf = 4
-        @test mayer(o)(x0, xf, nothing) == -(x0 + 2xf)
-        @test lagrange(o)(0, x, u, nothing) == 2(x + u)
+        x = [1]
+        u = [2]
+        x0 = [3]
+        xf = [4]
+        @test mayer(o)(x0, xf, nothing) == -(x0[1] + 2xf[1])
+        @test lagrange(o)(0, x, u, nothing) == 2(x[1] + u[1])
         @test criterion(o) == :max
 
         @test_throws ParsingError @def o begin
@@ -2329,6 +2496,7 @@ function __debug() # debug
             r = y₃
             v = y₄
             r(0) + v(1) → min
+            derivative(x)(t) == x(t) # generic (untested)
         end
         y0 = [1, 2, 3, 4]
         yf = 2 * [1, 2, 3, 4]
@@ -2342,6 +2510,7 @@ function __debug() # debug
             r = y₃
             v = y₄
             r(0) + v(1) → max
+            derivative(x)(t) == x(t) # generic (untested)
         end
         y0 = [1, 2, 3, 4]
         yf = 2 * [1, 2, 3, 4]
@@ -2356,6 +2525,7 @@ function __debug() # debug
             r = y₃
             v = y₄
             r(0) + v(z₁) + z₂ → min
+            derivative(x)(t) == x(t) # generic (untested)
         end
         z = [5, 6]
         y0 = [1, 2, 3, 4]
@@ -2378,8 +2548,8 @@ function __debug() # debug
         y = [1, 2, 3, 4]
         y0 = y
         yf = 3y0
-        w = 7
-        @test __dynamics(o)(0, y, w, z) == [y[1] + w^2 + y[4]^3 + z[2], y[3]^2, 0, 0]
+        w = [7]
+        @test __dynamics(o)(0, y, w, z) == [y[1] + w[1]^2 + y[4]^3 + z[2], y[3]^2, 0, 0]
         @test mayer(o)(y0, yf, z) == y0[3] + yf[4] + z[2]
 
         @def o begin
@@ -2397,8 +2567,8 @@ function __debug() # debug
         y = [1, 2, 3, 4]
         y0 = y
         yf = 3y0
-        w = 7
-        @test __dynamics(o)(0, y, w, z) == [y[1] + w^2 + y[4]^3 + z[2], y[3]^2, 0, 0]
+        w = [7]
+        @test __dynamics(o)(0, y, w, z) == [y[1] + w[1]^2 + y[4]^3 + z[2], y[3]^2, 0, 0]
         @test mayer(o)(y0, yf, z) == y0[3] + yf[4] + z[2]
 
         @def o begin
@@ -2410,6 +2580,7 @@ function __debug() # debug
             v = y₄
             aa = y₁ + v³ + z₂
             aa(0) + y₂(z₁) → min
+            derivative(y)(t) == y(t) # generic (untested)
         end
         z = [5, 6]
         y0 = y
@@ -2431,8 +2602,8 @@ function __debug() # debug
         y = [1, 2, 3, 4]
         y0 = y
         yf = 3y0
-        w = 11
-        @test __dynamics(o)(0, y, w, z) == [y[1] + w^2 + y[4]^3 + z[2], y[3]^2, 0, 0]
+        w = [11]
+        @test __dynamics(o)(0, y, w, z) == [y[1] + w[1]^2 + y[4]^3 + z[2], y[3]^2, 0, 0]
         @test_throws UndefVarError mayer(o)(y0, yf, z)
     end
 
@@ -2449,15 +2620,16 @@ function __debug() # debug
                 x ∈ R, state
                 u ∈ R, control
                 ẋ(t) == x(t) + u(t) + b + c + d
+                0 => min # generic (untested)
             end
             return ocp
         end
         b = 2
         o = f(b)
         d = 4
-        x = 10
-        u = 20
-        @test __dynamics(o)(0, x, u, nothing) == x + u + b + 3 + d
+        x = [10]
+        u = [20]
+        @test __dynamics(o)(0, x, u, nothing) == x + u + [b + 3 + d]
     end
 
     # ---------------------------------------------------------------
@@ -2609,8 +2781,8 @@ function __debug() # debug
         x0 = [2, 3]
         xf = [4, 5]
         x = [1, 2]
-        u = 3
-        z = 4
+        u = [3]
+        z = [4]
         @test __constraint(o, :eq1)(x0, xf, z) == x0[1:1] - z
         @test __constraint(o, :eq2)(x0, xf, z) == [xf[2]^2]
         @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0
