@@ -56,15 +56,16 @@ function __constraint(ocp, label)
     @assert(n == m)
     if type in [:boundary, :path]
         f = to_out_of_place(c, n)
-    elsif type == :state
-        f(t, x, u, v) = x[r]
-    elsif type == :control
-        f(t, x, u, v) = u[r]
-    elsif type == :variable
-        f(t, x, u, v) = v[r]
+    elseif type == :state
+        f = (t, x, u, v) -> x[r]
+    elseif type == :control
+        f = (t, x, u, v) -> u[r]
+    elseif type == :variable
+        f = (t, x, u, v) -> v[r]
     else
         throw("Unknow constraint type")
     end
+    return f
 end
 
 end

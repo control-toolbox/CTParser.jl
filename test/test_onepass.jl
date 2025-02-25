@@ -43,6 +43,9 @@ function test_onepass() # debug
             r(0) == 0, (1)
             v(0) == 1, (♡)
             x(t) + [u(t), 1] <= [1, 2], (2)
+            x(t) <= [0, 0], (3)
+            r(t) <= [0, 0], (4)
+            u(t) <= 0, (5)
             ẋ(t) == [v(t), w(t)^2]
             ∫(u(t)^2 + x₁(t)) → min
         end
@@ -53,6 +56,14 @@ function test_onepass() # debug
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1]
         @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2]
         @test __constraint(o, :eq2)(0, x, u, nothing) == x + [u, 1]
+
+        println("eq3: ", __constraint(o, :eq3)(x)) # debug
+        @test __constraint(o, :eq3)(x) == x
+        println("eq4: ", __constraint(o, :eq4)(x)) # debug
+        @test __constraint(o, :eq4)(x) == x[1:1]
+        println("eq5: ", __constraint(o, :eq5)(x)) # debug
+        @test __constraint(o, :eq5)(u) == u 
+
         @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
         @test lagrange(o)(0, x, u, nothing) == u^2 + x[1]
     
@@ -89,10 +100,6 @@ function test_onepass() # debug
         @test __dynamics(o)(0., x, u, nothing) == x + u + b + 3 + d
     end
 
-end
-
-function debug_test_onepass() # debug
-
     @testset "log" begin
         println("log testset...")
 
@@ -100,10 +107,18 @@ function debug_test_onepass() # debug
             λ ∈ R^2, variable
             tf = λ₂
             t ∈ [0, tf], time
+            x ∈ R, state # generic (untested)
+            u ∈ R, control # generic (untested)
+            ẋ(t) == u(t) # generic (untested)
+            0 => min # generic (untested)
         end true
         @test initial_time(o) == 0
         @test final_time(o) == 2
     end
+
+end # debug
+
+function __debug() # debug
 
     # ---------------------------------------------------------------
     # ---------------------------------------------------------------
