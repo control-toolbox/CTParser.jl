@@ -138,7 +138,7 @@ function test_onepass()
         end
         @test state_components(o) == ["y", "z"]
         @test control_components(o) == ["uu1", "uu2", "uu3"]
-        @test variable_componentss(o) == ["vv1", "vv2"]
+        @test variable_components(o) == ["vv1", "vv2"]
 
         @def o begin
             t in [0, 1], time
@@ -150,7 +150,7 @@ function test_onepass()
         end
         @test state_components(o) == ["y", "z"]
         @test control_components(o) == ["uu1", "uu2", "uu3"]
-        @test variable_componentss(o) == ["vv1", "vv2"]
+        @test variable_components(o) == ["vv1", "vv2"]
 
         @def o begin
             t in [0, 1], time
@@ -162,7 +162,7 @@ function test_onepass()
         end
         @test state_components(o) == ["y", "z"]
         @test control_components(o) == ["uu1", "uu2", "uu3"]
-        @test variable_componentss(o) == ["vv1", "vv2"]
+        @test variable_components(o) == ["vv1", "vv2"]
 
         @test_throws ParsingError @def o begin # a name must be provided
             (y, z) ∈ R², state
@@ -1053,12 +1053,12 @@ function test_onepass()
         @test __constraint(o, :eq3)(x0, xf, z) == x0
         @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
         @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
-        @test constraints(o)[:eq1][3] == [0]
-        @test constraints(o)[:eq1][4] == [1]
-        @test constraints(o)[:eq2][3] == [0]
-        @test constraints(o)[:eq2][4] == [1]
-        @test constraints(o)[:eq3][3] == [0, 0]
-        @test constraints(o)[:eq3][4] == [1, 1]
+        @test constraint(o, :eq1)[3] == [0]
+        @test constraint(o, :eq1)[4] == [1]
+        @test constraint(o, :eq2)[3] == [0]
+        @test constraint(o, :eq2)[4] == [1]
+        @test constraint(o, :eq3)[3] == [0, 0]
+        @test constraint(o, :eq3)[4] == [1, 1]
 
         @def o begin
             v ∈ R², variable
@@ -1144,36 +1144,36 @@ function test_onepass()
             0 => min # generic (untested)
         end
 
-        @test constraints(o)[:eq1][3] == [-Inf]
-        @test constraints(o)[:eq2][3] == [-Inf]
-        @test constraints(o)[:eq3][3] == [-Inf]
-        @test constraints(o)[:eq4][3] == [-Inf]
-        @test constraints(o)[:eq5][3] == [-Inf]
-        @test constraints(o)[:eq6][3] == [-Inf]
-        @test constraints(o)[:eq7][3] == [-Inf]
-        @test constraints(o)[:eq8][3] == [-Inf]
-        @test constraints(o)[:eq9][3] == [-Inf]
-        @test constraints(o)[:eq10][3] == [-Inf]
-        @test constraints(o)[:eq11][3] == [-Inf]
-        @test constraints(o)[:eq12][3] == [-Inf]
-        @test constraints(o)[:eq13][3] == [-Inf]
-        @test constraints(o)[:eq14][3] == [-Inf]
-        @test constraints(o)[:eq15][3] == [-Inf]
-        @test constraints(o)[:eq1][4] == [0]
-        @test constraints(o)[:eq2][4] == [0]
-        @test constraints(o)[:eq3][4] == [0]
-        @test constraints(o)[:eq4][4] == [0]
-        @test constraints(o)[:eq5][4] == [0]
-        @test constraints(o)[:eq6][4] == [0]
-        @test constraints(o)[:eq7][4] == [0]
-        @test constraints(o)[:eq8][4] == [0]
-        @test constraints(o)[:eq9][4] == [0]
-        @test constraints(o)[:eq10][4] == [0]
-        @test constraints(o)[:eq11][4] == [0]
-        @test constraints(o)[:eq12][4] == [0]
-        @test constraints(o)[:eq13][4] == [0]
-        @test constraints(o)[:eq14][4] == [0]
-        @test constraints(o)[:eq15][4] == [0]
+        @test constraint(o, :eq1)[3] == [-Inf]
+        @test constraint(o, :eq2)[3] == [-Inf]
+        @test constraint(o, :eq3)[3] == [-Inf]
+        @test constraint(o, :eq4)[3] == [-Inf]
+        @test constraint(o, :eq5)[3] == [-Inf]
+        @test constraint(o, :eq6)[3] == [-Inf]
+        @test constraint(o, :eq7)[3] == [-Inf]
+        @test constraint(o, :eq8)[3] == [-Inf]
+        @test constraint(o, :eq9)[3] == [-Inf]
+        @test constraint(o, :eq10)[3] == [-Inf]
+        @test constraint(o, :eq11)[3] == [-Inf]
+        @test constraint(o, :eq12)[3] == [-Inf]
+        @test constraint(o, :eq13)[3] == [-Inf]
+        @test constraint(o, :eq14)[3] == [-Inf]
+        @test constraint(o, :eq15)[3] == [-Inf]
+        @test constraint(o, :eq1)[4] == [0]
+        @test constraint(o, :eq2)[4] == [0]
+        @test constraint(o, :eq3)[4] == [0]
+        @test constraint(o, :eq4)[4] == [0]
+        @test constraint(o, :eq5)[4] == [0]
+        @test constraint(o, :eq6)[4] == [0]
+        @test constraint(o, :eq7)[4] == [0]
+        @test constraint(o, :eq8)[4] == [0]
+        @test constraint(o, :eq9)[4] == [0]
+        @test constraint(o, :eq10)[4] == [0]
+        @test constraint(o, :eq11)[4] == [0]
+        @test constraint(o, :eq12)[4] == [0]
+        @test constraint(o, :eq13)[4] == [0]
+        @test constraint(o, :eq14)[4] == [0]
+        @test constraint(o, :eq15)[4] == [0]
 
         @def o begin
             v ∈ R, variable
@@ -1214,36 +1214,36 @@ function test_onepass()
             0 => min # generic (untested)
         end
 
-        @test constraints(o)[:eq1][3] == [0]
-        @test constraints(o)[:eq2][3] == [0]
-        @test constraints(o)[:eq3][3] == [0]
-        @test constraints(o)[:eq4][3] == [0]
-        @test constraints(o)[:eq5][3] == [0]
-        @test constraints(o)[:eq6][3] == [0]
-        @test constraints(o)[:eq7][3] == [0]
-        @test constraints(o)[:eq8][3] == [0]
-        @test constraints(o)[:eq9][3] == [0]
-        @test constraints(o)[:eq10][3] == [0]
-        @test constraints(o)[:eq11][3] == [0]
-        @test constraints(o)[:eq12][3] == [0]
-        @test constraints(o)[:eq13][3] == [0]
-        @test constraints(o)[:eq14][3] == [0]
-        @test constraints(o)[:eq15][3] == [0]
-        @test constraints(o)[:eq1][4] == [Inf]
-        @test constraints(o)[:eq2][4] == [Inf]
-        @test constraints(o)[:eq3][4] == [Inf]
-        @test constraints(o)[:eq4][4] == [Inf]
-        @test constraints(o)[:eq5][4] == [Inf]
-        @test constraints(o)[:eq6][4] == [Inf]
-        @test constraints(o)[:eq7][4] == [Inf]
-        @test constraints(o)[:eq8][4] == [Inf]
-        @test constraints(o)[:eq9][4] == [Inf]
-        @test constraints(o)[:eq10][4] == [Inf]
-        @test constraints(o)[:eq11][4] == [Inf]
-        @test constraints(o)[:eq12][4] == [Inf]
-        @test constraints(o)[:eq13][4] == [Inf]
-        @test constraints(o)[:eq14][4] == [Inf]
-        @test constraints(o)[:eq15][4] == [Inf]
+        @test constraint(o, :eq1)[3] == [0]
+        @test constraint(o, :eq2)[3] == [0]
+        @test constraint(o, :eq3)[3] == [0]
+        @test constraint(o, :eq4)[3] == [0]
+        @test constraint(o, :eq5)[3] == [0]
+        @test constraint(o, :eq6)[3] == [0]
+        @test constraint(o, :eq7)[3] == [0]
+        @test constraint(o, :eq8)[3] == [0]
+        @test constraint(o, :eq9)[3] == [0]
+        @test constraint(o, :eq10)[3] == [0]
+        @test constraint(o, :eq11)[3] == [0]
+        @test constraint(o, :eq12)[3] == [0]
+        @test constraint(o, :eq13)[3] == [0]
+        @test constraint(o, :eq14)[3] == [0]
+        @test constraint(o, :eq15)[3] == [0]
+        @test constraint(o, :eq1)[4] == [Inf]
+        @test constraint(o, :eq2)[4] == [Inf]
+        @test constraint(o, :eq3)[4] == [Inf]
+        @test constraint(o, :eq4)[4] == [Inf]
+        @test constraint(o, :eq5)[4] == [Inf]
+        @test constraint(o, :eq6)[4] == [Inf]
+        @test constraint(o, :eq7)[4] == [Inf]
+        @test constraint(o, :eq8)[4] == [Inf]
+        @test constraint(o, :eq9)[4] == [Inf]
+        @test constraint(o, :eq10)[4] == [Inf]
+        @test constraint(o, :eq11)[4] == [Inf]
+        @test constraint(o, :eq12)[4] == [Inf]
+        @test constraint(o, :eq13)[4] == [Inf]
+        @test constraint(o, :eq14)[4] == [Inf]
+        @test constraint(o, :eq15)[4] == [Inf]
 
         @def o begin
             v ∈ R^2, variable
@@ -1274,26 +1274,26 @@ function test_onepass()
             0 => min # generic (untested)
         end
 
-        @test constraints(o)[:eq1][3] == -[Inf, Inf]
-        @test constraints(o)[:eq2][3] == -[Inf, Inf]
-        @test constraints(o)[:eq3][3] == -[Inf, Inf]
-        @test constraints(o)[:eq4][3] == -[Inf, Inf]
-        @test constraints(o)[:eq5][3] == -[Inf, Inf]
-        @test constraints(o)[:eq6][3] == -[Inf, Inf]
-        @test constraints(o)[:eq7][3] == -[Inf, Inf]
-        @test constraints(o)[:eq8][3] == -[Inf, Inf]
-        @test constraints(o)[:eq9][3] == -[Inf, Inf]
-        @test constraints(o)[:eq10][3] == -[Inf, Inf]
-        @test constraints(o)[:eq1][4] == [0, 0]
-        @test constraints(o)[:eq2][4] == [0, 0]
-        @test constraints(o)[:eq3][4] == [0, 0]
-        @test constraints(o)[:eq4][4] == [0, 0]
-        @test constraints(o)[:eq5][4] == [0, 0]
-        @test constraints(o)[:eq6][4] == [0, 0]
-        @test constraints(o)[:eq7][4] == [0, 0]
-        @test constraints(o)[:eq8][4] == [0, 0]
-        @test constraints(o)[:eq9][4] == [0, 0]
-        @test constraints(o)[:eq10][4] == [0, 0]
+        @test constraint(o, :eq1)[3] == -[Inf, Inf]
+        @test constraint(o, :eq2)[3] == -[Inf, Inf]
+        @test constraint(o, :eq3)[3] == -[Inf, Inf]
+        @test constraint(o, :eq4)[3] == -[Inf, Inf]
+        @test constraint(o, :eq5)[3] == -[Inf, Inf]
+        @test constraint(o, :eq6)[3] == -[Inf, Inf]
+        @test constraint(o, :eq7)[3] == -[Inf, Inf]
+        @test constraint(o, :eq8)[3] == -[Inf, Inf]
+        @test constraint(o, :eq9)[3] == -[Inf, Inf]
+        @test constraint(o, :eq10)[3] == -[Inf, Inf]
+        @test constraint(o, :eq1)[4] == [0, 0]
+        @test constraint(o, :eq2)[4] == [0, 0]
+        @test constraint(o, :eq3)[4] == [0, 0]
+        @test constraint(o, :eq4)[4] == [0, 0]
+        @test constraint(o, :eq5)[4] == [0, 0]
+        @test constraint(o, :eq6)[4] == [0, 0]
+        @test constraint(o, :eq7)[4] == [0, 0]
+        @test constraint(o, :eq8)[4] == [0, 0]
+        @test constraint(o, :eq9)[4] == [0, 0]
+        @test constraint(o, :eq10)[4] == [0, 0]
 
         @def o begin
             v ∈ R^2, variable
@@ -1324,26 +1324,26 @@ function test_onepass()
             0 => min # generic (untested)
         end
 
-        @test constraints(o)[:eq1][4] == [Inf, Inf]
-        @test constraints(o)[:eq2][4] == [Inf, Inf]
-        @test constraints(o)[:eq3][4] == [Inf, Inf]
-        @test constraints(o)[:eq4][4] == [Inf, Inf]
-        @test constraints(o)[:eq5][4] == [Inf, Inf]
-        @test constraints(o)[:eq6][4] == [Inf, Inf]
-        @test constraints(o)[:eq7][4] == [Inf, Inf]
-        @test constraints(o)[:eq8][4] == [Inf, Inf]
-        @test constraints(o)[:eq9][4] == [Inf, Inf]
-        @test constraints(o)[:eq10][4] == [Inf, Inf]
-        @test constraints(o)[:eq1][3] == [0, 0]
-        @test constraints(o)[:eq2][3] == [0, 0]
-        @test constraints(o)[:eq3][3] == [0, 0]
-        @test constraints(o)[:eq4][3] == [0, 0]
-        @test constraints(o)[:eq5][3] == [0, 0]
-        @test constraints(o)[:eq6][3] == [0, 0]
-        @test constraints(o)[:eq7][3] == [0, 0]
-        @test constraints(o)[:eq8][3] == [0, 0]
-        @test constraints(o)[:eq9][3] == [0, 0]
-        @test constraints(o)[:eq10][3] == [0, 0]
+        @test constraint(o, :eq1)[4] == [Inf, Inf]
+        @test constraint(o, :eq2)[4] == [Inf, Inf]
+        @test constraint(o, :eq3)[4] == [Inf, Inf]
+        @test constraint(o, :eq4)[4] == [Inf, Inf]
+        @test constraint(o, :eq5)[4] == [Inf, Inf]
+        @test constraint(o, :eq6)[4] == [Inf, Inf]
+        @test constraint(o, :eq7)[4] == [Inf, Inf]
+        @test constraint(o, :eq8)[4] == [Inf, Inf]
+        @test constraint(o, :eq9)[4] == [Inf, Inf]
+        @test constraint(o, :eq10)[4] == [Inf, Inf]
+        @test constraint(o, :eq1)[3] == [0, 0]
+        @test constraint(o, :eq2)[3] == [0, 0]
+        @test constraint(o, :eq3)[3] == [0, 0]
+        @test constraint(o, :eq4)[3] == [0, 0]
+        @test constraint(o, :eq5)[3] == [0, 0]
+        @test constraint(o, :eq6)[3] == [0, 0]
+        @test constraint(o, :eq7)[3] == [0, 0]
+        @test constraint(o, :eq8)[3] == [0, 0]
+        @test constraint(o, :eq9)[3] == [0, 0]
+        @test constraint(o, :eq10)[3] == [0, 0]
 
         t0 = 9.0
         tf = 9.1
@@ -1421,7 +1421,7 @@ function test_onepass()
             z0 ≤ t(u)[1] ≤ z1
             0 ≤ t₂(u) ≤ kmax
             bf ≤ b(u) ≤ b0
-            derivative(x)(t) == x(t) # generic (untested)
+            derivative(t)(u) == t(u) # generic (untested)
             0 => min # generic (untested)u in R, control # generic (untested)
         end
         @test ocp isa Model
@@ -2480,7 +2480,7 @@ function test_onepass()
         end
         y0 = [1, 2, 3, 4]
         yf = 2 * [1, 2, 3, 4]
-        @test is_min(o)
+        @test citerion(o) == :min
         @test mayer(o)(y0, yf, nothing) == y0[3] + yf[4]
 
         @def o begin
@@ -2490,11 +2490,11 @@ function test_onepass()
             r = y₃
             v = y₄
             r(0) + v(1) → max
-            derivative(x)(t) == x(t) # generic (untested)
+            derivative(y)(s) == y(s) # generic (untested)
         end
         y0 = [1, 2, 3, 4]
         yf = 2 * [1, 2, 3, 4]
-        @test is_max(o)
+        @test criterion(o) == :max
         @test mayer(o)(y0, yf, nothing) == y0[3] + yf[4]
 
         @def o begin
@@ -2505,12 +2505,12 @@ function test_onepass()
             r = y₃
             v = y₄
             r(0) + v(z₁) + z₂ → min
-            derivative(x)(t) == x(t) # generic (untested)
+            derivative(y)(s) == y(s) # generic (untested)
         end
         z = [5, 6]
         y0 = [1, 2, 3, 4]
         yf = 2 * [1, 2, 3, 4]
-        @test is_min(o)
+        @test criterion(o) == :min
         @test mayer(o)(y0, yf, z) == y0[3] + yf[4] + z[2]
 
         @def o begin
