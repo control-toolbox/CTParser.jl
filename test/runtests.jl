@@ -2,7 +2,7 @@ using CTParser: CTParser, subs, replace_call, has, constraint_type, @def # some 
 using Test
 using Aqua
 
-include("temporary1.jl") # debug
+include("temporary1.jl") # todo: remove
 
 #
 @testset verbose = true showtiming = true "CTParser tests" begin
@@ -16,4 +16,4 @@ include("temporary1.jl") # debug
     end
 end
 
-include("temporary2.jl") # debug
+include("temporary2.jl") # todo: remove

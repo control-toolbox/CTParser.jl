@@ -1,7 +1,7 @@
 # temporary.jl
 
 using Pkg
-Pkg.add(url="https://github.com/control-toolbox/CTModels.jl", rev="main") # debug: replace (still temporarily) by CTModels from gen. registry
+Pkg.add(url="https://github.com/control-toolbox/CTModels.jl", rev="main") # todo: replace (still temporarily) by CTModels from gen. registry
 
 module OptimalControl
 
@@ -38,10 +38,13 @@ final_time = CTModels.final_time
 time_name = CTModels.time_name
 variable_dimension = CTModels.variable_dimension
 variable_components = CTModels.variable_components
+variable_name = CTModels.variable_name
 state_dimension = CTModels.state_dimension
 state_components = CTModels.state_components
+state_name = CTModels.state_name
 control_dimension = CTModels.control_dimension
 control_components = CTModels.control_components
+control_name = CTModels.control_name
 constraint = CTModels.constraint
 dynamics = CTModels.dynamics
 mayer = CTModels.mayer

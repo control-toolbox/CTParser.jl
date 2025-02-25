@@ -8,10 +8,13 @@ final_time = OptimalControl.final_time
 time_name = OptimalControl.time_name
 variable_dimension = OptimalControl.variable_dimension
 variable_components = OptimalControl.variable_components
+variable_name = OptimalControl.variable_name
 state_dimension = OptimalControl.state_dimension
 state_components = OptimalControl.state_components
+state_name = OptimalControl.state_name
 control_dimension = OptimalControl.control_dimension
 control_components = OptimalControl.control_components
+control_name = OptimalControl.control_name
 constraint = OptimalControl.constraint
 __constraint = OptimalControl.__constraint
 __dynamics = OptimalControl.__dynamics
@@ -22,7 +25,7 @@ Model = OptimalControl.Model
 
 ParsingError = OptimalControl.ParsingError
 
-function test_onepass() # debug
+function test_onepass()
 
     # ---------------------------------------------------------------
     # ---------------------------------------------------------------
@@ -135,7 +138,7 @@ function test_onepass() # debug
         end
         @test state_components(o) == ["y", "z"]
         @test control_components(o) == ["uu1", "uu2", "uu3"]
-        @test variable_components_names(o) == ["vv1", "vv2"]
+        @test variable_componentss(o) == ["vv1", "vv2"]
 
         @def o begin
             t in [0, 1], time
@@ -147,9 +150,10 @@ function test_onepass() # debug
         end
         @test state_components(o) == ["y", "z"]
         @test control_components(o) == ["uu1", "uu2", "uu3"]
-        @test variable_components_names(o) == ["vv1", "vv2"]
+        @test variable_componentss(o) == ["vv1", "vv2"]
 
         @def o begin
+            t in [0, 1], time
             x = [y, z] ∈ R², state
             u = [uu1, uu2, uu3] ∈ R³, control
             v = [vv1, vv2] ∈ R², variable
@@ -158,7 +162,7 @@ function test_onepass() # debug
         end
         @test state_components(o) == ["y", "z"]
         @test control_components(o) == ["uu1", "uu2", "uu3"]
-        @test variable_components_names(o) == ["vv1", "vv2"]
+        @test variable_componentss(o) == ["vv1", "vv2"]
 
         @test_throws ParsingError @def o begin # a name must be provided
             (y, z) ∈ R², state
@@ -487,7 +491,7 @@ function test_onepass() # debug
             t ∈ [t0, tf], time
             u ∈ R, state
             v in R, control # generic (untested)
-            derivative(x)(t) == x(t) # generic (untested)
+            derivative(u)(t) == u(t) # generic (untested)
             0 => min # generic (untested)
         end
         @test ocp isa Model
@@ -874,6 +878,7 @@ function test_onepass() # debug
             0 ≤ u₂(t)^2 ≤ 1, (9)
             u₁(t) * x[1:2](t) + z + f() == [1, 1], (10)
             [0, 0] ≤ u₁(t) * x[1:2](t) .^ 3 + z ≤ [1, 1], (11)
+            derivative(x)(t) == x(t)
             0 => min # generic (untested)
         end
         f() = [1, 1]
@@ -2471,7 +2476,7 @@ function test_onepass() # debug
             r = y₃
             v = y₄
             r(0) + v(1) → min
-            derivative(y)(t) == y(t) # generic (untested)
+            derivative(y)(s) == y(s) # generic (untested)
         end
         y0 = [1, 2, 3, 4]
         yf = 2 * [1, 2, 3, 4]
@@ -2760,7 +2765,7 @@ function test_onepass() # debug
         @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0
         @test __constraint(o, :eq3)(0, x, u, z) == z
         @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
-        @test lagrange(0, x, u, z) == u[1]^2 + z[1] * x[1]
+        @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
 
         @def o begin
             z in R^2, variable
