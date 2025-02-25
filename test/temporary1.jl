@@ -1,7 +1,7 @@
 # temporary.jl
 
 using Pkg
-Pkg.add(url="https://github.com/control-toolbox/CTModels.jl", rev="main")
+Pkg.add(url="https://github.com/control-toolbox/CTModels.jl", rev="main") # debug: replace (still temporarily) by CTModels from gen. registry
 
 module OptimalControl
 

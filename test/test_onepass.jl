@@ -1,6 +1,8 @@
 # test onepass
 # todo: for all scalar variable/state/control, test with length-1 vectors, now
+# todo: so screen __constraint, __dynamics, lagrange, mayer (these last being scalar)
 # todo: same issue for singletons ranges (now treated as x[i:i], returning a vector)
+# todo: complete with generic (untested) all partial defs
 # todo: test non-autonomous and / or variable __dynamics, __constraint
  
 # mapping
@@ -59,11 +61,8 @@ function test_onepass() # debug
         @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
         @test __constraint(o, :eq2)(0, x, u, nothing) == x + [u[1], 1]
 
-        println("eq3: ", __constraint(o, :eq3)(0, x, u, nothing)) # debug
         @test __constraint(o, :eq3)(0, x, u, nothing) == x
-        println("eq4: ", __constraint(o, :eq4)(0, x, u, nothing)) # debug
         @test __constraint(o, :eq4)(0, x, u, nothing) == x[1:1]
-        println("eq5: ", __constraint(o, :eq5)(0, x, u, nothing)) # debug
         @test __constraint(o, :eq5)(0, x, u, nothing) == u 
 
         @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
@@ -191,11 +190,11 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = 3
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1]
-        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2]
+        u = [3]
+        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1:1]
+        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
         @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
-        @test lagrange(o)(0, x, u, nothing) == u^2 + x[1]
+        @test lagrange(o)(0, x, u, nothing) == u[1]^2 + x[1]
 
         @def o begin
             t ∈ [0, 1], time
@@ -211,8 +210,8 @@ function __debug() # debug
         x0 = 2 * x
         xf = 3 * x
         u = 3
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1]
-        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2]
+        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1:1]
+        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
         @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
         @test lagrange(o)(0, x, u, nothing) == u^2 + x[1]
 
@@ -232,8 +231,8 @@ function __debug() # debug
         xf = 3 * x
         u = 3
         c = [u, 0]
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1]
-        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2]
+        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1:1]
+        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
         @test __dynamics(o)(0, x, c, nothing) == [x[2], (x[1] + 2x[2])^2]
         @test lagrange(o)(0, x, c, nothing) == u^2 + x[1]
 
@@ -704,7 +703,7 @@ function __debug() # debug
         tf = 2
         x0 = [1, 2]
         xf = [3, 4]
-        @test __constraint(o, :eq1)(x0, xf, tf) == x0[1] + (xf[1] + 2xf[2]^3) - tf^2
+        @test __constraint(o, :eq1)(x0, xf, tf) == [x0[1] + (xf[1] + 2xf[2]^3) - tf^2]
 
         n = 11
         m = 6
@@ -728,15 +727,15 @@ function __debug() # debug
         end
         x = Vector{Float64}(1:n)
         u = 2 * Vector{Float64}(1:m)
-        @test __constraint(o, :eq1)(0, x, u, nothing) == x[1]
+        @test __constraint(o, :eq1)(0, x, u, nothing) == x[1:1]
         @test __constraint(o, :eq2)(0, x, u, nothing) == x
         @test __constraint(o, :eq3)(0, x, u, nothing) == x[1:2]
         @test __constraint(o, :eq4)(0, x, u, nothing) == x[1:2:4]
-        @test __constraint(o, :eq5)(0, x, u, nothing) == x[2]^2
+        @test __constraint(o, :eq5)(0, x, u, nothing) == [x[2]^2]
         @test __constraint(o, :eq6)(0, x, u, nothing) == u
         @test __constraint(o, :eq7)(0, x, u, nothing) == u[1:2]
         @test __constraint(o, :eq8)(0, x, u, nothing) == u[1:2:4]
-        @test __constraint(o, :eq9)(0, x, u, nothing) == u[2]^2
+        @test __constraint(o, :eq9)(0, x, u, nothing) == [u[2]^2]
         @test __constraint(o, :eq10)(0, x, u, nothing) == u[1] * x[1:2]
         @test __constraint(o, :eq11)(0, x, u, nothing) == u[1] * x[1:2] .^ 3
 
@@ -765,15 +764,15 @@ function __debug() # debug
         z = 3 * Vector{Float64}(1:2)
         x = Vector{Float64}(1:n)
         u = 2 * Vector{Float64}(1:m)
-        @test __constraint(o, :eq1)(0, x, u, z) == x[1]
+        @test __constraint(o, :eq1)(0, x, u, z) == x[1:1]
         @test __constraint(o, :eq2)(0, x, u, z) == x
         @test __constraint(o, :eq3)(0, x, u, z) == x[1:2] - [z[1], 1]
         @test __constraint(o, :eq4)(0, x, u, z) == x[1:2:4]
-        @test __constraint(o, :eq5)(0, x, u, z) == x[2]^2
+        @test __constraint(o, :eq5)(0, x, u, z) == [x[2]^2]
         @test __constraint(o, :eq6)(0, x, u, z) == u
         @test __constraint(o, :eq7)(0, x, u, z) == u[1:2]
         @test __constraint(o, :eq8)(0, x, u, z) == u[1:2:4]
-        @test __constraint(o, :eq9)(0, x, u, z) == u[2]^2
+        @test __constraint(o, :eq9)(0, x, u, z) == [u[2]^2]
         @test __constraint(o, :eq10)(0, x, u, z) == u[1] * x[1:2] + z + f()
         @test __constraint(o, :eq11)(0, x, u, z) == u[1] * x[1:2] .^ 3 + z
 
@@ -794,11 +793,11 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = 3
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1]
-        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2]
+        u = [3]
+        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1:1]
+        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
         @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
-        @test lagrange(o)(0, x, u, nothing) == u^2 + x[1]
+        @test lagrange(o)(0, x, u, nothing) == u[1]^2 + x[1]
 
         @def o begin
             t ∈ [0, 1], time
@@ -815,11 +814,11 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = 3
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1]
-        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2]
+        u = [3]
+        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1:1]
+        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
         @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
-        @test lagrange(o)(0, x, u, nothing) == u^2 + x[1]
+        @test lagrange(o)(0, x, u, nothing) == u[1]^2 + x[1]
 
         @def o begin
             z ∈ R², variable
@@ -837,12 +836,12 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * [1, 2]
         xf = 3 * [1, 2]
-        u = 3
+        u = [3]
         z = [4, 5]
-        @test __constraint(o, :eq1)(x0, xf, z) == x0[1]
-        @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0[2]
+        @test __constraint(o, :eq1)(x0, xf, z) == x0[1:1]
+        @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0[2:2]
         @test __dynamics(o)(0, x, u, z) == [x[2], (x[1] + 2x[2])^2 + z[1]]
-        @test lagrange(o)(0, x, u, z) == u^2 + z[2] * x[1]
+        @test lagrange(o)(0, x, u, z) == u[1]^2 + z[2] * x[1]
 
         @def o begin
             t ∈ [0, 1], time
@@ -858,11 +857,11 @@ function __debug() # debug
         x0 = [2, 3]
         xf = [4, 5]
         x = [1, 2]
-        u = 3
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1]^2 + xf[2]
-        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2]
+        u = [3]
+        @test __constraint(o, :eq1)(x0, xf, nothing) == [x0[1]^2 + xf[2]]
+        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
         @test __dynamics(o)(0, x, u, nothing) == [x[2], x[1]^2]
-        @test lagrange(o)(0, x, u, nothing) == u^2 + x[1]
+        @test lagrange(o)(0, x, u, nothing) == u[1]^2 + x[1]
 
         @def o begin
             z ∈ R, variable
@@ -879,12 +878,12 @@ function __debug() # debug
         x0 = [2, 3]
         xf = [4, 5]
         x = [1, 2]
-        u = 3
-        z = 4
-        @test __constraint(o, :eq1)(x0, xf, z) == x0[1] - z
-        @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0[2]
+        u = [3]
+        z = [4]
+        @test __constraint(o, :eq1)(x0, xf, z) == [x0[1] - z[1]]
+        @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0[2:2]
         @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z]
-        @test lagrange(o)(0, x, u, z) == u^2 + z * x[1]
+        @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
 
         @def o begin
             z ∈ R, variable
@@ -902,13 +901,13 @@ function __debug() # debug
         x0 = [2, 3]
         xf = [4, 5]
         x = [1, 2]
-        u = 3
-        z = 4
-        @test __constraint(o, :eq1)(x0, xf, z) == x0[1] - z
-        @test __constraint(o, :eq2)(x0, xf, z) == xf[2]^2
+        u = [3]
+        z = [4]
+        @test __constraint(o, :eq1)(x0, xf, z) == [x0[1] - z[1]]
+        @test __constraint(o, :eq2)(x0, xf, z) == [xf[2]^2]
         @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0
         @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z]
-        @test lagrange(o)(0, x, u, z) == u^2 + z * x[1]
+        @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
 
         @def o begin
             z ∈ R, variable
@@ -926,17 +925,17 @@ function __debug() # debug
         x0 = [2, 3]
         xf = [4, 5]
         x = [1, 2]
-        u = 3
-        z = 4
-        @test __constraint(o, :eq1)(x0, xf, z) == x0[1] - z
-        @test __constraint(o, :eq2)(x0, xf, z) == xf[2]^2
+        u = [3]
+        z = [4]
+        @test __constraint(o, :eq1)(x0, xf, z) == [x0[1] - z[1]]
+        @test __constraint(o, :eq2)(x0, xf, z) == [xf[2]^2]
         @test __constraint(o, :eq3)(x0, xf, z) == x0
         @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z]
-        @test lagrange(o)(0, x, u, z) == u^2 + z * x[1]
-        @test constraints(o)[:eq1][3] == 0
-        @test constraints(o)[:eq1][4] == 1
-        @test constraints(o)[:eq2][3] == 0
-        @test constraints(o)[:eq2][4] == 1
+        @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
+        @test constraints(o)[:eq1][3] == [0]
+        @test constraints(o)[:eq1][4] == [1]
+        @test constraints(o)[:eq2][3] == [0]
+        @test constraints(o)[:eq2][4] == [1]
         @test constraints(o)[:eq3][3] == [0, 0]
         @test constraints(o)[:eq3][4] == [1, 1]
 
@@ -964,26 +963,26 @@ function __debug() # debug
             0 ≤ z ≤ 1, (15)
             z * x(1) → min
         end
-        x = 1
-        x0 = 2
-        xf = 3
-        u = 4
+        x = [1]
+        x0 = [2]
+        xf = [3]
+        u = [4]
         v = [5, 6]
         z = v[1] + 2v[2]
-        @test __constraint(o, :eq1)(x0, xf, v) == x0 - v[1]
-        @test __constraint(o, :eq2)(x0, xf, v) == xf - v[1]
-        @test __constraint(o, :eq3)(x0, xf, v) == x0 - v[1]
-        @test __constraint(o, :eq4)(x0, xf, v) == xf - v[1]
-        @test __constraint(o, :eq5)(x0, xf, v) == x0 + xf - v[2]
-        @test __constraint(o, :eq6)(x0, xf, v) == x0 + xf - v[2]
-        @test __constraint(o, :eq7)(0, x, u, v) == x - v[1]
+        @test __constraint(o, :eq1)(x0, xf, v) == x0 - v[1:1]
+        @test __constraint(o, :eq2)(x0, xf, v) == xf - v[1:1]
+        @test __constraint(o, :eq3)(x0, xf, v) == x0 - v[1:1]
+        @test __constraint(o, :eq4)(x0, xf, v) == xf - v[1:1]
+        @test __constraint(o, :eq5)(x0, xf, v) == x0 + xf - v[2:2]
+        @test __constraint(o, :eq6)(x0, xf, v) == x0 + xf - v[2:2]
+        @test __constraint(o, :eq7)(0, x, u, v) == x - v[1:1]
         @test __constraint(o, :eq9)(0, x, u, v) == x - z
         @test __constraint(o, :eq10)(0, x, u, v) == u - z
         @test __constraint(o, :eq11)(0, x, u, v) == x + u - z
-        @test __constraint(o, :eq12)(0, x, u, v) == v[1]
-        @test __constraint(o, :eq13)(0, x, u, v) == v[1]
-        @test __constraint(o, :eq14)(0, x, u, v) == v[1] + 2v[2]
-        @test __constraint(o, :eq15)(0, x, u, v) == v[1] + 2v[2]
+        @test __constraint(o, :eq12)(0, x, u, v) == v[1:1]
+        @test __constraint(o, :eq13)(0, x, u, v) == v[1:1]
+        @test __constraint(o, :eq14)(0, x, u, v) == v[1:1] + 2v[2:2]
+        @test __constraint(o, :eq15)(0, x, u, v) == v[1:1] + 2v[2:2]
 
         @def o begin
             v ∈ R, variable
@@ -1640,7 +1639,7 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = -1
+        u = [-1]
         A = [
             0 1
             0 0
@@ -1651,7 +1650,7 @@ function __debug() # debug
         ]
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
-        @test lagrange(o)(0, x, u, nothing) == 0.5u^2
+        @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
         @test criterion(o) == :min
 
         t0 = 0
@@ -1668,7 +1667,7 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = -1
+        u = [-1]
         A = [
             0 1
             0 0
@@ -1679,7 +1678,7 @@ function __debug() # debug
         ]
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
-        @test lagrange(o)(0, x, u, nothing) == -0.5u^2
+        @test lagrange(o)(0, x, u, nothing) == -0.5u[1]^2
         @test criterion(o) == :min
 
         t0 = 0
@@ -1724,7 +1723,7 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = -1
+        u = [-1]
         A = [
             0 1
             0 0
@@ -1735,7 +1734,7 @@ function __debug() # debug
         ]
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
-        @test lagrange(o)(0, x, u, nothing) == 0.5u^2
+        @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
         @test criterion(o) == :min
 
         t0 = 0
@@ -1752,7 +1751,7 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = -1
+        u = [-1]
         A = [
             0 1
             0 0
@@ -1763,7 +1762,7 @@ function __debug() # debug
         ]
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
-        @test lagrange(o)(0, x, u, nothing) == -0.5u^2
+        @test lagrange(o)(0, x, u, nothing) == -0.5u[1]^2
         @test criterion(o) == :min
 
         t0 = 0
@@ -1780,7 +1779,7 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = -1
+        u = [-1]
         A = [
             0 1
             0 0
@@ -1791,7 +1790,7 @@ function __debug() # debug
         ]
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
-        @test lagrange(o)(0, x, u, nothing) == (-0.5 + tf) * u^2
+        @test lagrange(o)(0, x, u, nothing) == (-0.5 + tf) * u[1]^2
         @test criterion(o) == :min
 
         t0 = 0
@@ -1834,7 +1833,7 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = -1
+        u = [-1]
         A = [
             0 1
             0 0
@@ -1845,7 +1844,7 @@ function __debug() # debug
         ]
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
-        @test lagrange(o)(0, x, u, nothing) == 0.5u^2
+        @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
         @test criterion(o) == :max
 
         t0 = 0
@@ -1862,7 +1861,7 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = -1
+        u = [-1]
         A = [
             0 1
             0 0
@@ -1873,7 +1872,7 @@ function __debug() # debug
         ]
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
-        @test lagrange(o)(0, x, u, nothing) == -0.5u^2
+        @test lagrange(o)(0, x, u, nothing) == -0.5u[1]^2
         @test criterion(o) == :max
 
         t0 = 0
@@ -1890,7 +1889,7 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = -1
+        u = [-1]
         A = [
             0 1
             0 0
@@ -1901,7 +1900,7 @@ function __debug() # debug
         ]
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
-        @test lagrange(o)(0, x, u, nothing) == 0.5u^2
+        @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
         @test criterion(o) == :max
 
         t0 = 0
@@ -1918,7 +1917,7 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = -1
+        u = [-1]
         A = [
             0 1
             0 0
@@ -1929,7 +1928,7 @@ function __debug() # debug
         ]
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
-        @test lagrange(o)(0, x, u, nothing) == 0.5u^2
+        @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
         @test criterion(o) == :max
 
         t0 = 0
@@ -1946,7 +1945,7 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = -1
+        u = [-1]
         A = [
             0 1
             0 0
@@ -1957,7 +1956,7 @@ function __debug() # debug
         ]
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
-        @test lagrange(o)(0, x, u, nothing) == -0.5u^2
+        @test lagrange(o)(0, x, u, nothing) == -0.5u[1]^2
         @test criterion(o) == :max
 
         # -----------------------------------
@@ -2553,7 +2552,7 @@ function __debug() # debug
         x = [1, 2]
         x0 = 2 * x
         xf = 3 * x
-        u = -1
+        u = [-1]
         A = [
             0 1
             0 0
@@ -2564,7 +2563,7 @@ function __debug() # debug
         ]
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
-        @test lagrange(o)(0, x, u, nothing) == 0.5u^2
+        @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
         @test criterion(o) == :min
 
         @def o begin
@@ -2584,14 +2583,14 @@ function __debug() # debug
         x0 = [2, 3]
         xf = [4, 5]
         x = [1, 2]
-        u = 3
-        z = 4
-        @test __constraint(o, :eq1)(x0, xf, z) == x0[1] - z
-        @test __constraint(o, :eq2)(x0, xf, z) == xf[2]^2
+        u = [3]
+        z = [4]
+        @test __constraint(o, :eq1)(x0, xf, z) == x0[1:1] - z
+        @test __constraint(o, :eq2)(x0, xf, z) == [xf[2]^2]
         @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0
         @test __constraint(o, :eq3)(0, x, u, z) == z
-        @test __dynamics(0, o)(x, u, z) == [x[2], x[1]^2 + z]
-        @test lagrange(0, x, u, z) == u^2 + z * x[1]
+        @test __dynamics(0, o)(x, u, z) == [x[2], x[1]^2 + z[1]]
+        @test lagrange(0, x, u, z) == u[1]^2 + z[1] * x[1]
 
         @def o begin
             z in R, variable
@@ -2612,12 +2611,12 @@ function __debug() # debug
         x = [1, 2]
         u = 3
         z = 4
-        @test __constraint(o, :eq1)(x0, xf, z) == x0[1] - z
-        @test __constraint(o, :eq2)(x0, xf, z) == xf[2]^2
+        @test __constraint(o, :eq1)(x0, xf, z) == x0[1:1] - z
+        @test __constraint(o, :eq2)(x0, xf, z) == [xf[2]^2]
         @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0
         @test __constraint(o, :eq3)(0, x, u, z) == z
-        @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z]
-        @test lagrange(0, x, u, z) == u^2 + z * x[1]
+        @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
+        @test lagrange(0, x, u, z) == u[1]^2 + z[1] * x[1]
 
         @def o begin
             z in R^2, variable
@@ -2640,10 +2639,10 @@ function __debug() # debug
         x = [1, 2]
         u = [3, 0]
         z = [4, 1]
-        @test __constraint(o, :eq1)(x0, xf, z) == x0[1] - z[1]
-        @test __constraint(o, :eq2)(x0, xf, z) == xf[2]^2
+        @test __constraint(o, :eq1)(x0, xf, z) == x0[1:1] - z[1:1]
+        @test __constraint(o, :eq2)(x0, xf, z) == [xf[2]^2]
         @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0
-        @test __constraint(o, :eq3)(0, x, u, z) == z[1]
+        @test __constraint(o, :eq3)(0, x, u, z) == z[1:1]
         @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
         @test lagrange(0, x, u, z) == u[1]^2 + z[1] * x[1]
     end
