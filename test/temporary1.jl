@@ -7,6 +7,13 @@ module OptimalControl
 
 import CTModels
 
+# types
+
+PreModel = CTModels.PreModel
+Model = CTModels.Model
+
+# exceptions
+
 struct ParsingError <: Exception
     var::String
 end
@@ -22,20 +29,24 @@ dynamics! = CTModels.dynamics!
 constraint! = CTModels.constraint!
 objective! = CTModels.objective!
 definition! = CTModels.definition!
-PreModel = CTModels.PreModel
 build_model = CTModels.build_model
 
 # getters
 
 initial_time = CTModels.initial_time
 final_time = CTModels.final_time
+time_name = CTModels.time_name
 variable_dimension = CTModels.variable_dimension
+variable_components = CTModels.variable_components
 state_dimension = CTModels.state_dimension
+state_components = CTModels.state_components
 control_dimension = CTModels.control_dimension
+control_components = CTModels.control_components
 constraint = CTModels.constraint
 dynamics = CTModels.dynamics
 mayer = CTModels.mayer
 lagrange = CTModels.lagrange
+criterion = CTModels.criterion
 
 function to_out_of_place(f!, n; T=Float64)
     function f(args...; kwargs...)
