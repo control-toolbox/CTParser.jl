@@ -1100,10 +1100,10 @@ function test_onepass()
         @test __constraint(o, :eq9)(0, x, u, v) == x - z
         @test __constraint(o, :eq10)(0, x, u, v) == u - z
         @test __constraint(o, :eq11)(0, x, u, v) == x + u - z
-        @test __constraint(o, :eq12)(0, x, u, v) == v[1:1]
-        @test __constraint(o, :eq13)(0, x, u, v) == v[1:1]
-        @test __constraint(o, :eq14)(0, x, u, v) == v[1:1] + 2v[2:2]
-        @test __constraint(o, :eq15)(0, x, u, v) == v[1:1] + 2v[2:2]
+        @test __constraint(o, :eq12)(x0, xf, v) == v[1:1]
+        @test __constraint(o, :eq13)(x0, xf, v) == v[1:1]
+        @test __constraint(o, :eq14)(x0, xf, v) == v[1:1] + 2v[2:2]
+        @test __constraint(o, :eq15)(x0, xf, v) == v[1:1] + 2v[2:2]
 
         @def o begin
             v ∈ R, variable
@@ -2480,7 +2480,7 @@ function test_onepass()
         end
         y0 = [1, 2, 3, 4]
         yf = 2 * [1, 2, 3, 4]
-        @test citerion(o) == :min
+        @test criterion(o) == :min
         @test mayer(o)(y0, yf, nothing) == y0[3] + yf[4]
 
         @def o begin
@@ -2520,8 +2520,8 @@ function test_onepass()
             w ∈ R, control
             r = y₃
             v = y₄
-            aa = y₁ + w² + v³ + z₂
-            ẏ(s) == [aa(s), r²(s), 0, 0]
+            aa = y₁ + w^2 + v^3 + z₂
+            ẏ(s) == [aa(s), r^2(s), 0, 0]
             r(0) + v(z₁) + z₂ → min
         end
         z = [5, 6]
@@ -2560,7 +2560,7 @@ function test_onepass()
             v = y₄
             aa = y₁ + v³ + z₂
             aa(0) + y₂(z₁) → min
-            derivative(y)(t) == y(t) # generic (untested)
+            derivative(y)(s) == y(s) # generic (untested)
         end
         z = [5, 6]
         y0 = y
