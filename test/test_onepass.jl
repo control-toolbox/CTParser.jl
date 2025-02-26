@@ -1,6 +1,5 @@
 # test onepass
 # todo: dim > 1 variable for t0 / tf
-# todo: check that :variable_range gives a :boundary, not a :path
 # todo: test non-autonomous and / or variable __dynamics, __constraint
  
 # mapping
@@ -2739,7 +2738,7 @@ function test_onepass()
         @test __constraint(o, :eq1)(x0, xf, z) == x0[1:1] - z
         @test __constraint(o, :eq2)(x0, xf, z) == [xf[2]^2]
         @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0
-        @test __constraint(o, :eq3)(0, x, u, z) == z
+        @test __constraint(o, :eq3)(x0, xf, z) == z
         @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
         @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
 
@@ -2765,7 +2764,7 @@ function test_onepass()
         @test __constraint(o, :eq1)(x0, xf, z) == x0[1:1] - z
         @test __constraint(o, :eq2)(x0, xf, z) == [xf[2]^2]
         @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0
-        @test __constraint(o, :eq3)(0, x, u, z) == z
+        @test __constraint(o, :eq3)(x0, xf, z) == z
         @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
         @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
 
@@ -2780,7 +2779,7 @@ function test_onepass()
             0 <= v(1)^2 <= 1, (2)
             [0, 0] <= x(0) <= [1, 1], (♡)
             z1 >= 0, (3)
-            z2 == 1
+            z2 == 1, (4)
             u2(t) == 0
             derivative(x)(t) == [v(t), r(t)^2 + z1]
             integral(u1(t)^2 + z1 * x1(t)) => min
@@ -2793,7 +2792,8 @@ function test_onepass()
         @test __constraint(o, :eq1)(x0, xf, z) == x0[1:1] - z[1:1]
         @test __constraint(o, :eq2)(x0, xf, z) == [xf[2]^2]
         @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0
-        @test __constraint(o, :eq3)(0, x, u, z) == z[1:1]
+        @test __constraint(o, :eq3)(x0, xf, z) == z[1:1]
+        @test __constraint(o, :eq4)(x0, xf, z) == z[2:2]
         @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
         @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
     end
