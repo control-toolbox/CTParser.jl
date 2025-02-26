@@ -275,7 +275,7 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
             end => :($PREFIX.time!($p_ocp; ind0=$i, tf=$tf, time_name=$tt))
             :($v1) && if (v1 == p.v)
             end => quote
-                ($p_ocp.variable_dimension ≠ 1) && throw(
+                ($p_ocp.variable_dimension ≠ 1) && throw( # debug: add info (dim of var) in PreModel
                     $PREFIX.ParsingError("variable must be of dimension one for a time"),
                 )
                 $PREFIX.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt)
@@ -287,7 +287,7 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
             end => :($PREFIX.time!($p_ocp; t0=$t0, indf=$i, time_name=$tt))
             :($v1) && if (v1 == p.v)
             end => quote
-                ($p_ocp.variable_dimension ≠ 1) && throw(
+                ($p_ocp.variable_dimension ≠ 1) && throw( # debug: add info (dim of var) in PreModel
                     $PREFIX.ParsingError("variable must be of dimension one for a time"),
                 )
                 $PREFIX.time!($p_ocp; t0=$t0, indf=1, time_name=$tt)

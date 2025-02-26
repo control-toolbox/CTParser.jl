@@ -241,7 +241,7 @@ function test_onepass()
         x0 = 2 * x
         xf = 3 * x
         u = [3]
-        c = [u, 0]
+        c = [u[1], 0]
         @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1:1]
         @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
         @test __dynamics(o)(0, x, c, nothing) == [x[2], (x[1] + 2x[2])^2]
@@ -570,8 +570,8 @@ function test_onepass()
         @def ocp begin
             t ∈ [t0, tf], time
             u ∈ R⁹, state
-            x in R, state # generic (untested)
-            derivative(x)(t) == x(t) # generic (untested)
+            v in R, control # generic (untested)
+            derivative(u)(t) == x(u) # generic (untested)
             0 => min # generic (untested)
         end
         @test ocp isa Model
@@ -1097,9 +1097,9 @@ function test_onepass()
         @test __constraint(o, :eq5)(x0, xf, v) == x0 + xf - v[2:2]
         @test __constraint(o, :eq6)(x0, xf, v) == x0 + xf - v[2:2]
         @test __constraint(o, :eq7)(0, x, u, v) == x - v[1:1]
-        @test __constraint(o, :eq9)(0, x, u, v) == x - z
-        @test __constraint(o, :eq10)(0, x, u, v) == u - z
-        @test __constraint(o, :eq11)(0, x, u, v) == x + u - z
+        @test __constraint(o, :eq9)(0, x, u, v) == [x[1] - z]
+        @test __constraint(o, :eq10)(0, x, u, v) == [u[1] - z]
+        @test __constraint(o, :eq11)(0, x, u, v) == [x[1] + u[1] - z]
         @test __constraint(o, :eq12)(x0, xf, v) == v[1:1]
         @test __constraint(o, :eq13)(x0, xf, v) == v[1:1]
         @test __constraint(o, :eq14)(x0, xf, v) == v[1:1] + 2v[2:2]
@@ -2521,7 +2521,7 @@ function test_onepass()
             r = y₃
             v = y₄
             aa = y₁ + w^2 + v^3 + z₂
-            ẏ(s) == [aa(s), r^2(s), 0, 0]
+            ẏ(s) == [aa(s), (r^2)(s), 0, 0] # debug: pb with r^2(s) = r^(2s)?
             r(0) + v(z₁) + z₂ → min
         end
         z = [5, 6]
