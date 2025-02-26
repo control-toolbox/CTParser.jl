@@ -1,12 +1,12 @@
-using CTParser: CTParser, subs, replace_call, has, constraint_type, @def 
+using CTParser: CTParser, subs, replace_call, has, constraint_type, @def # some utils are named for testing
 using Test
 using Aqua
 
-include("temporary1.jl") # debug
+include("temporary1.jl") # todo: remove
 
 #
 @testset verbose = true showtiming = true "CTParser tests" begin
-	for name in (:aqua, :utils)
+	for name in (:aqua, :utils, :onepass)
 	#for name in (:utils,)
         @testset "$(name)" begin
             test_name = Symbol(:test_, name)
@@ -16,4 +16,4 @@ include("temporary1.jl") # debug
     end
 end
 
-include("temporary2.jl") # debug
+include("temporary2.jl") # todo: remove

@@ -1,5 +1,5 @@
 # onepass
-# todo:
+# todo: as_range / as_vector for rg / lb, ub could be done here in p_constraint when calling PREFIX.constraint!
 # - cannot call solve if problem not fully defined (dynamics not defined...)
 # - doc: explain projections wrt to t0, tf, t; (...x1...x2...)(t) -> ...gensym1...gensym2... (most internal first)
 # - robustify repl
@@ -25,6 +25,7 @@ $(TYPEDEF)
     tf::Union{Real,Symbol,Expr,Nothing} = nothing
     x::Union{Symbol,Nothing} = nothing
     u::Union{Symbol,Nothing} = nothing
+    is_scalar_x::Bool = false # todo: remove when allowing componentwise declaration of dynamics
     aliases::OrderedDict{Symbol,Union{Real,Symbol,Expr}} = __init_aliases()
     lnum::Int = 0
     line::String = ""
@@ -107,6 +108,16 @@ parse!(p, p_ocp, e; log=false) = begin
         :($u ∈ R^$m, control) => p_control!(p, p_ocp, u, m; log)
         :($u ∈ R, control) => p_control!(p, p_ocp, u, 1; log)
         # dynamics                    
+        :(∂($x[1])($t) == $e1) => if p.is_scalar_x # todo: remove in future
+            p_dynamics!(p, p_ocp, x, t, e1; log)
+        else
+            (return __throw("Wrong dynamics declaration", p.lnum, p.line))
+        end
+        :(∂($x[1])($t) == $e1, $label) => if p.is_scalar_x # todo: remove in future
+            p_dynamics!(p, p_ocp, x, t, e1, label; log)
+        else
+            (return __throw("Wrong dynamics declaration", p.lnum, p.line))
+        end
         :(∂($x)($t) == $e1) => p_dynamics!(p, p_ocp, x, t, e1; log)
         :(∂($x)($t) == $e1, $label) => p_dynamics!(p, p_ocp, x, t, e1, label; log)
         # constraints                 
@@ -203,11 +214,29 @@ parse!(p, p_ocp, e; log=false) = begin
     end
 end
 
+function p_alias!(p, p_ocp, a, e; log=false)
+    log && println("alias: $a = $e")
+    a isa Symbol || return __throw("forbidden alias name: $a", p.lnum, p.line)
+    aa = QuoteNode(a)
+    ee = QuoteNode(e)
+    for i in 1:9
+        p.aliases[Symbol(a, CTBase.ctupperscripts(i))] = :($a^$i)
+    end
+    p.aliases[a] = e
+    code = :(LineNumberNode(0, "alias: " * string($aa) * " = " * string($ee)))
+    return __wrap(code, p.lnum, p.line)
+end
+
 function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
     log && println("variable: $v, dim: $q")
     v isa Symbol || return __throw("forbidden variable name: $v", p.lnum, p.line)
-    p.v = v
     vv = QuoteNode(v)
+    if q == 1
+        vg = Symbol(v, gensym())
+        p.aliases[v] = :($vg[1])
+        v = vg 
+    end
+    p.v = v
     qq = q isa Int ? q : 9
     for i in 1:qq
         p.aliases[Symbol(v, CTBase.ctindices(i))] = :($v[$i])
@@ -232,19 +261,6 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_alias!(p, p_ocp, a, e; log=false)
-    log && println("alias: $a = $e")
-    a isa Symbol || return __throw("forbidden alias name: $a", p.lnum, p.line)
-    aa = QuoteNode(a)
-    ee = QuoteNode(e)
-    for i in 1:9
-        p.aliases[Symbol(a, CTBase.ctupperscripts(i))] = :($a^$i)
-    end
-    p.aliases[a] = e
-    code = :(LineNumberNode(0, "alias: " * string($aa) * " = " * string($ee)))
-    return __wrap(code, p.lnum, p.line)
-end
-
 function p_time!(p, p_ocp, t, t0, tf; log=false)
     log && println("time: $t, initial time: $t0, final time: $tf")
     t isa Symbol || return __throw("forbidden time name: $t", p.lnum, p.line)
@@ -259,8 +275,8 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
             end => :($PREFIX.time!($p_ocp; ind0=$i, tf=$tf, time_name=$tt))
             :($v1) && if (v1 == p.v)
             end => quote
-                ($p_ocp.variable_dimension ≠ 1) && throw(
-                    IncorrectArgument("variable must be of dimension one for a time"),
+                ($p_ocp.variable_dimension ≠ 1) && throw( # debug: add info (dim of var) in PreModel
+                    $PREFIX.ParsingError("variable must be of dimension one for a time"),
                 )
                 $PREFIX.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt)
             end
@@ -271,8 +287,8 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
             end => :($PREFIX.time!($p_ocp; t0=$t0, indf=$i, time_name=$tt))
             :($v1) && if (v1 == p.v)
             end => quote
-                ($p_ocp.variable_dimension ≠ 1) && throw(
-                    IncorrectArgument("variable must be of dimension one for a time"),
+                ($p_ocp.variable_dimension ≠ 1) && throw( # debug: add info (dim of var) in PreModel
+                    $PREFIX.ParsingError("variable must be of dimension one for a time"),
                 )
                 $PREFIX.time!($p_ocp; t0=$t0, indf=1, time_name=$tt)
             end
@@ -290,8 +306,15 @@ end
 function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
     log && println("state: $x, dim: $n")
     x isa Symbol || return __throw("forbidden state name: $x", p.lnum, p.line)
-    p.x = x
+    p.aliases[Symbol(Unicode.normalize(string(x, "̇")))] = :(∂($x))
     xx = QuoteNode(x)
+    if n == 1
+        xg = Symbol(x, gensym())
+        p.aliases[x] = :($xg[1])
+        x = xg 
+        p.is_scalar_x = true # todo: remove in future
+    end
+    p.x = x
     nn = n isa Int ? n : 9
     for i in 1:nn
         p.aliases[Symbol(x, CTBase.ctindices(i))] = :($x[$i])
@@ -302,7 +325,6 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
     for i in 1:9
         p.aliases[Symbol(x, CTBase.ctupperscripts(i))] = :($x^$i)
     end # Make x¹, x²... if the state is named x
-    p.aliases[Symbol(Unicode.normalize(string(x, "̇")))] = :(∂($x))
     if (isnothing(components_names))
         code = :($PREFIX.state!($p_ocp, $n, $xx))
     else
@@ -321,8 +343,13 @@ end
 function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
     log && println("control: $u, dim: $m")
     u isa Symbol || return __throw("forbidden control name: $u", p.lnum, p.line)
-    p.u = u
     uu = QuoteNode(u)
+    if m == 1
+        ug = Symbol(u, gensym())
+        p.aliases[u] = :($ug[1])
+        u = ug 
+    end
+    p.u = u
     mm = m isa Int ? m : 9
     for i in 1:mm
         p.aliases[Symbol(u, CTBase.ctindices(i))] = :($u[$i])
@@ -371,11 +398,11 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
             end
         end
         (:control_range, rg) =>
-            :(constraint!($p_ocp, :control; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
+            :($PREFIX.constraint!($p_ocp, :control; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
         (:state_range, rg) =>
-            :(constraint!($p_ocp, :state; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
+            :($PREFIX.constraint!($p_ocp, :state; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
         (:variable_range, rg) =>
-            :(constraint!($p_ocp, :variable; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
+            :($PREFIX.constraint!($p_ocp, :variable; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
         :state_fun || control_fun || :mixed => begin # now all treated as path
             gs = gensym()
             xt = gensym()
@@ -388,7 +415,7 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
                     @views $r[:] .= $ee2
                     return nothing
                 end
-                constraint!($p_ocp, :path; f=$gs, lb=$e1, ub=$e3, label=$llabel)
+                $PREFIX.constraint!($p_ocp, :path; f=$gs, lb=$e1, ub=$e3, label=$llabel)
             end
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
@@ -397,8 +424,8 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
 end
 
 function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
-    ẋ = Symbol(x, "̇")
-    log && println("dynamics: $ẋ($t) == $e")
+    ∂x = Symbol(:∂, x)
+    log && println("dynamics: $∂x($t) == $e")
     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
@@ -421,7 +448,7 @@ function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_lagrange!(p, p_ocp, e, type; log=false) # debug: check new objective! interface
+function p_lagrange!(p, p_ocp, e, type; log=false)
     log && println("objective (Lagrange): ∫($e) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
@@ -432,18 +459,17 @@ function p_lagrange!(p, p_ocp, e, type; log=false) # debug: check new objective!
     ttype = QuoteNode(type)
     gs = gensym()
     r = gensym()
-    args = [r, p.t, xt, ut, p.v]
+    args = [p.t, xt, ut, p.v]
     code = quote
         function $gs($(args...))
-            @views $r[:] .= $e
-            return nothing
+            return @views $e
         end
         $PREFIX.objective!($p_ocp, $ttype; lagrange=$gs)
     end
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_mayer!(p, p_ocp, e, type; log=false) # debug: check new objective! interface
+function p_mayer!(p, p_ocp, e, type; log=false)
     log && println("objective (Mayer): $e → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.t0) && return __throw("time not yet declared", p.lnum, p.line)
@@ -460,18 +486,17 @@ function p_mayer!(p, p_ocp, e, type; log=false) # debug: check new objective! in
     e = replace_call(e, p.x, p.t0, x0)
     e = replace_call(e, p.x, p.tf, xf)
     ttype = QuoteNode(type)
-    args = [r, x0, xf, p.v]
+    args = [x0, xf, p.v]
     code = quote
         function $gs($(args...))
-            @views $r[:] .= $e
-            return nothing
+            return @views $e
         end
         $PREFIX.objective!($p_ocp, $ttype; mayer=$gs)
     end
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_bolza!(p, p_ocp, e1, e2, type; log=false) # debug: check new objective! interface
+function p_bolza!(p, p_ocp, e1, e2, type; log=false)
     log && println("objective (Bolza): $e1 + ∫($e2) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.t0) && return __throw("time not yet declared", p.lnum, p.line)
@@ -484,22 +509,20 @@ function p_bolza!(p, p_ocp, e1, e2, type; log=false) # debug: check new objectiv
     r1 = gensym()
     e1 = replace_call(e1, p.x, p.t0, x0)
     e1 = replace_call(e1, p.x, p.tf, xf)
-    args1 = [r1, x0, xf, p.v]
+    args1 = [x0, xf, p.v]
     gs2 = gensym()
     xt = gensym()
     ut = gensym()
     r2 = gensym()
     e2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
-    args2 = [r2, p.t, xt, ut, p.v]
+    args2 = [p.t, xt, ut, p.v]
     ttype = QuoteNode(type)
     code = quote
         function $gs1($(args1...))
-            $r1[:] .= $e1
-            return nothing
+            return @views $e1
         end
         function $gs2($(args2...))
-            $r2[:] .= $e2
-            return nothing
+            return @views $e2
         end
         $PREFIX.objective!($p_ocp, $ttype; mayer=$gs1, lagrange=$gs2)
     end
@@ -563,7 +586,7 @@ macro def(e)
     return esc(code)
 end
 
-macro def(ocp, e, log=false) # debug: update
+macro def(ocp, e, log=false)
     try
         p_ocp = gensym()
         code = :($p_ocp = $PREFIX.PreModel())
