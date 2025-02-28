@@ -3,6 +3,9 @@
 [ci-img]: https://github.com/control-toolbox/CTParser.jl/actions/workflows/CI.yml/badge.svg?branch=main
 [ci-url]: https://github.com/control-toolbox/CTParser.jl/actions/workflows/CI.yml?query=branch%3Amain
 
+[release-img]: https://img.shields.io/github/v/release/control-toolbox/CTParser.jl.svg
+[release-url]: https://github.com/control-toolbox/CTParser.jl/releases
+
 [co-img]: https://codecov.io/gh/control-toolbox/CTParser.jl/branch/main/graph/badge.svg?token=YM5YQQUSO3
 [co-url]: https://codecov.io/gh/control-toolbox/CTParser.jl
 
@@ -30,6 +33,7 @@ The control-toolbox ecosystem gathers Julia packages for mathematical control an
 :-------------------|:------------------|
 | Documentation     | [![Documentation][doc-stable-img]][doc-stable-url] [![Documentation][doc-dev-img]][doc-dev-url]                   | 
 | Code Status       | [![Build Status][ci-img]][ci-url] [![Covering Status][co-img]][co-url] [![Aqua.jl][aqua-img]][aqua-url] [![Code Style: Blue][blue-img]][blue-url] |
+| Release           | [![Release][release-img]][release-url]        |
 | Licence           | [![License: MIT][licence-img]][licence-url]   |
 
 ## Contributing
