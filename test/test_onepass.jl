@@ -1437,8 +1437,6 @@ function test_onepass()
         #
         # test all constraints on @def macro
         #
-        # ref: https://github.com/control-toolbox/CTBase.jl/issues/9
-        #
 
         #function test_ctparser_constraints()
 

@@ -1,4 +1,4 @@
-using CTParser: CTParser, subs, replace_call, has, constraint_type, @def # some utils are named for testing
+using CTParser: CTParser, subs, replace_call, has, constraint_type, @def # some routines are named for testing
 using Test
 using Aqua
 
@@ -15,5 +15,3 @@ include("temporary1.jl") # todo: remove
         end
     end
 end
-
-include("temporary2.jl") # todo: remove
