@@ -24,7 +24,7 @@ lagrange = OptimalControl.lagrange
 criterion = OptimalControl.criterion
 Model = OptimalControl.Model
 
-ParsingError = OptimalControl.ParsingError
+ParsingError = CTBase.ParsingError
 
 function test_onepass()
 
@@ -2520,7 +2520,7 @@ function test_onepass()
             r = y₃
             v = y₄
             aa = y₁ + w^2 + v^3 + z₂
-            ẏ(s) == [aa(s), (r^2)(s), 0, 0] # debug: pb with r^2(s) = r^(2s)? check
+            ẏ(s) == [aa(s), (r^2)(s), 0, 0]
             r(0) + v(z₁) + z₂ → min
         end
         z = [5, 6]

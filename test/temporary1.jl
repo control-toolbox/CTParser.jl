@@ -73,7 +73,7 @@ function __constraint(ocp, label)
     elseif type == :control
         f = (t, x, u, v) -> u[c]
     elseif type == :variable
-        f = (x0, xf, v) -> v[c] # debug: :variable_range gives a :boundary, not a :path (check on CTModels)
+        f = (x0, xf, v) -> v[c] # :variable_range gives a :boundary, not a :path (see CTModels)
     else
         throw("Unknow constraint type")
     end

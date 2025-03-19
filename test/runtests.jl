@@ -1,6 +1,8 @@
 using CTParser: CTParser, subs, replace_call, has, constraint_type, @def # some routines are named for testing
 using Test
 using Aqua
+import CTBase # ParsingError
+import CTModels # functional primitives, getters...
 
 include("temporary1.jl") # todo: remove
 
