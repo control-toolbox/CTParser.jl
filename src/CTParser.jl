@@ -19,9 +19,6 @@ using OrderedCollections
 using Parameters # @with_kw: to have default values in struct
 using Unicode
 
-# exports
-export @def
-
 # sources
 include("utils.jl")
 include("onepass.jl")
