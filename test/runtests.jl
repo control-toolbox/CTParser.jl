@@ -4,8 +4,6 @@ using Aqua
 import CTBase # ParsingError
 import CTModels # functional primitives, getters...
 
-include("temporary1.jl") # todo: remove
-
 #
 @testset verbose = true showtiming = true "CTParser tests" begin
 	for name in (:aqua, :utils, :onepass)
