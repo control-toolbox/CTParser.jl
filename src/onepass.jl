@@ -225,7 +225,7 @@ function p_alias!(p, p_ocp, a, e; log=false)
     aa = QuoteNode(a)
     ee = QuoteNode(e)
     for i in 1:9
-        p.aliases[Symbol(a, CTBase.ctupperscripts(i))] = :($a^$i)
+        p.aliases[Symbol(a, CTBase.ctupperscripts(i))] = :($a^$i) # todo: remove? (cf. such aliases now removed for variable, state and control)
     end
     p.aliases[a] = e
     code = :(LineNumberNode(0, "alias: " * string($aa) * " = " * string($ee)))
@@ -246,13 +246,10 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
     qq = q isa Int ? q : 9
     for i in 1:qq
         p.aliases[Symbol(v, CTBase.ctindices(i))] = :($v[$i])
-    end # make: v₁, v₂... if the variable is named v
+    end # make v₁, v₂... if the variable is named v
     for i in 1:qq
         p.aliases[Symbol(v, i)] = :($v[$i])
-    end # make: v1, v2... if the variable is named v
-    for i in 1:9
-        p.aliases[Symbol(v, CTBase.ctupperscripts(i))] = :($v^$i)
-    end # make: v¹, v²... if the variable is named v
+    end # make v1, v2... if the variable is named v
     if (isnothing(components_names))
         code = :($prefix.variable!($p_ocp, $q, $vv))
     else
@@ -326,13 +323,10 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
     nn = n isa Int ? n : 9
     for i in 1:nn
         p.aliases[Symbol(x, CTBase.ctindices(i))] = :($x[$i])
-    end # Make x₁, x₂... if the state is named x
+    end # make x₁, x₂... if the state is named x
     for i in 1:nn
         p.aliases[Symbol(x, i)] = :($x[$i])
-    end # Make x1, x2... if the state is named x
-    for i in 1:9
-        p.aliases[Symbol(x, CTBase.ctupperscripts(i))] = :($x^$i)
-    end # Make x¹, x²... if the state is named x
+    end # make x1, x2... if the state is named x
     if (isnothing(components_names))
         code = :($prefix.state!($p_ocp, $n, $xx))
     else
@@ -362,13 +356,10 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
     mm = m isa Int ? m : 9
     for i in 1:mm
         p.aliases[Symbol(u, CTBase.ctindices(i))] = :($u[$i])
-    end # make: u₁, u₂... if the control is named u
+    end # make u₁, u₂... if the control is named u
     for i in 1:mm
         p.aliases[Symbol(u, i)] = :($u[$i])
-    end # make: u1, u2... if the control is named u
-    for i in 1:9
-        p.aliases[Symbol(u, CTBase.ctupperscripts(i))] = :($u^$i)
-    end # make: u¹, u²... if the control is named u
+    end # make u1, u2... if the control is named u
     if (isnothing(components_names))
         code = :($prefix.control!($p_ocp, $m, $uu))
     else
