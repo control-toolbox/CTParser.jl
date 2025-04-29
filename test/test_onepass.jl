@@ -781,7 +781,7 @@ function test_onepass()
             r = y₃
             v = y₄
             aa = y₁(s) + v³ + z₂
-            ẏ(s) == [aa(s) + w(s)^2, r²(s), 0, 0]
+            ẏ(s) == [aa(s) + w(s)^2, r(s)^2, 0, 0]
             0 => min # generic (untested)
         end
         z = [5, 6]
