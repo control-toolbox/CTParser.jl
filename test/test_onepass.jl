@@ -749,7 +749,7 @@ function test_onepass()
             r = y₃
             v = y₄
             aa = y₁
-            ẏ(s) == [aa(s), r²(s) + w(s) + z₁, 0, 0]
+            ẏ(s) == [aa(s), r(s)^2 + w(s) + z₁, 0, 0]
             0 => min # generic (untested)
         end
         z = [5, 6]
@@ -798,8 +798,8 @@ function test_onepass()
             w ∈ R, control
             r = y₃
             v = y₄
-            aa = y₁(0) + v³ + z₂
-            ẏ(__t) == [aa(__t) + (w^2)(__t), r²(__t), 0, 0]
+            aa = y₁(0) + v^3 + z₂
+            ẏ(__t) == [aa(__t) + (w^2)(__t), r(__t)^2, 0, 0]
             aa(0) + y₂(z₁) → min
         end
         z = [5, 6]
@@ -823,7 +823,7 @@ function test_onepass()
             u ∈ R, control
             r = x₁
             v = x₂
-            w = r¹ + 2v³
+            w = r + 2v^3
             r(0) + w(tf) - tf^2 == 0, (1)
             derivative(x)(t) == x(t) # generic (untested)
             0 => min # generic (untested)
@@ -2548,8 +2548,8 @@ function test_onepass()
             w ∈ R, control
             r = y₃
             v = y₄
-            aa = y₁(s) + v³ + z₂
-            ẏ(s) == [aa(s) + (w^2)(s), r²(s), 0, 0]
+            aa = y₁(s) + v^3 + z₂
+            ẏ(s) == [aa(s) + (w^2)(s), r(s)^2, 0, 0]
             r(0) + v(z₁) + z₂ → min
         end
         z = [5, 6]
@@ -2567,7 +2567,7 @@ function test_onepass()
             w ∈ R, control
             r = y₃
             v = y₄
-            aa = y₁ + v³ + z₂
+            aa = y₁ + v^3 + z₂
             aa(0) + y₂(z₁) → min
             derivative(y)(s) == y(s) # generic (untested)
         end
@@ -2583,8 +2583,8 @@ function test_onepass()
             w ∈ R, control
             r = y₃
             v = y₄
-            aa = y₁(__t) + v³ + z₂
-            ẏ(__t) == [aa(__t) + (w^2)(__t), r²(__t), 0, 0]
+            aa = y₁(__t) + v^3 + z₂
+            ẏ(__t) == [aa(__t) + (w^2)(__t), r(__t)^2, 0, 0]
             aa(0) + y₂(z₁) → min
         end
         z = [5, 6]
