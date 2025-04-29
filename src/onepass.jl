@@ -224,9 +224,9 @@ function p_alias!(p, p_ocp, a, e; log=false)
     a isa Symbol || return __throw("forbidden alias name: $a", p.lnum, p.line)
     aa = QuoteNode(a)
     ee = QuoteNode(e)
-    for i in 1:9
-        p.aliases[Symbol(a, CTBase.ctupperscripts(i))] = :($a^$i) # todo: remove? (cf. such aliases now removed for variable, state and control)
-    end
+    #for i in 1:9
+    #    p.aliases[Symbol(a, CTBase.ctupperscripts(i))] = :($a^$i) # todo: remove? (cf. such aliases now removed for variable, state and control)
+    #end
     p.aliases[a] = e
     code = :(LineNumberNode(0, "alias: " * string($aa) * " = " * string($ee)))
     return __wrap(code, p.lnum, p.line)
