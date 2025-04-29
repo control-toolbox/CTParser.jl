@@ -780,7 +780,7 @@ function test_onepass()
             w ∈ R, control
             r = y₃
             v = y₄
-            aa = y₁(s) + v³ + z₂
+            aa = y₁(s) + v^3 + z₂
             ẏ(s) == [aa(s) + w(s)^2, r(s)^2, 0, 0]
             0 => min # generic (untested)
         end
