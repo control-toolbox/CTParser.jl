@@ -240,6 +240,8 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
     if q == 1
         vg = Symbol(v, gensym())
         p.aliases[v] = :($vg[1])
+        p.aliases[Symbol(v, CTBase.ctindices(1))] = :($vg[1])
+        p.aliases[Symbol(v, 1)] = :($vg[1])
         v = vg 
     end
     p.v = v
