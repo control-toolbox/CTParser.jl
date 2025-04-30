@@ -2828,7 +2828,6 @@ function test_onepass()
         r = similar(x)
         @test final_time(o, v) == v[1]
         dynamics(o)(r, t, x, u, v)
-        dynamics(o)(r, t, x, u, v)
         @test r == t * v[1] * x + u
 
         o = @def begin
@@ -2839,6 +2838,7 @@ function test_onepass()
             derivative(x)(t) == t * v₁ * x(t) + u(t)
             1 → min 
         end
+
         @test final_time(o, v) == v[1]
         dynamics(o)(r, t, x, u, v)
         @test r == t * v[1] * x + u
@@ -2851,6 +2851,7 @@ function test_onepass()
             derivative(x)(t) == t * v1 * x(t) + u(t)
             1 → min 
         end
+        
         @test final_time(o, v) == v[1]
         dynamics(o)(r, t, x, u, v)
         @test r == t * v[1] * x + u
@@ -2863,6 +2864,7 @@ function test_onepass()
             derivative(x)(t) == t * v[1] * x(t) + u(t)
             1 → min 
         end
+
         @test final_time(o, v) == v[1]
         dynamics(o)(r, t, x, u, v)
         @test r == t * v[1] * x + u
@@ -2882,7 +2884,6 @@ function test_onepass()
         u = [10., 20.]
         r = similar(x)
         dynamics(o)(r, t, x, u, v)
-        dynamics(o)(r, t, x, u, v)
         @test r == [t * x[1] + u[1]]
 
         o = @def begin
@@ -2899,7 +2900,7 @@ function test_onepass()
             t ∈ [0, 1], time
             x ∈ R, state
             u ∈ R², control
-            derivative(x)(t) == t * x1 (t) + u₁(t)
+            derivative(x)(t) == t * x1(t) + u₁(t)
             1 → min 
         end
 
@@ -2914,6 +2915,56 @@ function test_onepass()
         end
 
         @test r == [t * x[1] + u[1]]
+
+        # control
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            derivative(x)(t) == t * u(t) * x(t)
+            1 → min 
+        end
+
+        v = nothing
+        t = 7.
+        x = [3., 4.]
+        u = [10.]
+        r = similar(x)
+        dynamics(o)(r, t, x, u, v)
+        @test r == t * u[1] * x
+
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            derivative(x)(t) == t * u₁(t) * x(t)
+            1 → min 
+        end
+
+        dynamics(o)(r, t, x, u, v)
+        @test r == t * u[1] * x
+
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            derivative(x)(t) == t * u1(t) * x(t)
+            1 → min 
+        end
+
+        dynamics(o)(r, t, x, u, v)
+        @test r == t * u[1] * x
+
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            derivative(x)(t) == t * u[1](t) * x(t)
+            1 → min 
+        end
+
+        dynamics(o)(r, t, x, u, v)
+        @test r == t * u[1] * x
 
     end
 
