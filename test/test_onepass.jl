@@ -2867,7 +2867,7 @@ function test_onepass()
         dynamics(o)(r, t, x, u, v)
         @test r == t * v[1] * x + u
 
-        # variable
+        # state
         o = @def begin
             t ∈ [0, 1], time
             x ∈ R, state
@@ -2883,6 +2883,36 @@ function test_onepass()
         r = similar(x)
         dynamics(o)(r, t, x, u, v)
         dynamics(o)(r, t, x, u, v)
+        @test r == [t * x[1] + u[1]]
+
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R², control
+            derivative(x)(t) == t * x₁(t) + u₁(t)
+            1 → min
+        end
+
+        @test r == [t * x[1] + u[1]]
+
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R², control
+            derivative(x)(t) == t * x1 (t) + u₁(t)
+            1 → min 
+        end
+
+        @test r == [t * x[1] + u[1]]
+
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R², control
+            derivative(x)(t) == t * x[1](t) + u₁(t)
+            1 → min 
+        end
+
         @test r == [t * x[1] + u[1]]
 
     end
