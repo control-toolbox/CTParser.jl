@@ -2827,7 +2827,8 @@ function test_onepass()
         r = similar(x)
         @test final_time(o, v) == v[1]
         dynamics(o)(r, t, x, u, v)
-        @test r == t * v * x + u
+        dynamics(o)(r, t, x, u, v)
+        @test r == t * v[1] * x + u
 
         o = @def begin
             v ∈ R, variable
@@ -2839,7 +2840,7 @@ function test_onepass()
         end
         @test final_time(o, v) == v[1]
         dynamics(o)(r, t, x, u, v)
-        @test r == t * v * x + u
+        @test r == t * v[1] * x + u
 
         o = @def begin
             v ∈ R, variable
@@ -2851,7 +2852,7 @@ function test_onepass()
         end
         @test final_time(o, v) == v[1]
         dynamics(o)(r, t, x, u, v)
-        @test r == t * v * x + u
+        @test r == t * v[1] * x + u
 
         o = @def begin
             v ∈ R, variable
@@ -2863,7 +2864,7 @@ function test_onepass()
         end
         @test final_time(o, v) == v[1]
         dynamics(o)(r, t, x, u, v)
-        @test r == t * v * x + u
+        @test r == t * v[1] * x + u
 
     end
 

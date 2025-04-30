@@ -318,6 +318,8 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
     if n == 1
         xg = Symbol(x, gensym())
         p.aliases[x] = :($xg[1])
+        p.aliases[Symbol(x, CTBase.ctindices(1))] = :($xg[1])
+        p.aliases[Symbol(x, 1)] = :($xg[1])
         x = xg 
         p.is_scalar_x = true # todo: remove in future
     end
@@ -352,6 +354,8 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
     if m == 1
         ug = Symbol(u, gensym())
         p.aliases[u] = :($ug[1])
+        p.aliases[Symbol(u, CTBase.ctindices(1))] = :($ug[1])
+        p.aliases[Symbol(u, 1)] = :($ug[1])
         u = ug 
     end
     p.u = u
