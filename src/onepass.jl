@@ -31,7 +31,7 @@ $(TYPEDEF)
     x::Union{Symbol,Nothing} = nothing
     u::Union{Symbol,Nothing} = nothing
     is_scalar_x::Bool = false # todo: remove when allowing componentwise declaration of dynamics
-    aliases::OrderedDict{Symbol,Union{Real,Symbol,Expr}} = __init_aliases()
+    aliases::OrderedDict{Union{Symbol,Expr},Union{Real,Symbol,Expr}} = __init_aliases() # Dict ordered by Symbols *and Expr* just for scalar variable / state / control
     lnum::Int = 0
     line::String = ""
 end
@@ -239,6 +239,7 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
     vv = QuoteNode(v)
     if q == 1
         vg = Symbol(v, gensym())
+        p.aliases[:($v[1])] = :($vg[1]) # case for which the Dict of aliases can be indexed by Expr, not only Symbol
         p.aliases[v] = :($vg[1])
         p.aliases[Symbol(v, CTBase.ctindices(1))] = :($vg[1])
         p.aliases[Symbol(v, 1)] = :($vg[1])
@@ -281,7 +282,7 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
             end => :($prefix.time!($p_ocp; ind0=$i, tf=$tf, time_name=$tt))
             :($v1) && if (v1 == p.v)
             end => quote
-                ($p_ocp.variable_dimension ≠ 1) && throw( # debug: add info (dim of var) in PreModel
+                ($p_ocp.variable_dimension ≠ 1) && throw( # todo: add info (dim of var) in PreModel
                     CTBase.ParsingError("variable must be of dimension one for a time"),
                 )
                 $prefix.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt)
@@ -293,7 +294,7 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
             end => :($prefix.time!($p_ocp; t0=$t0, indf=$i, time_name=$tt))
             :($v1) && if (v1 == p.v)
             end => quote
-                ($p_ocp.variable_dimension ≠ 1) && throw( # debug: add info (dim of var) in PreModel
+                ($p_ocp.variable_dimension ≠ 1) && throw( # todo: add info (dim of var) in PreModel
                     CTBase.ParsingError("variable must be of dimension one for a time"),
                 )
                 $prefix.time!($p_ocp; t0=$t0, indf=1, time_name=$tt)

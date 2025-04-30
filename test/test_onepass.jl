@@ -2811,6 +2811,7 @@ function test_onepass()
     @testset "scalar variable, state, constraint" begin
         println("scalar variable, state, constraint...")
 
+        # variable
         o = @def begin
             v ∈ R, variable
             t ∈ [0, v], time
@@ -2865,6 +2866,24 @@ function test_onepass()
         @test final_time(o, v) == v[1]
         dynamics(o)(r, t, x, u, v)
         @test r == t * v[1] * x + u
+
+        # variable
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R², control
+            derivative(x)(t) == t * x(t) + u₁(t)
+            1 → min 
+        end
+
+        v = nothing
+        t = 7.
+        x = [3.]
+        u = [10., 20.]
+        r = similar(x)
+        dynamics(o)(r, t, x, u, v)
+        dynamics(o)(r, t, x, u, v)
+        @test r == [t * x[1] + u[1]]
 
     end
 
