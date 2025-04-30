@@ -239,7 +239,7 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
     vv = QuoteNode(v)
     if q == 1
         vg = Symbol(v, gensym())
-        p.aliases[:($v[1])] = :($vg[1]) # case for which the Dict of aliases can be indexed by Expr, not only Symbol
+        p.aliases[:($v[1])] = :($vg[1]) # case for which the Dict of aliases can be indexed by Expr, not only Symbol; avoids (otherwise harmless) vg[1][1] that will not be accepted for t0 or tf
         p.aliases[v] = :($vg[1])
         p.aliases[Symbol(v, CTBase.ctindices(1))] = :($vg[1])
         p.aliases[Symbol(v, 1)] = :($vg[1])
@@ -318,6 +318,7 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
     xx = QuoteNode(x)
     if n == 1
         xg = Symbol(x, gensym())
+        p.aliases[:($x[1])] = :($xg[1]) # not compulsory as xg[1][1] is ok
         p.aliases[x] = :($xg[1])
         p.aliases[Symbol(x, CTBase.ctindices(1))] = :($xg[1])
         p.aliases[Symbol(x, 1)] = :($xg[1])
@@ -354,6 +355,7 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
     uu = QuoteNode(u)
     if m == 1
         ug = Symbol(u, gensym())
+        p.aliases[:($u[1])] = :($ug[1]) # not compulsory as ug[1][1] is ok
         p.aliases[u] = :($ug[1])
         p.aliases[Symbol(u, CTBase.ctindices(1))] = :($ug[1])
         p.aliases[Symbol(u, 1)] = :($ug[1])
