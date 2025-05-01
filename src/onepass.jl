@@ -2,7 +2,6 @@
 # todo: as_range / as_vector for rg / lb, ub could be done here in p_constraint when calling PREFIX.constraint!
 # - cannot call solve if problem not fully defined (dynamics not defined...)
 # - doc: explain projections wrt to t0, tf, t; (...x1...x2...)(t) -> ...gensym1...gensym2... (most internal first)
-# - robustify repl
 # - additional checks: when generating functions (constraints, dynamics, costs), there should not be any x or u left
 #   (but the user might indeed do so); meaning that has(ee, x/u/t) must be false (postcondition)
 # - tests exceptions (parsing and semantics/runtime)
@@ -30,7 +29,7 @@ $(TYPEDEF)
     tf::Union{Real,Symbol,Expr,Nothing} = nothing
     x::Union{Symbol,Nothing} = nothing
     u::Union{Symbol,Nothing} = nothing
-    is_scalar_x::Bool = false # todo: remove when allowing componentwise declaration of dynamics
+    is_scalar_x::Bool = false # todo: remove in future, when allowing componentwise declaration of dynamics
     aliases::OrderedDict{Union{Symbol,Expr},Union{Real,Symbol,Expr}} = __init_aliases() # Dict ordered by Symbols *and Expr* just for scalar variable / state / control
     lnum::Int = 0
     line::String = ""
@@ -224,9 +223,6 @@ function p_alias!(p, p_ocp, a, e; log=false)
     a isa Symbol || return __throw("forbidden alias name: $a", p.lnum, p.line)
     aa = QuoteNode(a)
     ee = QuoteNode(e)
-    #for i in 1:9
-    #    p.aliases[Symbol(a, CTBase.ctupperscripts(i))] = :($a^$i) # todo: remove? (cf. such aliases now removed for variable, state and control)
-    #end
     p.aliases[a] = e
     code = :(LineNumberNode(0, "alias: " * string($aa) * " = " * string($ee)))
     return __wrap(code, p.lnum, p.line)
@@ -340,7 +336,7 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
             return __throw("the number of state components must be $nn", p.lnum, p.line)
         for i in 1:nn
             p.aliases[components_names.args[i]] = :($x[$i])
-            # todo: add aliases for state components (scalar) derivatives
+            # todo: in future, add aliases for state components (scalar) derivatives
         end # Aliases from names given by the user
         ss = QuoteNode(string.(components_names.args))
         code = :($prefix.state!($p_ocp, $n, $xx, $ss))
