@@ -16,6 +16,13 @@ function set_prefix(p)
     return nothing
 end
 
+const E_PREFIX = Ref(:OptimalControl) # prefix for exceptions in generated code, assumed to be evaluated within OptimalControl.jl; can be CTBase for tests
+
+function set_e_prefix(p)
+    E_PREFIX[] = p
+    return nothing
+end
+
 """
 $(TYPEDEF)
 
@@ -46,13 +53,13 @@ __init_aliases(; max_dim=20) = begin
     al[:integral] = :∫
     al[:(=>)] = :→
     al[:in] = :∈
-    al
+    return al
 end
 
-__throw(ex, n, line) = quote
-    local info
-    info = string("\nLine ", $n, ": ", $line)
-    throw(CTBase.ParsingError(info * "\n" * $ex))
+__throw(mess, n, line) = begin
+    e_prefix = E_PREFIX[]
+    info = string("\nLine ", n, ": ", line, "\n", mess)
+    return :( throw($e_prefix.ParsingError($info)) ) 
 end
 
 __wrap(e, n, line) = quote
@@ -265,6 +272,7 @@ end
 
 function p_time!(p, p_ocp, t, t0, tf; log=false)
     prefix = PREFIX[]
+    e_prefix = E_PREFIX[]
     log && println("time: $t, initial time: $t0, final time: $tf")
     t isa Symbol || return __throw("forbidden time name: $t", p.lnum, p.line)
     p.t = t
@@ -279,7 +287,7 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
             :($v1) && if (v1 == p.v)
             end => quote
                 ($p_ocp.variable_dimension ≠ 1) && throw( # todo: add info (dim of var) in PreModel
-                    CTBase.ParsingError("variable must be of dimension one for a time"),
+                    $e_prefix.ParsingError("variable must be of dimension one for a time"),
                 )
                 $prefix.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt)
             end
@@ -291,7 +299,7 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
             :($v1) && if (v1 == p.v)
             end => quote
                 ($p_ocp.variable_dimension ≠ 1) && throw( # todo: add info (dim of var) in PreModel
-                    CTBase.ParsingError("variable must be of dimension one for a time"),
+                    $e_prefix.ParsingError("variable must be of dimension one for a time"),
                 )
                 $prefix.time!($p_ocp; t0=$t0, indf=1, time_name=$tt)
             end
