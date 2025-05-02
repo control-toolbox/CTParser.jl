@@ -2,7 +2,6 @@
 # todo: as_range / as_vector for rg / lb, ub could be done here in p_constraint when calling PREFIX.constraint!
 # - cannot call solve if problem not fully defined (dynamics not defined...)
 # - doc: explain projections wrt to t0, tf, t; (...x1...x2...)(t) -> ...gensym1...gensym2... (most internal first)
-# - robustify repl
 # - additional checks: when generating functions (constraints, dynamics, costs), there should not be any x or u left
 #   (but the user might indeed do so); meaning that has(ee, x/u/t) must be false (postcondition)
 # - tests exceptions (parsing and semantics/runtime)
@@ -14,6 +13,13 @@ const PREFIX = Ref(:OptimalControl) # prefix for generated code, assumed to be e
 
 function set_prefix(p)
     PREFIX[] = p
+    return nothing
+end
+
+const E_PREFIX = Ref(:OptimalControl) # prefix for exceptions in generated code, assumed to be evaluated within OptimalControl.jl; can be CTBase for tests
+
+function set_e_prefix(p)
+    E_PREFIX[] = p
     return nothing
 end
 
@@ -30,7 +36,7 @@ $(TYPEDEF)
     tf::Union{Real,Symbol,Expr,Nothing} = nothing
     x::Union{Symbol,Nothing} = nothing
     u::Union{Symbol,Nothing} = nothing
-    is_scalar_x::Bool = false # todo: remove when allowing componentwise declaration of dynamics
+    is_scalar_x::Bool = false # todo: remove in future, when allowing componentwise declaration of dynamics
     aliases::OrderedDict{Union{Symbol,Expr},Union{Real,Symbol,Expr}} = __init_aliases() # Dict ordered by Symbols *and Expr* just for scalar variable / state / control
     lnum::Int = 0
     line::String = ""
@@ -47,13 +53,13 @@ __init_aliases(; max_dim=20) = begin
     al[:integral] = :∫
     al[:(=>)] = :→
     al[:in] = :∈
-    al
+    return al
 end
 
-__throw(ex, n, line) = quote
-    local info
-    info = string("\nLine ", $n, ": ", $line)
-    throw(CTBase.ParsingError(info * "\n" * $ex))
+__throw(mess, n, line) = begin
+    e_prefix = E_PREFIX[]
+    info = string("\nLine ", n, ": ", line, "\n", mess)
+    return :( throw($e_prefix.ParsingError($info)) ) 
 end
 
 __wrap(e, n, line) = quote
@@ -224,9 +230,6 @@ function p_alias!(p, p_ocp, a, e; log=false)
     a isa Symbol || return __throw("forbidden alias name: $a", p.lnum, p.line)
     aa = QuoteNode(a)
     ee = QuoteNode(e)
-    #for i in 1:9
-    #    p.aliases[Symbol(a, CTBase.ctupperscripts(i))] = :($a^$i) # todo: remove? (cf. such aliases now removed for variable, state and control)
-    #end
     p.aliases[a] = e
     code = :(LineNumberNode(0, "alias: " * string($aa) * " = " * string($ee)))
     return __wrap(code, p.lnum, p.line)
@@ -269,6 +272,7 @@ end
 
 function p_time!(p, p_ocp, t, t0, tf; log=false)
     prefix = PREFIX[]
+    e_prefix = E_PREFIX[]
     log && println("time: $t, initial time: $t0, final time: $tf")
     t isa Symbol || return __throw("forbidden time name: $t", p.lnum, p.line)
     p.t = t
@@ -283,7 +287,7 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
             :($v1) && if (v1 == p.v)
             end => quote
                 ($p_ocp.variable_dimension ≠ 1) && throw( # todo: add info (dim of var) in PreModel
-                    CTBase.ParsingError("variable must be of dimension one for a time"),
+                    $e_prefix.ParsingError("variable must be of dimension one for a time"),
                 )
                 $prefix.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt)
             end
@@ -295,7 +299,7 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
             :($v1) && if (v1 == p.v)
             end => quote
                 ($p_ocp.variable_dimension ≠ 1) && throw( # todo: add info (dim of var) in PreModel
-                    CTBase.ParsingError("variable must be of dimension one for a time"),
+                    $e_prefix.ParsingError("variable must be of dimension one for a time"),
                 )
                 $prefix.time!($p_ocp; t0=$t0, indf=1, time_name=$tt)
             end
@@ -340,7 +344,7 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
             return __throw("the number of state components must be $nn", p.lnum, p.line)
         for i in 1:nn
             p.aliases[components_names.args[i]] = :($x[$i])
-            # todo: add aliases for state components (scalar) derivatives
+            # todo: in future, add aliases for state components (scalar) derivatives
         end # Aliases from names given by the user
         ss = QuoteNode(string.(components_names.args))
         code = :($prefix.state!($p_ocp, $n, $xx, $ss))
