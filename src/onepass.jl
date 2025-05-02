@@ -36,6 +36,7 @@ $(TYPEDEF)
     tf::Union{Real,Symbol,Expr,Nothing} = nothing
     x::Union{Symbol,Nothing} = nothing
     u::Union{Symbol,Nothing} = nothing
+    is_scalar_v::Bool = false
     is_scalar_x::Bool = false # todo: remove in future, when allowing componentwise declaration of dynamics
     aliases::OrderedDict{Union{Symbol,Expr},Union{Real,Symbol,Expr}} = __init_aliases() # Dict ordered by Symbols *and Expr* just for scalar variable / state / control
     lnum::Int = 0
@@ -247,6 +248,7 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
         p.aliases[Symbol(v, CTBase.ctindices(1))] = :($vg[1])
         p.aliases[Symbol(v, 1)] = :($vg[1])
         v = vg 
+        p.is_scalar_v = true
     end
     p.v = v
     qq = q isa Int ? q : 9
@@ -282,27 +284,15 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
     code = @match (has(t0, p.v), has(tf, p.v)) begin
         (false, false) => :($prefix.time!($p_ocp; t0=$t0, tf=$tf, time_name=$tt))
         (true, false) => @match t0 begin
-            :($v1[$i]) && if (v1 == p.v)
-            end => :($prefix.time!($p_ocp; ind0=$i, tf=$tf, time_name=$tt))
-            :($v1) && if (v1 == p.v)
-            end => quote
-                ($p_ocp.variable_dimension ≠ 1) && throw( # todo: add info (dim of var) in PreModel
-                    $e_prefix.ParsingError("variable must be of dimension one for a time"),
-                )
-                $prefix.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt)
-            end
+            :($v1[$i]) && if (v1 == p.v) end => :($prefix.time!($p_ocp; ind0=$i, tf=$tf, time_name=$tt))
+            :($v1) && if (v1 == p.v) &&  p.is_scalar_v end => :( $prefix.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt) )
+            :($v1) && if (v1 == p.v) && !p.is_scalar_v end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         (false, true) => @match tf begin
-            :($v1[$i]) && if (v1 == p.v)
-            end => :($prefix.time!($p_ocp; t0=$t0, indf=$i, time_name=$tt))
-            :($v1) && if (v1 == p.v)
-            end => quote
-                ($p_ocp.variable_dimension ≠ 1) && throw( # todo: add info (dim of var) in PreModel
-                    $e_prefix.ParsingError("variable must be of dimension one for a time"),
-                )
-                $prefix.time!($p_ocp; t0=$t0, indf=1, time_name=$tt)
-            end
+            :($v1[$i]) && if (v1 == p.v) end => :($prefix.time!($p_ocp; t0=$t0, indf=$i, time_name=$tt))
+            :($v1) && if (v1 == p.v) &&  p.is_scalar_v end => :( $prefix.time!($p_ocp; t0=$t0, indf=1, time_name=$tt) )
+            :($v1) && if (v1 == p.v) && !p.is_scalar_v end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         _ => @match (t0, tf) begin
