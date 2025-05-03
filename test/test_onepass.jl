@@ -15,23 +15,18 @@ function to_out_of_place(f!, n; T=Float64)
 end
 
 function __constraint(ocp, label)
-    type = constraint(ocp,label)[1]
-    c = constraint(ocp,label)[2]
-    n = length(constraint(ocp,label)[3]) # Size of lb 
-    m = length(constraint(ocp,label)[4]) # Size of ub 
-    @assert(n == m)
-    if type in [:boundary, :path]
-        f = to_out_of_place(c, n)
-    elseif type == :state
-        f = (t, x, u, v) -> x[c]
-    elseif type == :control
-        f = (t, x, u, v) -> u[c]
-    elseif type == :variable
-        f = (x0, xf, v) -> v[c] # :variable_range gives a :boundary, not a :path (see CTModels)
-    else
-        throw("Unknow constraint type")
+    type_, fun_, lb_, ub_ = constraint(ocp,label)
+    function fun(args...)
+        r = fun_(args...)
+        if length(r) == 1 # f returns a scalar if length(r) == 1
+            return [r[1]] # make it a vector
+        else
+            return r
+        end
     end
-    return f
+    lb = length(lb_) == 1 ? [lb_[1]] : lb_
+    ub = length(ub_) == 1 ? [ub_[1]] : ub_
+    return (type_, fun, lb, ub)
 end
 
 __dynamics(ocp) = to_out_of_place(dynamics(ocp), state_dimension(ocp))
@@ -73,13 +68,13 @@ function test_onepass()
         x0 = 2 * x
         xf = 3 * x
         u = [3]
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1:1]
-        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
-        @test __constraint(o, :eq2)(0, x, u, nothing) == x + [u[1], 1]
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0[1:1]
+        @test __constraint(o, Symbol("♡"))[2](x0, xf, nothing) == x0[2:2]
+        @test __constraint(o, :eq2)[2](0, x, u, nothing) == x + [u[1], 1]
 
-        @test __constraint(o, :eq3)(0, x, u, nothing) == x
-        @test __constraint(o, :eq4)(0, x, u, nothing) == x[1:1]
-        @test __constraint(o, :eq5)(0, x, u, nothing) == u 
+        @test __constraint(o, :eq3)[2](0, x, u, nothing) == x
+        @test __constraint(o, :eq4)[2](0, x, u, nothing) == x[1:1]
+        @test __constraint(o, :eq5)[2](0, x, u, nothing) == u 
 
         @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
         @test lagrange(o)(0, x, u, nothing) == u[1]^2 + x[1]
@@ -213,8 +208,8 @@ function test_onepass()
         x0 = 2 * x
         xf = 3 * x
         u = [3]
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1:1]
-        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0[1:1]
+        @test __constraint(o, Symbol("♡"))[2](x0, xf, nothing) == x0[2:2]
         @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
         @test lagrange(o)(0, x, u, nothing) == u[1]^2 + x[1]
 
@@ -232,8 +227,8 @@ function test_onepass()
         x0 = 2 * x
         xf = 3 * x
         u = [3]
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1:1]
-        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0[1:1]
+        @test __constraint(o, Symbol("♡"))[2](x0, xf, nothing) == x0[2:2]
         @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
         @test lagrange(o)(0, x, u, nothing) == u[1]^2 + x[1]
 
@@ -253,8 +248,8 @@ function test_onepass()
         xf = 3 * x
         u = [3]
         c = [u[1], 0]
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1:1]
-        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0[1:1]
+        @test __constraint(o, Symbol("♡"))[2](x0, xf, nothing) == x0[2:2]
         @test __dynamics(o)(0, x, c, nothing) == [x[2], (x[1] + 2x[2])^2]
         @test lagrange(o)(0, x, c, nothing) == u[1]^2 + x[1]
 
@@ -831,7 +826,7 @@ function test_onepass()
         tf = [2]
         x0 = [1, 2]
         xf = [3, 4]
-        @test __constraint(o, :eq1)(x0, xf, tf) == [x0[1] + (xf[1] + 2xf[2]^3) - tf[1]^2]
+        @test __constraint(o, :eq1)[2](x0, xf, tf) == [x0[1] + (xf[1] + 2xf[2]^3) - tf[1]^2]
 
         n = 11
         m = 6
@@ -857,17 +852,17 @@ function test_onepass()
         end
         x = Vector{Float64}(1:n)
         u = 2 * Vector{Float64}(1:m)
-        @test __constraint(o, :eq1)(0, x, u, nothing) == x[1:1]
-        @test __constraint(o, :eq2)(0, x, u, nothing) == x
-        @test __constraint(o, :eq3)(0, x, u, nothing) == x[1:2]
-        @test __constraint(o, :eq4)(0, x, u, nothing) == x[1:2:4]
-        @test __constraint(o, :eq5)(0, x, u, nothing) == [x[2]^2]
-        @test __constraint(o, :eq6)(0, x, u, nothing) == u
-        @test __constraint(o, :eq7)(0, x, u, nothing) == u[1:2]
-        @test __constraint(o, :eq8)(0, x, u, nothing) == u[1:2:4]
-        @test __constraint(o, :eq9)(0, x, u, nothing) == [u[2]^2]
-        @test __constraint(o, :eq10)(0, x, u, nothing) == u[1] * x[1:2]
-        @test __constraint(o, :eq11)(0, x, u, nothing) == u[1] * x[1:2] .^ 3
+        @test __constraint(o, :eq1)[2](0, x, u, nothing) == x[1:1]
+        @test __constraint(o, :eq2)[2](0, x, u, nothing) == x
+        @test __constraint(o, :eq3)[2](0, x, u, nothing) == x[1:2]
+        @test __constraint(o, :eq4)[2](0, x, u, nothing) == x[1:2:4]
+        @test __constraint(o, :eq5)[2](0, x, u, nothing) == [x[2]^2]
+        @test __constraint(o, :eq6)[2](0, x, u, nothing) == u
+        @test __constraint(o, :eq7)[2](0, x, u, nothing) == u[1:2]
+        @test __constraint(o, :eq8)[2](0, x, u, nothing) == u[1:2:4]
+        @test __constraint(o, :eq9)[2](0, x, u, nothing) == [u[2]^2]
+        @test __constraint(o, :eq10)[2](0, x, u, nothing) == u[1] * x[1:2]
+        @test __constraint(o, :eq11)[2](0, x, u, nothing) == u[1] * x[1:2] .^ 3
 
         n = 11
         m = 6
@@ -896,17 +891,17 @@ function test_onepass()
         z = 3 * Vector{Float64}(1:2)
         x = Vector{Float64}(1:n)
         u = 2 * Vector{Float64}(1:m)
-        @test __constraint(o, :eq1)(0, x, u, z) == x[1:1]
-        @test __constraint(o, :eq2)(0, x, u, z) == x
-        @test __constraint(o, :eq3)(0, x, u, z) == x[1:2] - [z[1], 1]
-        @test __constraint(o, :eq4)(0, x, u, z) == x[1:2:4]
-        @test __constraint(o, :eq5)(0, x, u, z) == [x[2]^2]
-        @test __constraint(o, :eq6)(0, x, u, z) == u
-        @test __constraint(o, :eq7)(0, x, u, z) == u[1:2]
-        @test __constraint(o, :eq8)(0, x, u, z) == u[1:2:4]
-        @test __constraint(o, :eq9)(0, x, u, z) == [u[2]^2]
-        @test __constraint(o, :eq10)(0, x, u, z) == u[1] * x[1:2] + z + f()
-        @test __constraint(o, :eq11)(0, x, u, z) == u[1] * x[1:2] .^ 3 + z
+        @test __constraint(o, :eq1)[2](0, x, u, z) == x[1:1]
+        @test __constraint(o, :eq2)[2](0, x, u, z) == x
+        @test __constraint(o, :eq3)[2](0, x, u, z) == x[1:2] - [z[1], 1]
+        @test __constraint(o, :eq4)[2](0, x, u, z) == x[1:2:4]
+        @test __constraint(o, :eq5)[2](0, x, u, z) == [x[2]^2]
+        @test __constraint(o, :eq6)[2](0, x, u, z) == u
+        @test __constraint(o, :eq7)[2](0, x, u, z) == u[1:2]
+        @test __constraint(o, :eq8)[2](0, x, u, z) == u[1:2:4]
+        @test __constraint(o, :eq9)[2](0, x, u, z) == [u[2]^2]
+        @test __constraint(o, :eq10)[2](0, x, u, z) == u[1] * x[1:2] + z + f()
+        @test __constraint(o, :eq11)[2](0, x, u, z) == u[1] * x[1:2] .^ 3 + z
 
         @def o begin
             t ∈ [0, 1], time
@@ -926,8 +921,8 @@ function test_onepass()
         x0 = 2 * x
         xf = 3 * x
         u = [3]
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1:1]
-        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0[1:1]
+        @test __constraint(o, Symbol("♡"))[2](x0, xf, nothing) == x0[2:2]
         @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
         @test lagrange(o)(0, x, u, nothing) == u[1]^2 + x[1]
 
@@ -947,8 +942,8 @@ function test_onepass()
         x0 = 2 * x
         xf = 3 * x
         u = [3]
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0[1:1]
-        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0[1:1]
+        @test __constraint(o, Symbol("♡"))[2](x0, xf, nothing) == x0[2:2]
         @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
         @test lagrange(o)(0, x, u, nothing) == u[1]^2 + x[1]
 
@@ -970,8 +965,8 @@ function test_onepass()
         xf = 3 * [1, 2]
         u = [3]
         z = [4, 5]
-        @test __constraint(o, :eq1)(x0, xf, z) == x0[1:1]
-        @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0[2:2]
+        @test __constraint(o, :eq1)[2](x0, xf, z) == x0[1:1]
+        @test __constraint(o, Symbol("♡"))[2](x0, xf, z) == x0[2:2]
         @test __dynamics(o)(0, x, u, z) == [x[2], (x[1] + 2x[2])^2 + z[1]]
         @test lagrange(o)(0, x, u, z) == u[1]^2 + z[2] * x[1]
 
@@ -990,8 +985,8 @@ function test_onepass()
         xf = [4, 5]
         x = [1, 2]
         u = [3]
-        @test __constraint(o, :eq1)(x0, xf, nothing) == [x0[1]^2 + xf[2]]
-        @test __constraint(o, Symbol("♡"))(x0, xf, nothing) == x0[2:2]
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == [x0[1]^2 + xf[2]]
+        @test __constraint(o, Symbol("♡"))[2](x0, xf, nothing) == x0[2:2]
         @test __dynamics(o)(0, x, u, nothing) == [x[2], x[1]^2]
         @test lagrange(o)(0, x, u, nothing) == u[1]^2 + x[1]
 
@@ -1012,8 +1007,8 @@ function test_onepass()
         x = [1, 2]
         u = [3]
         z = [4]
-        @test __constraint(o, :eq1)(x0, xf, z) == [x0[1] - z[1]]
-        @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0[2:2]
+        @test __constraint(o, :eq1)[2](x0, xf, z) == [x0[1] - z[1]]
+        @test __constraint(o, Symbol("♡"))[2](x0, xf, z) == x0[2:2]
         @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
         @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
 
@@ -1035,9 +1030,9 @@ function test_onepass()
         x = [1, 2]
         u = [3]
         z = [4]
-        @test __constraint(o, :eq1)(x0, xf, z) == [x0[1] - z[1]]
-        @test __constraint(o, :eq2)(x0, xf, z) == [xf[2]^2]
-        @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0
+        @test __constraint(o, :eq1)[2](x0, xf, z) == [x0[1] - z[1]]
+        @test __constraint(o, :eq2)[2](x0, xf, z) == [xf[2]^2]
+        @test __constraint(o, Symbol("♡"))[2](x0, xf, z) == x0
         @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
         @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
 
@@ -1059,17 +1054,17 @@ function test_onepass()
         x = [1, 2]
         u = [3]
         z = [4]
-        @test __constraint(o, :eq1)(x0, xf, z) == [x0[1] - z[1]]
-        @test __constraint(o, :eq2)(x0, xf, z) == [xf[2]^2]
-        @test __constraint(o, :eq3)(x0, xf, z) == x0
+        @test __constraint(o, :eq1)[2](x0, xf, z) == [x0[1] - z[1]]
+        @test __constraint(o, :eq2)[2](x0, xf, z) == [xf[2]^2]
+        @test __constraint(o, :eq3)[2](x0, xf, z) == x0
         @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
         @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
-        @test constraint(o, :eq1)[3] == [0]
-        @test constraint(o, :eq1)[4] == [1]
-        @test constraint(o, :eq2)[3] == [0]
-        @test constraint(o, :eq2)[4] == [1]
-        @test constraint(o, :eq3)[3] == [0, 0]
-        @test constraint(o, :eq3)[4] == [1, 1]
+        @test __constraint(o, :eq1)[3] == [0]
+        @test __constraint(o, :eq1)[4] == [1]
+        @test __constraint(o, :eq2)[3] == [0]
+        @test __constraint(o, :eq2)[4] == [1]
+        @test __constraint(o, :eq3)[3] == [0, 0]
+        @test __constraint(o, :eq3)[4] == [1, 1]
 
         @def o begin
             v ∈ R², variable
@@ -1101,20 +1096,20 @@ function test_onepass()
         u = [4]
         v = [5, 6]
         z = v[1] + 2v[2]
-        @test __constraint(o, :eq1)(x0, xf, v) == x0 - v[1:1]
-        @test __constraint(o, :eq2)(x0, xf, v) == xf - v[1:1]
-        @test __constraint(o, :eq3)(x0, xf, v) == x0 - v[1:1]
-        @test __constraint(o, :eq4)(x0, xf, v) == xf - v[1:1]
-        @test __constraint(o, :eq5)(x0, xf, v) == x0 + xf - v[2:2]
-        @test __constraint(o, :eq6)(x0, xf, v) == x0 + xf - v[2:2]
-        @test __constraint(o, :eq7)(0, x, u, v) == x - v[1:1]
-        @test __constraint(o, :eq9)(0, x, u, v) == [x[1] - z]
-        @test __constraint(o, :eq10)(0, x, u, v) == [u[1] - z]
-        @test __constraint(o, :eq11)(0, x, u, v) == [x[1] + u[1] - z]
-        @test __constraint(o, :eq12)(x0, xf, v) == v[1:1]
-        @test __constraint(o, :eq13)(x0, xf, v) == v[1:1]
-        @test __constraint(o, :eq14)(x0, xf, v) == v[1:1] + 2v[2:2]
-        @test __constraint(o, :eq15)(x0, xf, v) == v[1:1] + 2v[2:2]
+        @test __constraint(o, :eq1)[2](x0, xf, v) == x0 - v[1:1]
+        @test __constraint(o, :eq2)[2](x0, xf, v) == xf - v[1:1]
+        @test __constraint(o, :eq3)[2](x0, xf, v) == x0 - v[1:1]
+        @test __constraint(o, :eq4)[2](x0, xf, v) == xf - v[1:1]
+        @test __constraint(o, :eq5)[2](x0, xf, v) == x0 + xf - v[2:2]
+        @test __constraint(o, :eq6)[2](x0, xf, v) == x0 + xf - v[2:2]
+        @test __constraint(o, :eq7)[2](0, x, u, v) == x - v[1:1]
+        @test __constraint(o, :eq9)[2](0, x, u, v) == [x[1] - z]
+        @test __constraint(o, :eq10)[2](0, x, u, v) == [u[1] - z]
+        @test __constraint(o, :eq11)[2](0, x, u, v) == [x[1] + u[1] - z]
+        @test __constraint(o, :eq12)[2](x0, xf, v) == v[1:1]
+        @test __constraint(o, :eq13)[2](x0, xf, v) == v[1:1]
+        @test __constraint(o, :eq14)[2](x0, xf, v) == v[1:1] + 2v[2:2]
+        @test __constraint(o, :eq15)[2](x0, xf, v) == v[1:1] + 2v[2:2]
 
         @def o begin
             v ∈ R, variable
@@ -1155,36 +1150,36 @@ function test_onepass()
             0 => min # generic (untested)
         end
 
-        @test constraint(o, :eq1)[3] == [-Inf]
-        @test constraint(o, :eq2)[3] == [-Inf]
-        @test constraint(o, :eq3)[3] == [-Inf]
-        @test constraint(o, :eq4)[3] == [-Inf]
-        @test constraint(o, :eq5)[3] == [-Inf]
-        @test constraint(o, :eq6)[3] == [-Inf]
-        @test constraint(o, :eq7)[3] == [-Inf]
-        @test constraint(o, :eq8)[3] == [-Inf]
-        @test constraint(o, :eq9)[3] == [-Inf]
-        @test constraint(o, :eq10)[3] == [-Inf]
-        @test constraint(o, :eq11)[3] == [-Inf]
-        @test constraint(o, :eq12)[3] == [-Inf]
-        @test constraint(o, :eq13)[3] == [-Inf]
-        @test constraint(o, :eq14)[3] == [-Inf]
-        @test constraint(o, :eq15)[3] == [-Inf]
-        @test constraint(o, :eq1)[4] == [0]
-        @test constraint(o, :eq2)[4] == [0]
-        @test constraint(o, :eq3)[4] == [0]
-        @test constraint(o, :eq4)[4] == [0]
-        @test constraint(o, :eq5)[4] == [0]
-        @test constraint(o, :eq6)[4] == [0]
-        @test constraint(o, :eq7)[4] == [0]
-        @test constraint(o, :eq8)[4] == [0]
-        @test constraint(o, :eq9)[4] == [0]
-        @test constraint(o, :eq10)[4] == [0]
-        @test constraint(o, :eq11)[4] == [0]
-        @test constraint(o, :eq12)[4] == [0]
-        @test constraint(o, :eq13)[4] == [0]
-        @test constraint(o, :eq14)[4] == [0]
-        @test constraint(o, :eq15)[4] == [0]
+        @test __constraint(o, :eq1)[3] == [-Inf]
+        @test __constraint(o, :eq2)[3] == [-Inf]
+        @test __constraint(o, :eq3)[3] == [-Inf]
+        @test __constraint(o, :eq4)[3] == [-Inf]
+        @test __constraint(o, :eq5)[3] == [-Inf]
+        @test __constraint(o, :eq6)[3] == [-Inf]
+        @test __constraint(o, :eq7)[3] == [-Inf]
+        @test __constraint(o, :eq8)[3] == [-Inf]
+        @test __constraint(o, :eq9)[3] == [-Inf]
+        @test __constraint(o, :eq10)[3] == [-Inf]
+        @test __constraint(o, :eq11)[3] == [-Inf]
+        @test __constraint(o, :eq12)[3] == [-Inf]
+        @test __constraint(o, :eq13)[3] == [-Inf]
+        @test __constraint(o, :eq14)[3] == [-Inf]
+        @test __constraint(o, :eq15)[3] == [-Inf]
+        @test __constraint(o, :eq1)[4] == [0]
+        @test __constraint(o, :eq2)[4] == [0]
+        @test __constraint(o, :eq3)[4] == [0]
+        @test __constraint(o, :eq4)[4] == [0]
+        @test __constraint(o, :eq5)[4] == [0]
+        @test __constraint(o, :eq6)[4] == [0]
+        @test __constraint(o, :eq7)[4] == [0]
+        @test __constraint(o, :eq8)[4] == [0]
+        @test __constraint(o, :eq9)[4] == [0]
+        @test __constraint(o, :eq10)[4] == [0]
+        @test __constraint(o, :eq11)[4] == [0]
+        @test __constraint(o, :eq12)[4] == [0]
+        @test __constraint(o, :eq13)[4] == [0]
+        @test __constraint(o, :eq14)[4] == [0]
+        @test __constraint(o, :eq15)[4] == [0]
 
         @def o begin
             v ∈ R, variable
@@ -1225,36 +1220,36 @@ function test_onepass()
             0 => min # generic (untested)
         end
 
-        @test constraint(o, :eq1)[3] == [0]
-        @test constraint(o, :eq2)[3] == [0]
-        @test constraint(o, :eq3)[3] == [0]
-        @test constraint(o, :eq4)[3] == [0]
-        @test constraint(o, :eq5)[3] == [0]
-        @test constraint(o, :eq6)[3] == [0]
-        @test constraint(o, :eq7)[3] == [0]
-        @test constraint(o, :eq8)[3] == [0]
-        @test constraint(o, :eq9)[3] == [0]
-        @test constraint(o, :eq10)[3] == [0]
-        @test constraint(o, :eq11)[3] == [0]
-        @test constraint(o, :eq12)[3] == [0]
-        @test constraint(o, :eq13)[3] == [0]
-        @test constraint(o, :eq14)[3] == [0]
-        @test constraint(o, :eq15)[3] == [0]
-        @test constraint(o, :eq1)[4] == [Inf]
-        @test constraint(o, :eq2)[4] == [Inf]
-        @test constraint(o, :eq3)[4] == [Inf]
-        @test constraint(o, :eq4)[4] == [Inf]
-        @test constraint(o, :eq5)[4] == [Inf]
-        @test constraint(o, :eq6)[4] == [Inf]
-        @test constraint(o, :eq7)[4] == [Inf]
-        @test constraint(o, :eq8)[4] == [Inf]
-        @test constraint(o, :eq9)[4] == [Inf]
-        @test constraint(o, :eq10)[4] == [Inf]
-        @test constraint(o, :eq11)[4] == [Inf]
-        @test constraint(o, :eq12)[4] == [Inf]
-        @test constraint(o, :eq13)[4] == [Inf]
-        @test constraint(o, :eq14)[4] == [Inf]
-        @test constraint(o, :eq15)[4] == [Inf]
+        @test __constraint(o, :eq1)[3] == [0]
+        @test __constraint(o, :eq2)[3] == [0]
+        @test __constraint(o, :eq3)[3] == [0]
+        @test __constraint(o, :eq4)[3] == [0]
+        @test __constraint(o, :eq5)[3] == [0]
+        @test __constraint(o, :eq6)[3] == [0]
+        @test __constraint(o, :eq7)[3] == [0]
+        @test __constraint(o, :eq8)[3] == [0]
+        @test __constraint(o, :eq9)[3] == [0]
+        @test __constraint(o, :eq10)[3] == [0]
+        @test __constraint(o, :eq11)[3] == [0]
+        @test __constraint(o, :eq12)[3] == [0]
+        @test __constraint(o, :eq13)[3] == [0]
+        @test __constraint(o, :eq14)[3] == [0]
+        @test __constraint(o, :eq15)[3] == [0]
+        @test __constraint(o, :eq1)[4] == [Inf]
+        @test __constraint(o, :eq2)[4] == [Inf]
+        @test __constraint(o, :eq3)[4] == [Inf]
+        @test __constraint(o, :eq4)[4] == [Inf]
+        @test __constraint(o, :eq5)[4] == [Inf]
+        @test __constraint(o, :eq6)[4] == [Inf]
+        @test __constraint(o, :eq7)[4] == [Inf]
+        @test __constraint(o, :eq8)[4] == [Inf]
+        @test __constraint(o, :eq9)[4] == [Inf]
+        @test __constraint(o, :eq10)[4] == [Inf]
+        @test __constraint(o, :eq11)[4] == [Inf]
+        @test __constraint(o, :eq12)[4] == [Inf]
+        @test __constraint(o, :eq13)[4] == [Inf]
+        @test __constraint(o, :eq14)[4] == [Inf]
+        @test __constraint(o, :eq15)[4] == [Inf]
 
         @def o begin
             v ∈ R^2, variable
@@ -1285,26 +1280,26 @@ function test_onepass()
             0 => min # generic (untested)
         end
 
-        @test constraint(o, :eq1)[3] == -[Inf, Inf]
-        @test constraint(o, :eq2)[3] == -[Inf, Inf]
-        @test constraint(o, :eq3)[3] == -[Inf, Inf]
-        @test constraint(o, :eq4)[3] == -[Inf, Inf]
-        @test constraint(o, :eq5)[3] == -[Inf, Inf]
-        @test constraint(o, :eq6)[3] == -[Inf, Inf]
-        @test constraint(o, :eq7)[3] == -[Inf, Inf]
-        @test constraint(o, :eq8)[3] == -[Inf, Inf]
-        @test constraint(o, :eq9)[3] == -[Inf, Inf]
-        @test constraint(o, :eq10)[3] == -[Inf, Inf]
-        @test constraint(o, :eq1)[4] == [0, 0]
-        @test constraint(o, :eq2)[4] == [0, 0]
-        @test constraint(o, :eq3)[4] == [0, 0]
-        @test constraint(o, :eq4)[4] == [0, 0]
-        @test constraint(o, :eq5)[4] == [0, 0]
-        @test constraint(o, :eq6)[4] == [0, 0]
-        @test constraint(o, :eq7)[4] == [0, 0]
-        @test constraint(o, :eq8)[4] == [0, 0]
-        @test constraint(o, :eq9)[4] == [0, 0]
-        @test constraint(o, :eq10)[4] == [0, 0]
+        @test __constraint(o, :eq1)[3] == -[Inf, Inf]
+        @test __constraint(o, :eq2)[3] == -[Inf, Inf]
+        @test __constraint(o, :eq3)[3] == -[Inf, Inf]
+        @test __constraint(o, :eq4)[3] == -[Inf, Inf]
+        @test __constraint(o, :eq5)[3] == -[Inf, Inf]
+        @test __constraint(o, :eq6)[3] == -[Inf, Inf]
+        @test __constraint(o, :eq7)[3] == -[Inf, Inf]
+        @test __constraint(o, :eq8)[3] == -[Inf, Inf]
+        @test __constraint(o, :eq9)[3] == -[Inf, Inf]
+        @test __constraint(o, :eq10)[3] == -[Inf, Inf]
+        @test __constraint(o, :eq1)[4] == [0, 0]
+        @test __constraint(o, :eq2)[4] == [0, 0]
+        @test __constraint(o, :eq3)[4] == [0, 0]
+        @test __constraint(o, :eq4)[4] == [0, 0]
+        @test __constraint(o, :eq5)[4] == [0, 0]
+        @test __constraint(o, :eq6)[4] == [0, 0]
+        @test __constraint(o, :eq7)[4] == [0, 0]
+        @test __constraint(o, :eq8)[4] == [0, 0]
+        @test __constraint(o, :eq9)[4] == [0, 0]
+        @test __constraint(o, :eq10)[4] == [0, 0]
 
         @def o begin
             v ∈ R^2, variable
@@ -1335,26 +1330,26 @@ function test_onepass()
             0 => min # generic (untested)
         end
 
-        @test constraint(o, :eq1)[4] == [Inf, Inf]
-        @test constraint(o, :eq2)[4] == [Inf, Inf]
-        @test constraint(o, :eq3)[4] == [Inf, Inf]
-        @test constraint(o, :eq4)[4] == [Inf, Inf]
-        @test constraint(o, :eq5)[4] == [Inf, Inf]
-        @test constraint(o, :eq6)[4] == [Inf, Inf]
-        @test constraint(o, :eq7)[4] == [Inf, Inf]
-        @test constraint(o, :eq8)[4] == [Inf, Inf]
-        @test constraint(o, :eq9)[4] == [Inf, Inf]
-        @test constraint(o, :eq10)[4] == [Inf, Inf]
-        @test constraint(o, :eq1)[3] == [0, 0]
-        @test constraint(o, :eq2)[3] == [0, 0]
-        @test constraint(o, :eq3)[3] == [0, 0]
-        @test constraint(o, :eq4)[3] == [0, 0]
-        @test constraint(o, :eq5)[3] == [0, 0]
-        @test constraint(o, :eq6)[3] == [0, 0]
-        @test constraint(o, :eq7)[3] == [0, 0]
-        @test constraint(o, :eq8)[3] == [0, 0]
-        @test constraint(o, :eq9)[3] == [0, 0]
-        @test constraint(o, :eq10)[3] == [0, 0]
+        @test __constraint(o, :eq1)[4] == [Inf, Inf]
+        @test __constraint(o, :eq2)[4] == [Inf, Inf]
+        @test __constraint(o, :eq3)[4] == [Inf, Inf]
+        @test __constraint(o, :eq4)[4] == [Inf, Inf]
+        @test __constraint(o, :eq5)[4] == [Inf, Inf]
+        @test __constraint(o, :eq6)[4] == [Inf, Inf]
+        @test __constraint(o, :eq7)[4] == [Inf, Inf]
+        @test __constraint(o, :eq8)[4] == [Inf, Inf]
+        @test __constraint(o, :eq9)[4] == [Inf, Inf]
+        @test __constraint(o, :eq10)[4] == [Inf, Inf]
+        @test __constraint(o, :eq1)[3] == [0, 0]
+        @test __constraint(o, :eq2)[3] == [0, 0]
+        @test __constraint(o, :eq3)[3] == [0, 0]
+        @test __constraint(o, :eq4)[3] == [0, 0]
+        @test __constraint(o, :eq5)[3] == [0, 0]
+        @test __constraint(o, :eq6)[3] == [0, 0]
+        @test __constraint(o, :eq7)[3] == [0, 0]
+        @test __constraint(o, :eq8)[3] == [0, 0]
+        @test __constraint(o, :eq9)[3] == [0, 0]
+        @test __constraint(o, :eq10)[3] == [0, 0]
 
         t0 = 9.0
         tf = 9.1
@@ -1815,7 +1810,7 @@ function test_onepass()
             0 0
         ]
         B = [ 0 1 ]'
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
         @test criterion(o) == :min
@@ -1840,7 +1835,7 @@ function test_onepass()
             0 0
         ]
         B = [ 0 1 ]'
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == -0.5u[1]^2
         @test criterion(o) == :min
@@ -1865,7 +1860,7 @@ function test_onepass()
             0 0
         ]
         B = [ 0 1 ]'
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
         @test criterion(o) == :min
@@ -1890,7 +1885,7 @@ function test_onepass()
             0 0
         ]
         B = [ 0 1 ]'
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
         @test criterion(o) == :min
@@ -1915,7 +1910,7 @@ function test_onepass()
             0 0
         ]
         B = [ 0 1 ]'
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == -0.5u[1]^2
         @test criterion(o) == :min
@@ -1940,7 +1935,7 @@ function test_onepass()
             0 0
         ]
         B = [ 0 1 ]'
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == (-0.5 + tf) * u[1]^2
         @test criterion(o) == :min
@@ -1991,7 +1986,7 @@ function test_onepass()
             0 0
         ]
         B = [ 0 1 ]'
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
         @test criterion(o) == :max
@@ -2016,7 +2011,7 @@ function test_onepass()
             0 0
         ]
         B = [ 0 1 ]'
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == -0.5u[1]^2
         @test criterion(o) == :max
@@ -2041,7 +2036,7 @@ function test_onepass()
             0 0
         ]
         B = [ 0 1 ]'
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
         @test criterion(o) == :max
@@ -2066,7 +2061,7 @@ function test_onepass()
             0 0
         ]
         B = [ 0 1 ]'
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
         @test criterion(o) == :max
@@ -2091,7 +2086,7 @@ function test_onepass()
             0 0
         ]
         B = [ 0 1 ]'
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == -0.5u[1]^2
         @test criterion(o) == :max
@@ -2719,7 +2714,7 @@ function test_onepass()
             0 0
         ]
         B = [ 0 1 ]'
-        @test __constraint(o, :eq1)(x0, xf, nothing) == x0
+        @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
         @test criterion(o) == :min
@@ -2743,10 +2738,10 @@ function test_onepass()
         x = [1, 2]
         u = [3]
         z = [4]
-        @test __constraint(o, :eq1)(x0, xf, z) == x0[1:1] - z
-        @test __constraint(o, :eq2)(x0, xf, z) == [xf[2]^2]
-        @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0
-        @test __constraint(o, :eq3)(x0, xf, z) == z
+        @test __constraint(o, :eq1)[2](x0, xf, z) == x0[1:1] - z
+        @test __constraint(o, :eq2)[2](x0, xf, z) == [xf[2]^2]
+        @test __constraint(o, Symbol("♡"))[2](x0, xf, z) == x0
+        @test __constraint(o, :eq3)[2](x0, xf, z) == z
         @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
         @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
 
@@ -2769,10 +2764,10 @@ function test_onepass()
         x = [1, 2]
         u = [3]
         z = [4]
-        @test __constraint(o, :eq1)(x0, xf, z) == x0[1:1] - z
-        @test __constraint(o, :eq2)(x0, xf, z) == [xf[2]^2]
-        @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0
-        @test __constraint(o, :eq3)(x0, xf, z) == z
+        @test __constraint(o, :eq1)[2](x0, xf, z) == x0[1:1] - z
+        @test __constraint(o, :eq2)[2](x0, xf, z) == [xf[2]^2]
+        @test __constraint(o, Symbol("♡"))[2](x0, xf, z) == x0
+        @test __constraint(o, :eq3)[2](x0, xf, z) == z
         @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
         @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
 
@@ -2797,11 +2792,11 @@ function test_onepass()
         x = [1, 2]
         u = [3, 0]
         z = [4, 1]
-        @test __constraint(o, :eq1)(x0, xf, z) == x0[1:1] - z[1:1]
-        @test __constraint(o, :eq2)(x0, xf, z) == [xf[2]^2]
-        @test __constraint(o, Symbol("♡"))(x0, xf, z) == x0
-        @test __constraint(o, :eq3)(x0, xf, z) == z[1:1]
-        @test __constraint(o, :eq4)(x0, xf, z) == z[2:2]
+        @test __constraint(o, :eq1)[2](x0, xf, z) == x0[1:1] - z[1:1]
+        @test __constraint(o, :eq2)[2](x0, xf, z) == [xf[2]^2]
+        @test __constraint(o, Symbol("♡"))[2](x0, xf, z) == x0
+        @test __constraint(o, :eq3)[2](x0, xf, z) == z[1:1]
+        @test __constraint(o, :eq4)[2](x0, xf, z) == z[2:2]
         @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
         @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
     end
