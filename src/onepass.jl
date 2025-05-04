@@ -461,7 +461,7 @@ end
 function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log=false)
     p.is_scalar_x || return __throw("dynamics cannot be defined coordinatewise")
     i == 1 || return __throw("out of range dynamics index")
-    return p_dynamics!(p, p_ocp, x, t, e, label=label; log=log) # i.e. implemented only for scalar case
+    return p_dynamics!(p, p_ocp, x, t, e, label; log=log) # i.e. implemented only for scalar case
 end
 
 function p_lagrange!(p, p_ocp, e, type; log=false)
