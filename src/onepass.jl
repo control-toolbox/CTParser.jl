@@ -120,18 +120,10 @@ parse!(p, p_ocp, e; log=false) = begin
         :($u ∈ R^$m, control) => p_control!(p, p_ocp, u, m; log)
         :($u ∈ R, control) => p_control!(p, p_ocp, u, 1; log)
         # dynamics                    
-        :(∂($x[1])($t) == $e1) => if p.is_scalar_x # todo: remove in future
-            p_dynamics!(p, p_ocp, x, t, e1; log)
-        else
-            (return __throw("Wrong dynamics declaration", p.lnum, p.line))
-        end
-        :(∂($x[1])($t) == $e1, $label) => if p.is_scalar_x # todo: remove in future
-            p_dynamics!(p, p_ocp, x, t, e1, label; log)
-        else
-            (return __throw("Wrong dynamics declaration", p.lnum, p.line))
-        end
         :(∂($x)($t) == $e1) => p_dynamics!(p, p_ocp, x, t, e1; log)
         :(∂($x)($t) == $e1, $label) => p_dynamics!(p, p_ocp, x, t, e1, label; log)
+        :(∂($x[$i])($t) == $e1) => p_dynamics_coord!(p, p_ocp, x, i, t, e1; log)
+        :(∂($x[$i])($t) == $e1, $label) => p_dynamics_coord!(p, p_ocp, x, i, t, e1, label; log)
         # constraints                 
         :($e1 == $e2) => p_constraint!(p, p_ocp, e2, e1, e2; log)
         :($e1 == $e2, $label) => p_constraint!(p, p_ocp, e2, e1, e2, label; log)
@@ -341,7 +333,7 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
             return __throw("the number of state components must be $nn", p.lnum, p.line)
         for i in 1:nn
             p.aliases[components_names.args[i]] = :($x[$i])
-            # todo: in future, add aliases for state components (scalar) derivatives
+            # todo: in future, add aliases for state components (scalar) derivatives, i.e. alias ẋ, ẋ₁, ẋ1 to ∂(x)
         end
         ss = QuoteNode(string.(components_names.args))
         code = :($prefix.state!($p_ocp, $n, $xx, $ss))
@@ -464,6 +456,12 @@ function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
         $prefix.dynamics!($p_ocp, $gs)
     end
     return __wrap(code, p.lnum, p.line)
+end
+
+function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log=false)
+    p.is_scalar_x || return __throw("dynamics cannot be defined coordinatewise")
+    i == 1 || return __throw("out of range dynamics index")
+    return p_dynamics!(p, p_ocp, x, t, e, label=label; log=log) # i.e. implemented only for scalar case
 end
 
 function p_lagrange!(p, p_ocp, e, type; log=false)
