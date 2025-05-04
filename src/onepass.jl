@@ -221,11 +221,11 @@ end
 function p_alias!(p, p_ocp, a, e; log=false)
     log && println("alias: $a = $e")
     a isa Symbol || return __throw("forbidden alias name: $a", p.lnum, p.line)
-    aa = QuoteNode(a)
-    ee = QuoteNode(e)
     p.aliases[a] = e
     
     # code generation
+    aa = QuoteNode(a)
+    ee = QuoteNode(e)
     code = :(LineNumberNode(0, "alias: " * string($aa) * " = " * string($ee)))
     return __wrap(code, p.lnum, p.line)
 end
@@ -236,7 +236,7 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
     vv = QuoteNode(v)
     if q == 1
         vg = Symbol(v, gensym())
-        p.aliases[:($v[1])] = :($vg[1]) # case for which the Dict of aliases can be indexed by Expr, not only Symbol; avoids (otherwise harmless) vg[1][1] that will not be accepted for t0 or tf
+        p.aliases[:($v[1])] = :($vg[1]) # case for which the Dict of aliases can be indexed by Expr, not only Symbol; avoids (otherwise harmless) vg[1][1] that will not be accepted for t0 or tf (same for state and control)
         p.aliases[v] = :($vg[1])
         p.aliases[Symbol(v, CTBase.ctindices(1))] = :($vg[1])
         p.aliases[Symbol(v, 1)] = :($vg[1])
@@ -274,10 +274,10 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
     p.t = t
     p.t0 = t0
     p.tf = tf
-    tt = QuoteNode(t)
 
     # code generation
     prefix = PREFIX[]
+    tt = QuoteNode(t)
     code = @match (has(t0, p.v), has(tf, p.v)) begin
         (false, false) => :($prefix.time!($p_ocp; t0=$t0, tf=$tf, time_name=$tt))
         (true, false) => @match t0 begin
@@ -383,10 +383,10 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
     log && println("constraint ($c_type): $e1 ≤ $e2 ≤ $e3,    ($label)")
     label isa Int && (label = Symbol(:eq, label))
     label isa Symbol || return __throw("forbidden label: $label", p.lnum, p.line)
-    llabel = QuoteNode(label)
     
     # code generation
     prefix = PREFIX[]
+    llabel = QuoteNode(label)
     code = @match c_type begin
         :boundary || :variable_fun || (:initial, rg) || (:final, rg) => begin # :initial and :final now treated as boundary
             gs = gensym()
