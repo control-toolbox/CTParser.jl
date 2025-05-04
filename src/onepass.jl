@@ -232,12 +232,13 @@ function p_alias!(p, p_ocp, a, e; log=false)
     aa = QuoteNode(a)
     ee = QuoteNode(e)
     p.aliases[a] = e
+    
+    # code generation
     code = :(LineNumberNode(0, "alias: " * string($aa) * " = " * string($ee)))
     return __wrap(code, p.lnum, p.line)
 end
 
 function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
-    prefix = PREFIX[]
     log && println("variable: $v, dim: $q")
     v isa Symbol || return __throw("forbidden variable name: $v", p.lnum, p.line)
     vv = QuoteNode(v)
@@ -258,6 +259,9 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
     for i in 1:qq
         p.aliases[Symbol(v, i)] = :($v[$i])
     end # make v1, v2... if the variable is named v
+
+    # code generation
+    prefix = PREFIX[]
     if (isnothing(components_names))
         code = :($prefix.variable!($p_ocp, $q, $vv))
     else
@@ -273,14 +277,15 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
 end
 
 function p_time!(p, p_ocp, t, t0, tf; log=false)
-    prefix = PREFIX[]
-    e_prefix = E_PREFIX[]
     log && println("time: $t, initial time: $t0, final time: $tf")
     t isa Symbol || return __throw("forbidden time name: $t", p.lnum, p.line)
     p.t = t
     p.t0 = t0
     p.tf = tf
     tt = QuoteNode(t)
+
+    # code generation
+    prefix = PREFIX[]
     code = @match (has(t0, p.v), has(tf, p.v)) begin
         (false, false) => :($prefix.time!($p_ocp; t0=$t0, tf=$tf, time_name=$tt))
         (true, false) => @match t0 begin
@@ -305,7 +310,6 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
 end
 
 function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
-    prefix = PREFIX[]
     log && println("state: $x, dim: $n")
     x isa Symbol || return __throw("forbidden state name: $x", p.lnum, p.line)
     p.aliases[Symbol(Unicode.normalize(string(x, "̇")))] = :(∂($x))
@@ -327,6 +331,9 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
     for i in 1:nn
         p.aliases[Symbol(x, i)] = :($x[$i])
     end # make x1, x2... if the state is named x
+    
+    # code generation
+    prefix = PREFIX[]
     if (isnothing(components_names))
         code = :($prefix.state!($p_ocp, $n, $xx))
     else
@@ -335,7 +342,7 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
         for i in 1:nn
             p.aliases[components_names.args[i]] = :($x[$i])
             # todo: in future, add aliases for state components (scalar) derivatives
-        end # Aliases from names given by the user
+        end
         ss = QuoteNode(string.(components_names.args))
         code = :($prefix.state!($p_ocp, $n, $xx, $ss))
     end
@@ -343,7 +350,6 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
 end
 
 function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
-    prefix = PREFIX[]
     log && println("control: $u, dim: $m")
     u isa Symbol || return __throw("forbidden control name: $u", p.lnum, p.line)
     uu = QuoteNode(u)
@@ -363,6 +369,9 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
     for i in 1:mm
         p.aliases[Symbol(u, i)] = :($u[$i])
     end # make u1, u2... if the control is named u
+    
+    # code generation
+    prefix = PREFIX[]
     if (isnothing(components_names))
         code = :($prefix.control!($p_ocp, $m, $uu))
     else
@@ -378,12 +387,14 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
 end
 
 function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
-    prefix = PREFIX[]
     c_type = constraint_type(e2, p.t, p.t0, p.tf, p.x, p.u, p.v)
     log && println("constraint ($c_type): $e1 ≤ $e2 ≤ $e3,    ($label)")
     label isa Int && (label = Symbol(:eq, label))
     label isa Symbol || return __throw("forbidden label: $label", p.lnum, p.line)
     llabel = QuoteNode(label)
+    
+    # code generation
+    prefix = PREFIX[]
     code = @match c_type begin
         :boundary || :variable_fun || (:initial, rg) || (:final, rg) => begin # :initial and :final now treated as boundary
             gs = gensym()
@@ -428,7 +439,6 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
 end
 
 function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
-    prefix = PREFIX[]
     ∂x = Symbol(:∂, x)
     log && println("dynamics: $∂x($t) == $e")
     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
@@ -437,6 +447,9 @@ function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
     x ≠ p.x && return __throw("wrong state for dynamics", p.lnum, p.line)
     t ≠ p.t && return __throw("wrong time for dynamics", p.lnum, p.line)
+    
+    # code generation
+    prefix = PREFIX[]
     xt = gensym()
     ut = gensym()
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
@@ -454,11 +467,13 @@ function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
 end
 
 function p_lagrange!(p, p_ocp, e, type; log=false)
-    prefix = PREFIX[]
     log && println("objective (Lagrange): ∫($e) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
+    
+    # code generation
+    prefix = PREFIX[]
     xt = gensym()
     ut = gensym()
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
@@ -476,7 +491,6 @@ function p_lagrange!(p, p_ocp, e, type; log=false)
 end
 
 function p_mayer!(p, p_ocp, e, type; log=false)
-    prefix = PREFIX[]
     log && println("objective (Mayer): $e → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.t0) && return __throw("time not yet declared", p.lnum, p.line)
@@ -486,6 +500,9 @@ function p_mayer!(p, p_ocp, e, type; log=false)
         p.lnum,
         p.line,
     )
+    
+    # code generation
+    prefix = PREFIX[]
     gs = gensym()
     x0 = gensym()
     xf = gensym()
@@ -504,13 +521,15 @@ function p_mayer!(p, p_ocp, e, type; log=false)
 end
 
 function p_bolza!(p, p_ocp, e1, e2, type; log=false)
-    prefix = PREFIX[]
     log && println("objective (Bolza): $e1 + ∫($e2) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.t0) && return __throw("time not yet declared", p.lnum, p.line)
     isnothing(p.tf) && return __throw("time not yet declared", p.lnum, p.line)
     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
+    
+    # code generation
+    prefix = PREFIX[]
     gs1 = gensym()
     x0 = gensym()
     xf = gensym()
