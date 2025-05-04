@@ -120,10 +120,10 @@ parse!(p, p_ocp, e; log=false) = begin
         :($u ∈ R^$m, control) => p_control!(p, p_ocp, u, m; log)
         :($u ∈ R, control) => p_control!(p, p_ocp, u, 1; log)
         # dynamics                    
+        :(∂($x[$i])($t) == $e1) => p_dynamics_coord!(p, p_ocp, x, i, t, e1; log) # before ∂($x)($t) pattern!
+        :(∂($x[$i])($t) == $e1, $label) => p_dynamics_coord!(p, p_ocp, x, i, t, e1, label; log)
         :(∂($x)($t) == $e1) => p_dynamics!(p, p_ocp, x, t, e1; log)
         :(∂($x)($t) == $e1, $label) => p_dynamics!(p, p_ocp, x, t, e1, label; log)
-        :(∂($x[$i])($t) == $e1) => p_dynamics_coord!(p, p_ocp, x, i, t, e1; log)
-        :(∂($x[$i])($t) == $e1, $label) => p_dynamics_coord!(p, p_ocp, x, i, t, e1, label; log)
         # constraints                 
         :($e1 == $e2) => p_constraint!(p, p_ocp, e2, e1, e2; log)
         :($e1 == $e2, $label) => p_constraint!(p, p_ocp, e2, e1, e2, label; log)
@@ -138,8 +138,8 @@ parse!(p, p_ocp, e; log=false) = begin
         # lagrange cost
         :(∫($e1) → min) => p_lagrange!(p, p_ocp, e1, :min; log)
         :(-∫($e1) → min) => p_lagrange!(p, p_ocp, :(-$e1), :min; log)
-        :($e1 * ∫($e2) → min) => if has(e1, p.t)
-            (return __throw("time $(p.t) must not appear in $e1", p.lnum, p.line))
+        :($e1 * ∫($e2) → min) => if has(e1, p.t) # this test (and those below) is here to allow reduction to p_lagrange! standard call
+            (return __throw("time $(p.t) must not appear in $e1", p.lnum, p.line)) 
         else
             p_lagrange!(p, p_ocp, :($e1 * $e2), :min; log)
         end
