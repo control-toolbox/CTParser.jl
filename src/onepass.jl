@@ -405,8 +405,10 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
     log && println("constraint ($c_type): $e1 ≤ $e2 ≤ $e3,    ($label)")
     label isa Int && (label = Symbol(:eq, label))
     label isa Symbol || return __throw("forbidden label: $label", p.lnum, p.line)
-    
-    # code generation
+    return __parsing(:constraint)(p, p_ocp, e1, e2, e3, c_type, label; log=log)
+end
+ 
+function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label; log=false)
     prefix = PREFIX[]
     llabel = QuoteNode(label)
     code = @match c_type begin
@@ -584,7 +586,7 @@ PARSING_FUN[:variable] = p_variable_fun!
 PARSING_FUN[:time] = p_time_fun!
 PARSING_FUN[:state] = p_state_fun!
 PARSING_FUN[:control] = p_control_fun!
-#PARSING_FUN[:constraint] = p_constraint_fun!
+PARSING_FUN[:constraint] = p_constraint_fun!
 #PARSING_FUN[:dynamics] = p_dynamics_fun!
 #PARSING_FUN[:dynamics_coord] = p_dynamics_coord_fun!
 #PARSING_FUN[:lagrange] = p_lagrange_fun!
