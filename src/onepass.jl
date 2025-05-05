@@ -231,10 +231,10 @@ function p_alias!(p, p_ocp, a, e; log=false)
     log && println("alias: $a = $e")
     a isa Symbol || return __throw("forbidden alias name: $a", p.lnum, p.line)
     p.aliases[a] = e
-    return __parsing(:alias)(p, p_ocp, a, e; log=log)
+    return parsing(:alias)(p, p_ocp, a, e)
 end
     
-function p_alias_fun!(p, p_ocp, a, e; log=false)
+function p_alias_fun!(p, p_ocp, a, e)
     aa = QuoteNode(a)
     ee = QuoteNode(e)
     code = :(LineNumberNode(0, "alias: " * string($aa) * " = " * string($ee)))
@@ -262,10 +262,10 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
     for i in 1:qq
         p.aliases[Symbol(v, i)] = :($v[$i])
     end # make v1, v2... if the variable is named v
-    return __parsing(:variable)(p, p_ocp, v, q, vv; components_names=components_names, log=log)
+    return parsing(:variable)(p, p_ocp, v, q, vv; components_names=components_names)
 end
 
-function p_variable_fun!(p, p_ocp, v, q, vv; components_names=nothing, log=false)
+function p_variable_fun!(p, p_ocp, v, q, vv; components_names=nothing)
     prefix = PREFIX[]
     if (isnothing(components_names))
         code = :($prefix.variable!($p_ocp, $q, $vv))
@@ -288,10 +288,10 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
     p.t = t
     p.t0 = t0
     p.tf = tf
-    return __parsing(:time)(p, p_ocp, t, t0, tf; log=log)
+    return parsing(:time)(p, p_ocp, t, t0, tf)
 end
 
-function p_time_fun!(p, p_ocp, t, t0, tf; log=false)
+function p_time_fun!(p, p_ocp, t, t0, tf)
     prefix = PREFIX[]
     tt = QuoteNode(t)
     code = @match (has(t0, p.v), has(tf, p.v)) begin
@@ -339,10 +339,10 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
     for i in 1:nn
         p.aliases[Symbol(x, i)] = :($x[$i])
     end # make x1, x2... if the state is named x
-    return __parsing(:state)(p, p_ocp, x, n, xx; components_names=components_names, log=log)
+    return parsing(:state)(p, p_ocp, x, n, xx; components_names=components_names)
 end
     
-function p_state_fun!(p, p_ocp, x, n, xx; components_names=nothing, log=false)
+function p_state_fun!(p, p_ocp, x, n, xx; components_names=nothing)
     prefix = PREFIX[]
     if (isnothing(components_names))
         code = :($prefix.state!($p_ocp, $n, $xx))
@@ -380,10 +380,10 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
     for i in 1:mm
         p.aliases[Symbol(u, i)] = :($u[$i])
     end # make u1, u2... if the control is named u
-    return __parsing(:control)(p, p_ocp, u, m, uu; components_names=components_names, log=log)
+    return parsing(:control)(p, p_ocp, u, m, uu; components_names=components_names)
 end
     
-function p_control_fun!(p, p_ocp, u, m, uu; components_names=nothing, log=false)
+function p_control_fun!(p, p_ocp, u, m, uu; components_names=nothing)
     prefix = PREFIX[]
     if (isnothing(components_names))
         code = :($prefix.control!($p_ocp, $m, $uu))
@@ -405,10 +405,10 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
     log && println("constraint ($c_type): $e1 ≤ $e2 ≤ $e3,    ($label)")
     label isa Int && (label = Symbol(:eq, label))
     label isa Symbol || return __throw("forbidden label: $label", p.lnum, p.line)
-    return __parsing(:constraint)(p, p_ocp, e1, e2, e3, c_type, label; log=log)
+    return parsing(:constraint)(p, p_ocp, e1, e2, e3, c_type, label)
 end
  
-function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label; log=false)
+function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
     prefix = PREFIX[]
     llabel = QuoteNode(label)
     code = @match c_type begin
@@ -456,15 +456,17 @@ end
 
 function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
     ∂x = Symbol(:∂, x)
-    log && println("dynamics: $∂x($t) == $e")
+    log && println("dynamics: $∂(x)($t) == $e")
     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
     x ≠ p.x && return __throw("wrong state $x for dynamics", p.lnum, p.line)
     t ≠ p.t && return __throw("wrong time $t for dynamics", p.lnum, p.line)
-    
-    # code generation
+    return parsing(:dynamics)(p, p_ocp, x, t, e, label)
+end
+
+function p_dynamics_fun!(p, p_ocp, x, t, e, label)
     prefix = PREFIX[]
     xt = gensym()
     ut = gensym()
@@ -483,6 +485,16 @@ function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
 end
 
 function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log=false)
+#     ∂x = Symbol(:∂, x)
+#     log && println("dynamics: $∂(x[$i])($t) == $e")
+#     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
+#     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
+#     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
+#     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
+#     x ≠ p.x && return __throw("wrong state $x for dynamics", p.lnum, p.line)
+#     t ≠ p.t && return __throw("wrong time $t for dynamics", p.lnum, p.line)
+     
+    # code generation
     p.is_scalar_x || return __throw("dynamics cannot be defined coordinatewise", p.lnum, p.line)
     i == 1 || return __throw("out of range dynamics index", p.lnum, p.line)
     return p_dynamics!(p, p_ocp, x, t, e, label; log=log) # i.e. implemented only for scalar case
@@ -587,7 +599,7 @@ PARSING_FUN[:time] = p_time_fun!
 PARSING_FUN[:state] = p_state_fun!
 PARSING_FUN[:control] = p_control_fun!
 PARSING_FUN[:constraint] = p_constraint_fun!
-#PARSING_FUN[:dynamics] = p_dynamics_fun!
+PARSING_FUN[:dynamics] = p_dynamics_fun!
 #PARSING_FUN[:dynamics_coord] = p_dynamics_coord_fun!
 #PARSING_FUN[:lagrange] = p_lagrange_fun!
 #PARSING_FUN[:mayer] = p_mayer_fun!
@@ -600,7 +612,7 @@ const PARSING_DIR = OrderedDict{Symbol, OrderedDict{Symbol, Function}}()
 PARSING_DIR[:fun] = PARSING_FUN
 PARSING_DIR[:exa] = PARSING_EXA
 
-__parsing(s) = PARSING_DIR[parsing_backend()][s] # calls the primitive associated with symbol s (:alias, etc.) for the current backend
+parsing(s) = PARSING_DIR[parsing_backend()][s] # calls the primitive associated with symbol s (:alias, etc.) for the current backend
 
 """
 $(TYPEDSIGNATURES)
