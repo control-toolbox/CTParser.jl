@@ -9,6 +9,15 @@
 # - add tests on ParsingError + run time errors (wrapped in try ... catch's - use string to be precise)
 # - currently "t ∈ [ 0+0, 1 ], time" is allowed, and compels to declare "x(0+0) == ..."
 
+const PARSING_BACKEND = Ref(:fun) # can be :fun for functional, :exa for ExaModels
+
+parsing_backend() = PARSING_BACKEND[]
+
+function parsing_backend!(b)
+    PARSING_BACKEND[] = b
+    return nothing
+end
+
 const PREFIX = Ref(:OptimalControl) # prefix for generated code, assumed to be evaluated within OptimalControl.jl; can be CTModel for tests
 
 function set_prefix(p)
@@ -120,7 +129,7 @@ parse!(p, p_ocp, e; log=false) = begin
         :($u ∈ R^$m, control) => p_control!(p, p_ocp, u, m; log)
         :($u ∈ R, control) => p_control!(p, p_ocp, u, 1; log)
         # dynamics                    
-        :(∂($x[$i])($t) == $e1) => p_dynamics_coord!(p, p_ocp, x, i, t, e1; log) # before ∂($x)($t) pattern!
+        :(∂($x[$i])($t) == $e1) => p_dynamics_coord!(p, p_ocp, x, i, t, e1; log) # must be filtered before ∂($x)($t) pattern
         :(∂($x[$i])($t) == $e1, $label) => p_dynamics_coord!(p, p_ocp, x, i, t, e1, label; log)
         :(∂($x)($t) == $e1) => p_dynamics!(p, p_ocp, x, t, e1; log)
         :(∂($x)($t) == $e1, $label) => p_dynamics!(p, p_ocp, x, t, e1, label; log)
@@ -138,7 +147,7 @@ parse!(p, p_ocp, e; log=false) = begin
         # lagrange cost
         :(∫($e1) → min) => p_lagrange!(p, p_ocp, e1, :min; log)
         :(-∫($e1) → min) => p_lagrange!(p, p_ocp, :(-$e1), :min; log)
-        :($e1 * ∫($e2) → min) => if has(e1, p.t) # this test (and those below) is here to allow reduction to p_lagrange! standard call
+        :($e1 * ∫($e2) → min) => if has(e1, p.t) # this test (and those similar below) is here to allow reduction to p_lagrange! standard call
             (return __throw("time $(p.t) must not appear in $e1", p.lnum, p.line)) 
         else
             p_lagrange!(p, p_ocp, :($e1 * $e2), :min; log)
@@ -222,8 +231,10 @@ function p_alias!(p, p_ocp, a, e; log=false)
     log && println("alias: $a = $e")
     a isa Symbol || return __throw("forbidden alias name: $a", p.lnum, p.line)
     p.aliases[a] = e
+    return __parsing(:alias)(p, p_ocp, a, e; log=log)
+end
     
-    # code generation
+function p_alias_fun!(p, p_ocp, a, e; log=false)
     aa = QuoteNode(a)
     ee = QuoteNode(e)
     code = :(LineNumberNode(0, "alias: " * string($aa) * " = " * string($ee)))
@@ -553,6 +564,20 @@ function p_bolza!(p, p_ocp, e1, e2, type; log=false)
     end
     return __wrap(code, p.lnum, p.line)
 end
+
+# Summary of available parsing options
+
+const PARSING_FUN = OrderedDict{Symbol, Function}()
+PARSING_FUN[:alias] = p_alias_fun!
+
+const PARSING_EXA = OrderedDict{Symbol, Function}()
+#PARSING_EXA[:alias] = p_alias_exa!
+
+const PARSING_DIR = OrderedDict{Symbol, OrderedDict{Symbol, Function}}()
+PARSING_DIR[:fun] = PARSING_FUN
+PARSING_DIR[:exa] = PARSING_EXA
+
+__parsing(s) = PARSING_DIR[parsing_backend()](s) # calls the primitive associated with symbol s (:alias, etc.) for the current backend
 
 """
 $(TYPEDSIGNATURES)
