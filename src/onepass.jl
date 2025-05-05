@@ -20,14 +20,18 @@ end
 
 const PREFIX = Ref(:OptimalControl) # prefix for generated code, assumed to be evaluated within OptimalControl.jl; can be CTModel for tests
 
-function set_prefix(p)
+prefix() = PREFIX[]
+
+function prefix!(p)
     PREFIX[] = p
     return nothing
 end
 
 const E_PREFIX = Ref(:OptimalControl) # prefix for exceptions in generated code, assumed to be evaluated within OptimalControl.jl; can be CTBase for tests
 
-function set_e_prefix(p)
+e_prefix() = E_PREFIX[]
+
+function e_prefix!(p)
     E_PREFIX[] = p
     return nothing
 end
@@ -67,9 +71,9 @@ __init_aliases(; max_dim=20) = begin
 end
 
 __throw(mess, n, line) = begin
-    e_prefix = E_PREFIX[]
+    e_pref = e_prefix()
     info = string("\nLine ", n, ": ", line, "\n", mess)
-    return :( throw($e_prefix.ParsingError($info)) ) 
+    return :( throw($e_pref.ParsingError($info)) ) 
 end
 
 __wrap(e, n, line) = quote
@@ -266,9 +270,9 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
 end
 
 function p_variable_fun!(p, p_ocp, v, q, vv; components_names=nothing)
-    prefix = PREFIX[]
+    pref = prefix()
     if (isnothing(components_names))
-        code = :($prefix.variable!($p_ocp, $q, $vv))
+        code = :($pref.variable!($p_ocp, $q, $vv))
     else
         qq = q isa Int ? q : 9
         qq == length(components_names.args) ||
@@ -277,7 +281,7 @@ function p_variable_fun!(p, p_ocp, v, q, vv; components_names=nothing)
             p.aliases[components_names.args[i]] = :($v[$i])
         end # aliases from names given by the user
         ss = QuoteNode(string.(components_names.args))
-        code = :($prefix.variable!($p_ocp, $q, $vv, $ss))
+        code = :($pref.variable!($p_ocp, $q, $vv, $ss))
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -292,25 +296,25 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
 end
 
 function p_time_fun!(p, p_ocp, t, t0, tf)
-    prefix = PREFIX[]
+    pref = prefix()
     tt = QuoteNode(t)
     code = @match (has(t0, p.v), has(tf, p.v)) begin
-        (false, false) => :($prefix.time!($p_ocp; t0=$t0, tf=$tf, time_name=$tt))
+        (false, false) => :($pref.time!($p_ocp; t0=$t0, tf=$tf, time_name=$tt))
         (true, false) => @match t0 begin
-            :($v1[$i]) && if (v1 == p.v) end => :($prefix.time!($p_ocp; ind0=$i, tf=$tf, time_name=$tt))
-            :($v1) && if (v1 == p.v) &&  p.is_scalar_v end => :( $prefix.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt) )
+            :($v1[$i]) && if (v1 == p.v) end => :($pref.time!($p_ocp; ind0=$i, tf=$tf, time_name=$tt))
+            :($v1) && if (v1 == p.v) &&  p.is_scalar_v end => :( $pref.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt) )
             :($v1) && if (v1 == p.v) && !p.is_scalar_v end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         (false, true) => @match tf begin
-            :($v1[$i]) && if (v1 == p.v) end => :($prefix.time!($p_ocp; t0=$t0, indf=$i, time_name=$tt))
-            :($v1) && if (v1 == p.v) &&  p.is_scalar_v end => :( $prefix.time!($p_ocp; t0=$t0, indf=1, time_name=$tt) )
+            :($v1[$i]) && if (v1 == p.v) end => :($pref.time!($p_ocp; t0=$t0, indf=$i, time_name=$tt))
+            :($v1) && if (v1 == p.v) &&  p.is_scalar_v end => :( $pref.time!($p_ocp; t0=$t0, indf=1, time_name=$tt) )
             :($v1) && if (v1 == p.v) && !p.is_scalar_v end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         _ => @match (t0, tf) begin
             (:($v1[$i]), :($v2[$j])) && if (v1 == v2 == p.v)
-            end => :($prefix.time!($p_ocp; ind0=$i, indf=$j, time_name=$tt))
+            end => :($pref.time!($p_ocp; ind0=$i, indf=$j, time_name=$tt))
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
     end
@@ -343,9 +347,9 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
 end
     
 function p_state_fun!(p, p_ocp, x, n, xx; components_names=nothing)
-    prefix = PREFIX[]
+    pref = prefix()
     if (isnothing(components_names))
-        code = :($prefix.state!($p_ocp, $n, $xx))
+        code = :($pref.state!($p_ocp, $n, $xx))
     else
         nn = n isa Int ? n : 9
         nn == length(components_names.args) ||
@@ -355,7 +359,7 @@ function p_state_fun!(p, p_ocp, x, n, xx; components_names=nothing)
             # todo: in future, add aliases for state components (scalar) derivatives, i.e. alias ẋ, ẋ₁, ẋ1 to ∂(x)
         end
         ss = QuoteNode(string.(components_names.args))
-        code = :($prefix.state!($p_ocp, $n, $xx, $ss))
+        code = :($pref.state!($p_ocp, $n, $xx, $ss))
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -384,9 +388,9 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
 end
     
 function p_control_fun!(p, p_ocp, u, m, uu; components_names=nothing)
-    prefix = PREFIX[]
+    pref = prefix()
     if (isnothing(components_names))
-        code = :($prefix.control!($p_ocp, $m, $uu))
+        code = :($pref.control!($p_ocp, $m, $uu))
     else
         mm = m isa Int ? m : 9
         mm == length(components_names.args) ||
@@ -395,7 +399,7 @@ function p_control_fun!(p, p_ocp, u, m, uu; components_names=nothing)
             p.aliases[components_names.args[i]] = :($u[$i])
         end # aliases from names given by the user
         ss = QuoteNode(string.(components_names.args))
-        code = :($prefix.control!($p_ocp, $m, $uu, $ss))
+        code = :($pref.control!($p_ocp, $m, $uu, $ss))
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -409,7 +413,7 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
 end
  
 function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
-    prefix = PREFIX[]
+    pref = prefix()
     llabel = QuoteNode(label)
     code = @match c_type begin
         :boundary || :variable_fun || (:initial, rg) || (:final, rg) => begin # :initial and :final now treated as boundary
@@ -425,15 +429,15 @@ function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
                     @views $r[:] .= $ee2
                     return nothing
                 end
-                $prefix.constraint!($p_ocp, :boundary; f=$gs, lb=$e1, ub=$e3, label=$llabel)
+                $pref.constraint!($p_ocp, :boundary; f=$gs, lb=$e1, ub=$e3, label=$llabel)
             end
         end
         (:control_range, rg) =>
-            :($prefix.constraint!($p_ocp, :control; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
+            :($pref.constraint!($p_ocp, :control; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
         (:state_range, rg) =>
-            :($prefix.constraint!($p_ocp, :state; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
+            :($pref.constraint!($p_ocp, :state; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
         (:variable_range, rg) =>
-            :($prefix.constraint!($p_ocp, :variable; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
+            :($pref.constraint!($p_ocp, :variable; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
         :state_fun || control_fun || :mixed => begin # now all treated as path
             gs = gensym()
             xt = gensym()
@@ -446,7 +450,7 @@ function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
                     @views $r[:] .= $ee2
                     return nothing
                 end
-                $prefix.constraint!($p_ocp, :path; f=$gs, lb=$e1, ub=$e3, label=$llabel)
+                $pref.constraint!($p_ocp, :path; f=$gs, lb=$e1, ub=$e3, label=$llabel)
             end
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
@@ -466,7 +470,7 @@ function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
 end
 
 function p_dynamics_fun!(p, p_ocp, x, t, e, label)
-    prefix = PREFIX[]
+    pref = prefix()
     xt = gensym()
     ut = gensym()
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
@@ -478,7 +482,7 @@ function p_dynamics_fun!(p, p_ocp, x, t, e, label)
             @views $r[:] .= $e
             return nothing
         end
-        $prefix.dynamics!($p_ocp, $gs)
+        $pref.dynamics!($p_ocp, $gs)
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -509,7 +513,7 @@ function p_lagrange!(p, p_ocp, e, type; log=false)
 end
     
 function p_lagrange_fun!(p, p_ocp, e, type)
-    prefix = PREFIX[]
+    pref = prefix()
     xt = gensym()
     ut = gensym()
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
@@ -521,7 +525,7 @@ function p_lagrange_fun!(p, p_ocp, e, type)
         function $gs($(args...))
             return @views $e
         end
-        $prefix.objective!($p_ocp, $ttype; lagrange=$gs)
+        $pref.objective!($p_ocp, $ttype; lagrange=$gs)
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -540,7 +544,7 @@ function p_mayer!(p, p_ocp, e, type; log=false)
 end
 
 function p_mayer_fun!(p, p_ocp, e, type)
-    prefix = PREFIX[]
+    pref = prefix()
     gs = gensym()
     x0 = gensym()
     xf = gensym()
@@ -553,7 +557,7 @@ function p_mayer_fun!(p, p_ocp, e, type)
         function $gs($(args...))
             return @views $e
         end
-        $prefix.objective!($p_ocp, $ttype; mayer=$gs)
+        $pref.objective!($p_ocp, $ttype; mayer=$gs)
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -569,7 +573,7 @@ function p_bolza!(p, p_ocp, e1, e2, type; log=false)
 end 
 
 function p_bolza_fun!(p, p_ocp, e1, e2, type)
-    prefix = PREFIX[]
+    pref = prefix()
     gs1 = gensym()
     x0 = gensym()
     xf = gensym()
@@ -591,7 +595,7 @@ function p_bolza_fun!(p, p_ocp, e1, e2, type)
         function $gs2($(args2...))
             return @views $e2
         end
-        $prefix.objective!($p_ocp, $ttype; mayer=$gs1, lagrange=$gs2)
+        $pref.objective!($p_ocp, $ttype; mayer=$gs1, lagrange=$gs2)
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -679,14 +683,14 @@ end
 
 macro def(ocp, e, log=false)
     try
-        prefix = PREFIX[]
+        pref = prefix()
         p_ocp = gensym()
-        code = :($p_ocp = $prefix.PreModel())
+        code = :($p_ocp = $pref.PreModel())
         p = ParsingInfo()
         code = Expr(:block, code, parse!(p, p_ocp, e; log=log))
         ee = QuoteNode(e)
-        code = Expr(:block, code, :($prefix.definition!($p_ocp, $ee)))
-        code = Expr(:block, code, :($ocp = $prefix.build_model($p_ocp)))
+        code = Expr(:block, code, :($pref.definition!($p_ocp, $ee)))
+        code = Expr(:block, code, :($ocp = $pref.build_model($p_ocp)))
         return esc(code)
     catch ex
         :(throw($ex)) # can be caught by user
