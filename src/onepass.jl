@@ -455,8 +455,7 @@ function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
 end
 
 function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
-    ∂x = Symbol(:∂, x)
-    log && println("dynamics: $∂(x)($t) == $e")
+    log && println("dynamics: ∂($x)($t) == $e")
     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
@@ -485,15 +484,14 @@ function p_dynamics_fun!(p, p_ocp, x, t, e, label)
 end
 
 function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log=false)
-#     ∂x = Symbol(:∂, x)
-#     log && println("dynamics: $∂(x[$i])($t) == $e")
-#     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
-#     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
-#     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
-#     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
-#     x ≠ p.x && return __throw("wrong state $x for dynamics", p.lnum, p.line)
-#     t ≠ p.t && return __throw("wrong time $t for dynamics", p.lnum, p.line)
-     
+    log && println("dynamics: ∂($x[$i])($t) == $e")
+    isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
+    isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
+    isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
+    isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
+    x ≠ p.x && return __throw("wrong state $x for dynamics", p.lnum, p.line)
+    t ≠ p.t && return __throw("wrong time $t for dynamics", p.lnum, p.line)
+    
     # code generation
     p.is_scalar_x || return __throw("dynamics cannot be defined coordinatewise", p.lnum, p.line)
     i == 1 || return __throw("out of range dynamics index", p.lnum, p.line)
