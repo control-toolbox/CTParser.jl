@@ -491,11 +491,13 @@ function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log=false)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
     x ≠ p.x && return __throw("wrong state $x for dynamics", p.lnum, p.line)
     t ≠ p.t && return __throw("wrong time $t for dynamics", p.lnum, p.line)
+    return parsing(:dynamics_coord)(p, p_ocp, x, i, t, e, label)
+end
     
-    # code generation
+function p_dynamics_coord_fun!(p, p_ocp, x, i, t, e, label)
     p.is_scalar_x || return __throw("dynamics cannot be defined coordinatewise", p.lnum, p.line)
     i == 1 || return __throw("out of range dynamics index", p.lnum, p.line)
-    return p_dynamics!(p, p_ocp, x, t, e, label; log=log) # i.e. implemented only for scalar case
+    return p_dynamics!(p, p_ocp, x, t, e, label) # i.e. implemented only for scalar case (future, to be completed)
 end
 
 function p_lagrange!(p, p_ocp, e, type; log=false)
@@ -503,8 +505,10 @@ function p_lagrange!(p, p_ocp, e, type; log=false)
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
+    return parsing(:lagrange)(p, p_ocp, e, type)
+end
     
-    # code generation
+function p_lagrange_fun!(p, p_ocp, e, type)
     prefix = PREFIX[]
     xt = gensym()
     ut = gensym()
@@ -532,8 +536,10 @@ function p_mayer!(p, p_ocp, e, type; log=false)
         p.lnum,
         p.line,
     )
-    
-    # code generation
+    return parsing(:mayer)(p, p_ocp, e, type)
+end
+
+function p_mayer_fun!(p, p_ocp, e, type)
     prefix = PREFIX[]
     gs = gensym()
     x0 = gensym()
@@ -559,8 +565,10 @@ function p_bolza!(p, p_ocp, e1, e2, type; log=false)
     isnothing(p.tf) && return __throw("time not yet declared", p.lnum, p.line)
     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
-    
-    # code generation
+    return parsing(:bolza)(p, p_ocp, e1, e2, type)
+end 
+
+function p_bolza_fun!(p, p_ocp, e1, e2, type)
     prefix = PREFIX[]
     gs1 = gensym()
     x0 = gensym()
@@ -598,10 +606,10 @@ PARSING_FUN[:state] = p_state_fun!
 PARSING_FUN[:control] = p_control_fun!
 PARSING_FUN[:constraint] = p_constraint_fun!
 PARSING_FUN[:dynamics] = p_dynamics_fun!
-#PARSING_FUN[:dynamics_coord] = p_dynamics_coord_fun!
-#PARSING_FUN[:lagrange] = p_lagrange_fun!
-#PARSING_FUN[:mayer] = p_mayer_fun!
-#PARSING_FUN[:bolza] = p_bolza_fun!
+PARSING_FUN[:dynamics_coord] = p_dynamics_coord_fun!
+PARSING_FUN[:lagrange] = p_lagrange_fun!
+PARSING_FUN[:mayer] = p_mayer_fun!
+PARSING_FUN[:bolza] = p_bolza_fun!
 
 const PARSING_EXA = OrderedDict{Symbol, Function}()
 #PARSING_EXA[:alias] = p_alias_exa!
