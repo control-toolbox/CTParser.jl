@@ -673,6 +673,27 @@ end true # final boolean to show parsing log
 ```
 """
 macro def(e)
+    code = :(@def_fun $e)
+    return esc(code)
+end
+
+macro def_fun(e)
+    try
+        pref = prefix()
+        p_ocp = gensym()
+        code = :($p_ocp = $pref.PreModel())
+        p = ParsingInfo()
+        code = Expr(:block, code, parse!(p, p_ocp, e; log=log))
+        ee = QuoteNode(e)
+        code = Expr(:block, code, :($pref.definition!($p_ocp, $ee)))
+        code = Expr(:block, code, :($pref.build_model($p_ocp)))
+        return esc(code)
+    catch ex
+        :(throw($ex)) # can be caught by user
+    end
+end
+
+macro old_def(e)
     ocp = gensym()
     code = quote
         @def $ocp $e
@@ -696,3 +717,4 @@ macro def(ocp, e, log=false)
         :(throw($ex)) # can be caught by user
     end
 end
+
