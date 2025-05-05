@@ -339,12 +339,15 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
     for i in 1:nn
         p.aliases[Symbol(x, i)] = :($x[$i])
     end # make x1, x2... if the state is named x
+    return __parsing(:state)(p, p_ocp, x, n, xx; components_names=components_names, log=log)
+end
     
-    # code generation
+function p_state_fun!(p, p_ocp, x, n, xx; components_names=nothing, log=false)
     prefix = PREFIX[]
     if (isnothing(components_names))
         code = :($prefix.state!($p_ocp, $n, $xx))
     else
+        nn = n isa Int ? n : 9
         nn == length(components_names.args) ||
             return __throw("the number of state components must be $nn", p.lnum, p.line)
         for i in 1:nn
@@ -377,12 +380,15 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
     for i in 1:mm
         p.aliases[Symbol(u, i)] = :($u[$i])
     end # make u1, u2... if the control is named u
+    return __parsing(:control)(p, p_ocp, u, m, uu; components_names=components_names, log=log)
+end
     
-    # code generation
+function p_control_fun!(p, p_ocp, u, m, uu; components_names=nothing, log=false)
     prefix = PREFIX[]
     if (isnothing(components_names))
         code = :($prefix.control!($p_ocp, $m, $uu))
     else
+        mm = m isa Int ? m : 9
         mm == length(components_names.args) ||
             return __throw("the number of control components must be $mm", p.lnum, p.line)
         for i in 1:mm
@@ -576,8 +582,8 @@ const PARSING_FUN = OrderedDict{Symbol, Function}()
 PARSING_FUN[:alias] = p_alias_fun!
 PARSING_FUN[:variable] = p_variable_fun!
 PARSING_FUN[:time] = p_time_fun!
-#PARSING_FUN[:state] = p_state_fun!
-#PARSING_FUN[:control] = p_control_fun!
+PARSING_FUN[:state] = p_state_fun!
+PARSING_FUN[:control] = p_control_fun!
 #PARSING_FUN[:constraint] = p_constraint_fun!
 #PARSING_FUN[:dynamics] = p_dynamics_fun!
 #PARSING_FUN[:dynamics_coord] = p_dynamics_coord_fun!
