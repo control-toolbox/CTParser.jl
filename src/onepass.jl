@@ -437,8 +437,8 @@ function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
-    x ≠ p.x && return __throw("wrong state for dynamics", p.lnum, p.line)
-    t ≠ p.t && return __throw("wrong time for dynamics", p.lnum, p.line)
+    x ≠ p.x && return __throw("wrong state $x for dynamics", p.lnum, p.line)
+    t ≠ p.t && return __throw("wrong time $t for dynamics", p.lnum, p.line)
     
     # code generation
     prefix = PREFIX[]
@@ -459,8 +459,8 @@ function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
 end
 
 function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log=false)
-    p.is_scalar_x || return __throw("dynamics cannot be defined coordinatewise")
-    i == 1 || return __throw("out of range dynamics index")
+    p.is_scalar_x || return __throw("dynamics cannot be defined coordinatewise", p.lnum, p.line)
+    i == 1 || return __throw("out of range dynamics index", p.lnum, p.line)
     return p_dynamics!(p, p_ocp, x, t, e, label; log=log) # i.e. implemented only for scalar case
 end
 
