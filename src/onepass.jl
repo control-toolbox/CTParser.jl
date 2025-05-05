@@ -577,7 +577,7 @@ const PARSING_DIR = OrderedDict{Symbol, OrderedDict{Symbol, Function}}()
 PARSING_DIR[:fun] = PARSING_FUN
 PARSING_DIR[:exa] = PARSING_EXA
 
-__parsing(s) = PARSING_DIR[parsing_backend()](s) # calls the primitive associated with symbol s (:alias, etc.) for the current backend
+__parsing(s) = PARSING_DIR[parsing_backend()][s] # calls the primitive associated with symbol s (:alias, etc.) for the current backend
 
 """
 $(TYPEDSIGNATURES)
