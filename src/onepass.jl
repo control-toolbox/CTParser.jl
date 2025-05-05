@@ -262,12 +262,15 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
     for i in 1:qq
         p.aliases[Symbol(v, i)] = :($v[$i])
     end # make v1, v2... if the variable is named v
+    return __parsing(:variable)(p, p_ocp, v, q, vv; components_names=components_names, log=log)
+end
 
-    # code generation
+function p_variable_fun!(p, p_ocp, v, q, vv; components_names=nothing, log=false)
     prefix = PREFIX[]
     if (isnothing(components_names))
         code = :($prefix.variable!($p_ocp, $q, $vv))
     else
+        qq = q isa Int ? q : 9
         qq == length(components_names.args) ||
             return __throw("the number of variable components must be $qq", p.lnum, p.line)
         for i in 1:qq
@@ -285,8 +288,10 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
     p.t = t
     p.t0 = t0
     p.tf = tf
+    return __parsing(:time)(p, p_ocp, t, t0, tf; log=log)
+end
 
-    # code generation
+function p_time_fun!(p, p_ocp, t, t0, tf; log=false)
     prefix = PREFIX[]
     tt = QuoteNode(t)
     code = @match (has(t0, p.v), has(tf, p.v)) begin
@@ -569,6 +574,16 @@ end
 
 const PARSING_FUN = OrderedDict{Symbol, Function}()
 PARSING_FUN[:alias] = p_alias_fun!
+PARSING_FUN[:variable] = p_variable_fun!
+PARSING_FUN[:time] = p_time_fun!
+#PARSING_FUN[:state] = p_state_fun!
+#PARSING_FUN[:control] = p_control_fun!
+#PARSING_FUN[:constraint] = p_constraint_fun!
+#PARSING_FUN[:dynamics] = p_dynamics_fun!
+#PARSING_FUN[:dynamics_coord] = p_dynamics_coord_fun!
+#PARSING_FUN[:lagrange] = p_lagrange_fun!
+#PARSING_FUN[:mayer] = p_mayer_fun!
+#PARSING_FUN[:bolza] = p_bolza_fun!
 
 const PARSING_EXA = OrderedDict{Symbol, Function}()
 #PARSING_EXA[:alias] = p_alias_exa!
