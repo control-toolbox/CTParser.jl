@@ -673,11 +673,34 @@ end true # final boolean to show parsing log
 ```
 """
 macro def(e)
-    code = :(@def_fun $e)
-    return esc(code)
+    try
+        e_pref = e_prefix()
+        code = @match parsing_backend() begin
+            :fun => :(@def_fun $e false)
+            :exa => :(@def_exa $e false)
+            _    => :(throw($e_pref.ParsingError("Unimplemented parsing backend"))) 
+        end
+        return esc(code)
+    catch ex
+        :(throw($ex)) # can be caught by user
+    end
 end
 
-macro def_fun(e)
+macro def(ocp, e, log=false)
+    try
+        e_pref = e_prefix()
+        code = @match parsing_backend() begin
+            :fun => :($ocp = @def_fun $e $log)
+            :exa => :($ocp = @def_exa $e $log)
+            _    => :(throw($e_pref.ParsingError("Unimplemented parsing backend"))) 
+        end
+        return esc(code)
+    catch ex
+        :(throw($ex)) # can be caught by user
+    end
+end
+
+macro def_fun(e, log)
     try
         pref = prefix()
         p_ocp = gensym()
@@ -693,28 +716,13 @@ macro def_fun(e)
     end
 end
 
-macro old_def(e)
-    ocp = gensym()
-    code = quote
-        @def $ocp $e
-        $ocp
-    end
-    return esc(code)
-end
-
-macro def(ocp, e, log=false)
+macro def_exa(e, log)
     try
-        pref = prefix()
-        p_ocp = gensym()
-        code = :($p_ocp = $pref.PreModel())
-        p = ParsingInfo()
-        code = Expr(:block, code, parse!(p, p_ocp, e; log=log))
-        ee = QuoteNode(e)
-        code = Expr(:block, code, :($pref.definition!($p_ocp, $ee)))
-        code = Expr(:block, code, :($ocp = $pref.build_model($p_ocp)))
+        p = ParsingInfo() # need to initialise symbols for N, backend, inits... by gensyms
+        # encapsulate in fun(N=__default_N_exa(); backend=__default_backend_exa, + init for all v, all x, all u, t0, tf) 
+        code = parse!(p, p_ocp, e; log=log)
         return esc(code)
     catch ex
         :(throw($ex)) # can be caught by user
     end
 end
-
