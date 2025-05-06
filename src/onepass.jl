@@ -43,6 +43,7 @@ end
 __default_grid_size_exa() = 200
 __default_backend_exa() = nothing
 __default_init_exa() = (0.1, 0.1, 0.1, 0.0, 0.1) # default init for v, x, u, t0, tf
+__default_base_type_exa() = Float64 
 
 # Utils
 
@@ -734,8 +735,9 @@ function def_exa(e, log=false)
     default_grid_size = __default_grid_size_exa()
     default_backend = __default_backend_exa()
     default_init = __default_init_exa()
+    default_base_type = __default_base_type_exa()
     code = quote
-        function (; grid_size = $default_grid_size, backend = $default_backend, init = $default_init)
+        function (; grid_size = $default_grid_size, backend = $default_backend, init = $default_init, base_type = $default_base_type)
             $p_ocp = ExaModels.ExaCore(; backend = backend)
             $code
             _x = ExaModels.variable($p_ocp, 1; lvar = 0.0, uvar = 1.0) # debug
