@@ -4,5 +4,14 @@
 parsing_backend!(:exa)
 
 function test_onepass_exa()
-    @test true
+
+    @testset "alias" begin
+
+        o = @def begin
+                a = x + y
+            end
+        @test o() == nothing
+
+    end
+
 end

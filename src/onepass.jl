@@ -9,6 +9,8 @@
 # - add tests on ParsingError + run time errors (wrapped in try ... catch's - use string to be precise)
 # - currently "t ∈ [ 0+0, 1 ], time" is allowed, and compels to declare "x(0+0) == ..."
 
+# Modules vars 
+
 const PARSING_BACKEND = Ref(:fun) # can be :fun for functional, :exa for ExaModels
 
 parsing_backend() = PARSING_BACKEND[]
@@ -35,6 +37,17 @@ function e_prefix!(p)
     E_PREFIX[] = p
     return nothing
 end
+
+# Defaults (exa)
+
+__default_grid_size() = 200
+__default_exa_backend() = nothing
+__default_xs() = 0.1
+__default_us() = 0.1
+__default_t0s() = 0.
+__default_tfs() = 0.1
+
+# Utils
 
 """
 $(TYPEDEF)
@@ -85,6 +98,8 @@ __wrap(e, n, line) = quote
         throw(ex)
     end
 end
+
+# Main code
 
 """
 $(TYPEDSIGNATURES)
@@ -244,6 +259,8 @@ function p_alias_fun!(p, p_ocp, a, e)
     code = :(LineNumberNode(0, "alias: " * string($aa) * " = " * string($ee)))
     return __wrap(code, p.lnum, p.line)
 end
+
+p_alias_exa! = p_alias_fun!
 
 function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
     log && println("variable: $v, dim: $q")
@@ -616,7 +633,7 @@ PARSING_FUN[:mayer] = p_mayer_fun!
 PARSING_FUN[:bolza] = p_bolza_fun!
 
 const PARSING_EXA = OrderedDict{Symbol, Function}()
-#PARSING_EXA[:alias] = p_alias_exa!
+PARSING_EXA[:alias] = p_alias_exa!
 
 const PARSING_DIR = OrderedDict{Symbol, OrderedDict{Symbol, Function}}()
 PARSING_DIR[:fun] = PARSING_FUN
@@ -718,9 +735,40 @@ end
 
 macro def_exa(e, log)
     try
+        p_ocp = gensym()
         p = ParsingInfo() # need to initialise symbols for N, backend, inits... by gensyms
-        # encapsulate in fun(N=__default_N_exa(); backend=__default_backend_exa, + init for all v, all x, all u, t0, tf) 
         code = parse!(p, p_ocp, e; log=log)
+        grid_size = gensym()
+        exa_backend = gensym()
+        xs = gensym()
+        us = gensym()
+        t0s = gensym()
+        tfs = gensym()
+        default_grid_size = __default_grid_size()
+        default_exa_backend = __default_exa_backend()
+        default_xs = __default_xs()
+        default_us = __default_us()
+        default_t0s = __default_t0s()
+        default_tfs = __default_tfs()
+        code = quote
+            function (; $grid_size = $default_grid_size,
+                        $exa_backend = $default_exa_backend,
+                        $xs = $default_xs,
+                        $us = $default_us,
+                        $t0s = $default_t0s,
+                        $tfs = $default_tfs)
+                $code
+                println("code: ", $code) # debug
+                println("grid_size: ", $grid_size) # debug
+                println("exa_backend: ", $exa_backend) # debug
+                println("xs: ", $xs) # debug
+                println("us: ", $us) # debug
+                println("t0s: ", $us) # debug
+                println("tfs: ", $us) # debug
+                return nothing # debug
+            end
+        end
+        # encapsulate in fun(N=__default_N_exa(); backend=__default_backend_exa, + init for v, x, u, t0, tf) 
         return esc(code)
     catch ex
         :(throw($ex)) # can be caught by user
