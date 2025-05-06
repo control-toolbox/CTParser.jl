@@ -8,15 +8,27 @@
 # - add assert for pre/post conditions and invariants
 # - add tests on ParsingError + run time errors (wrapped in try ... catch's - use string to be precise)
 # - currently "t ∈ [ 0+0, 1 ], time" is allowed, and compels to declare "x(0+0) == ..."
+# - exa: generated function forbids to use kwarg names (grid_size...) in expressions; could either (i) replace such names in the user code (e.g. by a gensym...), but not se readable; (ii) throw an explicit error ("grid_size etc. are reserved names")
+# - exa: x = ExaModels.variable($p_ocp, $n / 1:$n...) ?
+
+# Defaults
+
+__default_parsing_backend() = 1 # :fun
+__default_grid_size_exa() = 200
+__default_backend_exa() = nothing
+__default_init_exa() = (0.1, 0.1, 0.1, 0.0, 0.1) # default init for v, x, u, t0, tf
+__default_base_type_exa() = Float64 
 
 # Modules vars 
 
-const PARSING_BACKEND = Ref(:fun) # can be :fun for functional, :exa for ExaModels
+const PARSING_BACKENDS = (:fun, :exa) # known parsing backends
+const PARSING_BACKEND = Ref(__default_parsing_backend())
 
-parsing_backend() = PARSING_BACKEND[]
+parsing_backend() = PARSING_BACKENDS[PARSING_BACKEND[]]
 
 function parsing_backend!(b)
-    PARSING_BACKEND[] = b
+    b ∈ PARSING_BACKENDS || throw("unknown parsing backend")
+    PARSING_BACKEND[] = findall(x -> x == b, PARSING_BACKENDS)[1] 
     return nothing
 end
 
@@ -37,13 +49,6 @@ function e_prefix!(p)
     E_PREFIX[] = p
     return nothing
 end
-
-# Defaults
-
-__default_grid_size_exa() = 200
-__default_backend_exa() = nothing
-__default_init_exa() = (0.1, 0.1, 0.1, 0.0, 0.1) # default init for v, x, u, t0, tf
-__default_base_type_exa() = Float64 
 
 # Utils
 
@@ -302,6 +307,13 @@ function p_variable_fun!(p, p_ocp, v, q, vv; components_names=nothing)
     return __wrap(code, p.lnum, p.line)
 end
 
+function p_variable_exa!(p, p_ocp, v, q, vv; components_names=nothing)
+    code = :(ExaModels.variable($p_ocp, $q; start=init[1]))
+    code = __wrap(code, p.lnum, p.line) # affectation must be done outside try ... catch 
+    code = :($v = $code)
+    return code
+end
+
 function p_time!(p, p_ocp, t, t0, tf; log=false)
     log && println("time: $t, initial time: $t0, final time: $tf")
     t isa Symbol || return __throw("forbidden time name: $t", p.lnum, p.line)
@@ -334,6 +346,11 @@ function p_time_fun!(p, p_ocp, t, t0, tf)
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
     end
+    return __wrap(code, p.lnum, p.line)
+end
+
+function p_time_exa!(p, p_ocp, t, t0, tf)
+    code = :(LineNumberNode(0, "debug")) # debug (works only for fixed t0 and tf)
     return __wrap(code, p.lnum, p.line)
 end
 
@@ -381,6 +398,13 @@ function p_state_fun!(p, p_ocp, x, n, xx; components_names=nothing)
     return __wrap(code, p.lnum, p.line)
 end
 
+function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
+    code = :(ExaModels.variable($p_ocp, $n, 0:grid_size; start = init[2]))
+    code = __wrap(code, p.lnum, p.line) # affectation must be done outside try ... catch 
+    code = :($x = $code)
+    return code
+end
+
 function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
     log && println("control: $u, dim: $m")
     u isa Symbol || return __throw("forbidden control name: $u", p.lnum, p.line)
@@ -420,6 +444,13 @@ function p_control_fun!(p, p_ocp, u, m, uu; components_names=nothing)
         code = :($pref.control!($p_ocp, $m, $uu, $ss))
     end
     return __wrap(code, p.lnum, p.line)
+end
+
+function p_control_exa!(p, p_ocp, u, m, uu; components_names=nothing)
+    code = :($u = ExaModels.variable($p_ocp, $m, 0:grid_size; start = init[3]))
+    code = __wrap(code, p.lnum, p.line) # affectation must be done outside try ... catch 
+    code = :($u = $code)
+    return code
 end
 
 function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
@@ -580,6 +611,16 @@ function p_mayer_fun!(p, p_ocp, e, type)
     return __wrap(code, p.lnum, p.line)
 end
 
+function p_mayer_exa!(p, p_ocp, e, type)
+    # debug: add parts involvinf x(t0) and x(tf)
+    code = @match type begin
+        :min => :(ExaModels.objective($p_ocp,  $e))
+        :max => :(ExaModels.objective($p_ocp, -$e))
+        _ => throw("p_mayer_exa!: wrong type", p.lnum, p.line)
+    end
+    return __wrap(code, p.lnum, p.line)
+end
+
 function p_bolza!(p, p_ocp, e1, e2, type; log=false)
     log && println("objective (Bolza): $e1 + ∫($e2) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
@@ -635,6 +676,11 @@ PARSING_FUN[:bolza] = p_bolza_fun!
 
 const PARSING_EXA = OrderedDict{Symbol, Function}()
 PARSING_EXA[:alias] = p_alias_exa!
+PARSING_EXA[:variable] = p_variable_exa!
+PARSING_EXA[:time] = p_time_exa!
+PARSING_EXA[:state] = p_state_exa!
+PARSING_EXA[:control] = p_control_exa!
+PARSING_EXA[:mayer] = p_mayer_exa!
 
 const PARSING_DIR = OrderedDict{Symbol, OrderedDict{Symbol, Function}}()
 PARSING_DIR[:fun] = PARSING_FUN
@@ -741,10 +787,8 @@ function def_exa(e, log=false)
     default_base_type = __default_base_type_exa()
     code = quote
         function (; grid_size = $default_grid_size, backend = $default_backend, init = $default_init, base_type = $default_base_type)
-            $p_ocp = ExaModels.ExaCore(; backend = backend)
+            $p_ocp = ExaModels.ExaCore(base_type; backend = backend)
             $code
-            _x = ExaModels.variable($p_ocp, 1; lvar = 0.0, uvar = 1.0) # debug
-            ExaModels.objective($p_ocp, _x[1]) # debug
             return ExaModels.ExaModel($p_ocp)
         end
     end
