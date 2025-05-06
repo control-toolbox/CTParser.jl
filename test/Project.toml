@@ -3,10 +3,13 @@ Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 CTBase = "54762871-cc72-4466-b8e8-f6c8b58076cd"
 CTModels = "34c4fa32-2049-4079-8329-de33c2a22e2d"
 ExaModels = "1037b233-b668-4ce9-9b63-f9f681f55dd2"
+MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
 Aqua = "0.8"
 CTBase = "0.16"
 CTModels = "0.3"
+ExaModels = "0.8"
+MadNLP = "0.8"
 Test = "1"

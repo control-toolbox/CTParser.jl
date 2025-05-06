@@ -10,7 +10,7 @@ function test_onepass_exa()
         o = @def begin
                 a = x + y
             end
-        @test o()
+        @test o() isa ExaModels.ExaModel
 
     end
 

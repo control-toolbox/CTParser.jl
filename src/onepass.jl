@@ -738,10 +738,11 @@ function def_exa(e, log=false)
         function (; grid_size = $default_grid_size, backend = $default_backend, init = $default_init)
             $p_ocp = ExaModels.ExaCore(; backend = backend)
             $code
-            return true
-            #return ExaModels.ExaModel($p_ocp) # debug
+            _x = ExaModels.variable($p_ocp, 1; lvar = 0.0, uvar = 1.0) # debug
+            ExaModels.objective($p_ocp, _x[1]) # debug
+            return ExaModels.ExaModel($p_ocp)
         end
     end
-    println("code:\n") # debug
+    println("code:\n", code) # debug
     return code
 end
