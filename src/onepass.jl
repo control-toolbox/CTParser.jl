@@ -281,20 +281,21 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
     for i in 1:qq
         p.aliases[Symbol(v, i)] = :($v[$i])
     end # make v1, v2... if the variable is named v
-    return parsing(:variable)(p, p_ocp, v, q, vv; components_names=components_names)
-end
-
-function p_variable_fun!(p, p_ocp, v, q, vv; components_names=nothing)
-    pref = prefix()
-    if (isnothing(components_names))
-        code = :($pref.variable!($p_ocp, $q, $vv))
-    else
-        qq = q isa Int ? q : 9
+    if !isnothing(components_names)
         qq == length(components_names.args) ||
             return __throw("the number of variable components must be $qq", p.lnum, p.line)
         for i in 1:qq
             p.aliases[components_names.args[i]] = :($v[$i])
         end # aliases from names given by the user
+    end
+    return parsing(:variable)(p, p_ocp, v, q, vv; components_names=components_names)
+end
+
+function p_variable_fun!(p, p_ocp, v, q, vv; components_names=nothing)
+    pref = prefix()
+    if isnothing(components_names)
+        code = :($pref.variable!($p_ocp, $q, $vv))
+    else
         ss = QuoteNode(string.(components_names.args))
         code = :($pref.variable!($p_ocp, $q, $vv, $ss))
     end
