@@ -63,6 +63,37 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Substitute x[i] by y[i, j], whatever i, in e.
+
+# Examples
+```@example
+julia> e = :(x0[1] * 2xf[3] - cos(xf[2]) * 2x0[2])
+:(x0[1] * (2 * xf[3]) - cos(xf[2]) * (2 * x0[2]))
+
+julia> subs2(subs2(e, :x0, :x, 0), :xf, :x, :N)
+:(x[1, 0] * (2 * x[3, N]) - cos(x[2, N]) * (2 * x[2, 0]))
+
+julia> e = :(x0 * 2xf[3] - cos(xf) * 2x0[2])
+:(x0 * (2 * xf[3]) - cos(xf) * (2 * x0[2]))
+
+julia> subs2(subs2(e, :x0, :x, 0), :xf, :x, :N)
+:(x0 * (2 * x[3, N]) - cos(xf) * (2 * x[2, 0]))
+```
+"""
+function subs2(e, x, y, j)
+    foo(x, y, j) = (h, args...) -> begin
+        f = Expr(h, args...)
+        @match f begin
+            :($xx[$i]) && if (xx == x) end => :($y[$i, $j])
+            _ => f
+        end
+    end
+    expr_it(e, foo(x, y, j), x -> x)
+end    
+
+"""
+$(TYPEDSIGNATURES)
+
 Replace calls in e of the form `(...x...)(t)` by `(...y...)`.
 
 # Example

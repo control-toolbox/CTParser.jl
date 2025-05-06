@@ -10,6 +10,7 @@
 # - currently "t ∈ [ 0+0, 1 ], time" is allowed, and compels to declare "x(0+0) == ..."
 # - exa: generated function forbids to use kwarg names (grid_size...) in expressions; could either (i) replace such names in the user code (e.g. by a gensym...), but not se readable; (ii) throw an explicit error ("grid_size etc. are reserved names")
 # - exa: x = ExaModels.variable($p_ocp, $n / 1:$n...) ?
+# - exa: what about expressons with x(t), not indexed but used as a scalar? should be x[:, ...] in ExaModels? does it occur (sum(x(t)...))
 
 # Defaults
 
@@ -612,7 +613,13 @@ function p_mayer_fun!(p, p_ocp, e, type)
 end
 
 function p_mayer_exa!(p, p_ocp, e, type)
-    # debug: add parts involvinf x(t0) and x(tf)
+    x0 = gensym() 
+    xf = gensym() 
+    e = replace_call(e, p.x, p.t0, x0)
+    e = replace_call(e, p.x, p.tf, xf)
+    e = subs2(e, x0, p.x, 0)
+    e = subs2(e, xf, p.x, :grid_size)
+    # now, x[i](t0) has been replaced by x[i, 0] and x[i](tf) by x[i, grid_size]
     code = @match type begin
         :min => :(ExaModels.objective($p_ocp,  $e))
         :max => :(ExaModels.objective($p_ocp, -$e))

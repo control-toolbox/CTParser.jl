@@ -14,7 +14,7 @@ function test_onepass_exa()
                 t ∈ [0, 1], time
                 x ∈ R³, state
                 u ∈ R⁴, control
-                c = v₁ + b
+                c = v₁ + b + x₁(0) + 2cos(x₃(1))
                 c → min
             end
         @test o() isa ExaModels.ExaModel
