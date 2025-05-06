@@ -38,14 +38,11 @@ function e_prefix!(p)
     return nothing
 end
 
-# Defaults (exa)
+# Defaults
 
-__default_grid_size() = 200
-__default_exa_backend() = nothing
-__default_xs() = 0.1
-__default_us() = 0.1
-__default_t0s() = 0.
-__default_tfs() = 0.1
+__default_grid_size_exa() = 200
+__default_backend_exa() = nothing
+__default_init_exa() = (0.1, 0.1, 0.1, 0.0, 0.1) # default init for v, x, u, t0, tf
 
 # Utils
 
@@ -738,33 +735,16 @@ macro def_exa(e, log)
         p_ocp = gensym()
         p = ParsingInfo() # need to initialise symbols for N, backend, inits... by gensyms
         code = parse!(p, p_ocp, e; log=log)
-        grid_size = gensym()
-        exa_backend = gensym()
-        xs = gensym()
-        us = gensym()
-        t0s = gensym()
-        tfs = gensym()
-        default_grid_size = __default_grid_size()
-        default_exa_backend = __default_exa_backend()
-        default_xs = __default_xs()
-        default_us = __default_us()
-        default_t0s = __default_t0s()
-        default_tfs = __default_tfs()
+        default_grid_size = __default_grid_size_exa()
+        default_backend = __default_backend_exa()
+        default_init = __default_init_exa()
         code = quote
-            function (; $grid_size = $default_grid_size,
-                        $exa_backend = $default_exa_backend,
-                        $xs = $default_xs,
-                        $us = $default_us,
-                        $t0s = $default_t0s,
-                        $tfs = $default_tfs)
+            function (; grid_size = $default_grid_size, backend = $default_backend, init = $default_init)
                 $code
                 println("code: ", $code) # debug
-                println("grid_size: ", $grid_size) # debug
-                println("exa_backend: ", $exa_backend) # debug
-                println("xs: ", $xs) # debug
-                println("us: ", $us) # debug
-                println("t0s: ", $us) # debug
-                println("tfs: ", $us) # debug
+                println("grid_size: ", grid_size) # debug
+                println("exa_backend: ", backend) # debug
+                println("init: ", init) # debug
                 return nothing # debug
             end
         end

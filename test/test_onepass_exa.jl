@@ -11,6 +11,9 @@ function test_onepass_exa()
                 a = x + y
             end
         @test o() == nothing
+        @test o(; grid_size=300) == nothing
+        @test o(; backend=:foo) == nothing
+        @test o(; init=.4) == nothing
 
     end
 
