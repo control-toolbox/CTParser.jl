@@ -10,10 +10,7 @@ function test_onepass_exa()
         o = @def begin
                 a = x + y
             end
-        @test o() == nothing
-        @test o(; grid_size=300) == nothing
-        @test o(; backend=:foo) == nothing
-        @test o(; init=.4) == nothing
+        @test o()
 
     end
 

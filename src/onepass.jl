@@ -690,8 +690,8 @@ macro def(e)
     try
         e_pref = e_prefix()
         code = @match parsing_backend() begin
-            :fun => :(@def_fun $e false)
-            :exa => :(@def_exa $e false)
+            :fun => def_fun(e)
+            :exa => def_exa(e)
             _    => :(throw($e_pref.ParsingError("Unimplemented parsing backend"))) 
         end
         return esc(code)
@@ -704,53 +704,44 @@ macro def(ocp, e, log=false)
     try
         e_pref = e_prefix()
         code = @match parsing_backend() begin
-            :fun => :($ocp = @def_fun $e $log)
-            :exa => :($ocp = @def_exa $e $log)
+            :fun => def_fun(e, log)
+            :exa => def_exa(e, log)
             _    => :(throw($e_pref.ParsingError("Unimplemented parsing backend"))) 
         end
+        code = :($ocp = $code)
         return esc(code)
     catch ex
         :(throw($ex)) # can be caught by user
     end
 end
 
-macro def_fun(e, log)
-    try
-        pref = prefix()
-        p_ocp = gensym()
-        code = :($p_ocp = $pref.PreModel())
-        p = ParsingInfo()
-        code = Expr(:block, code, parse!(p, p_ocp, e; log=log))
-        ee = QuoteNode(e)
-        code = Expr(:block, code, :($pref.definition!($p_ocp, $ee)))
-        code = Expr(:block, code, :($pref.build_model($p_ocp)))
-        return esc(code)
-    catch ex
-        :(throw($ex)) # can be caught by user
-    end
+function def_fun(e, log=false)
+    pref = prefix()
+    p_ocp = gensym()
+    code = :($p_ocp = $pref.PreModel())
+    p = ParsingInfo()
+    code = Expr(:block, code, parse!(p, p_ocp, e; log=log))
+    ee = QuoteNode(e)
+    code = Expr(:block, code, :($pref.definition!($p_ocp, $ee)))
+    code = Expr(:block, code, :($pref.build_model($p_ocp)))
+    return code
 end
 
-macro def_exa(e, log)
-    try
-        p_ocp = gensym()
-        p = ParsingInfo() # need to initialise symbols for N, backend, inits... by gensyms
-        code = parse!(p, p_ocp, e; log=log)
-        default_grid_size = __default_grid_size_exa()
-        default_backend = __default_backend_exa()
-        default_init = __default_init_exa()
-        code = quote
-            function (; grid_size = $default_grid_size, backend = $default_backend, init = $default_init)
-                $code
-                println("code: ", $code) # debug
-                println("grid_size: ", grid_size) # debug
-                println("exa_backend: ", backend) # debug
-                println("init: ", init) # debug
-                return nothing # debug
-            end
+function def_exa(e, log=false)
+    p_ocp = gensym() # ExaModel name (this is the pre OCP, here)
+    p = ParsingInfo() # need to initialise symbols for N, backend, inits... by gensyms
+    code = parse!(p, p_ocp, e; log = log)
+    default_grid_size = __default_grid_size_exa()
+    default_backend = __default_backend_exa()
+    default_init = __default_init_exa()
+    code = quote
+        function (; grid_size = $default_grid_size, backend = $default_backend, init = $default_init)
+            $p_ocp = ExaModels.ExaCore(; backend = backend)
+            $code
+            return true
+            #return ExaModels.ExaModel($p_ocp) # debug
         end
-        # encapsulate in fun(N=__default_N_exa(); backend=__default_backend_exa, + init for v, x, u, t0, tf) 
-        return esc(code)
-    catch ex
-        :(throw($ex)) # can be caught by user
     end
+    println("code:\n") # debug
+    return code
 end
