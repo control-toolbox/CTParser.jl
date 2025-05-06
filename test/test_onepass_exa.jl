@@ -16,12 +16,22 @@ function test_onepass_exa()
                 u ∈ R⁴, control
                 c = v₁ + b + x₁(0) + 2cos(x₃(1))
                 c → min
-            end
+        end
         @test o() isa ExaModels.ExaModel
         @test o(; grid_size = 100) isa ExaModels.ExaModel
         @test o(; backend = nothing) isa ExaModels.ExaModel
         @test o(; init = (1., 2., 3., 4., 5.)) isa ExaModels.ExaModel
         @test o(; base_type = Float32) isa ExaModels.ExaModel
+
+        o = @def begin
+                v = (a, b) ∈ R², variable
+                t ∈ [0, 1], time
+                x ∈ R, state
+                u ∈ R⁴, control
+                c = v₁ + b + x(0) + 2cos(x(1))
+                c → min
+        end
+        @test o() isa ExaModels.ExaModel
 
     end
 

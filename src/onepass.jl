@@ -351,7 +351,9 @@ function p_time_fun!(p, p_ocp, t, t0, tf)
 end
 
 function p_time_exa!(p, p_ocp, t, t0, tf)
-    code = :(LineNumberNode(0, "debug")) # debug (works only for fixed t0 and tf)
+    code = :(LineNumberNode(0, "to be completed")) # debug (works only for fixed t0 and tf)
+    # also set p.dt = gensym and $(p.dt) = ($(p.tf) - $(p.t0)) / grid_size (can be effective or ExaModels.variable)
+    # do not encapsulate declarations into try ... catch
     return __wrap(code, p.lnum, p.line)
 end
 
