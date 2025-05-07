@@ -91,7 +91,7 @@ end
 __throw(mess, n, line) = begin
     e_pref = e_prefix()
     info = string("\nLine ", n, ": ", line, "\n", mess)
-    return :( throw($e_pref.ParsingError($info)) ) 
+    return :(throw($e_pref.ParsingError($info))) 
 end
 
 __wrap(e, n, line) = quote
@@ -541,6 +541,48 @@ function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
     return parsing(:dynamics)(p, p_ocp, x, t, e, label)
 end
 
+#function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
+#    x0 = gensym() 
+#    xf = gensym() 
+#    e = replace_call(e, p.x, p.t0, x0)
+#    e = replace_call(e, p.x, p.tf, xf)
+#    e = subs2(e, x0, p.x, 0)
+#    e = subs2(e, xf, p.x, :grid_size)
+#    # now, x[i](t0) has been replaced by x[i, 0] and x[i](tf) by x[i, grid_size]
+#code = @match c_type begin
+#        :boundary || :variable_fun || (:initial, rg) || (:final, rg) => begin
+#            x0 = gensym()
+#            xf = gensym()
+#            ee2 = replace_call(e2, p.x, p.t0, x0)
+#            ee2 = replace_call(ee2, p.x, p.tf, xf)
+#                $pref.constraint!($p_ocp, :boundary; f=$gs, lb=$e1, ub=$e3, label=$llabel)
+#        end
+#        (:control_range, rg) =>
+#            :($pref.constraint!($p_ocp, :control; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
+#        (:state_range, rg) =>
+#            :($pref.constraint!($p_ocp, :state; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
+#        (:variable_range, rg) =>
+#            :($pref.constraint!($p_ocp, :variable; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
+#        :state_fun || control_fun || :mixed => begin # now all treated as path
+#            gs = gensym()
+#            xt = gensym()
+#            ut = gensym()
+#            r = gensym()
+#            ee2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
+#            args = [r, p.t, xt, ut, p.v]
+#            quote
+#                function $gs($(args...))
+#                    @views $r[:] .= $ee2
+#                    return nothing
+#                end
+#                $pref.constraint!($p_ocp, :path; f=$gs, lb=$e1, ub=$e3, label=$llabel)
+#            end
+#        end
+#        _ => return __throw("bad constraint declaration", p.lnum, p.line)
+#    end
+#    return __wrap(code, p.lnum, p.line)
+#end
+
 function p_dynamics_fun!(p, p_ocp, x, t, e, label)
     pref = prefix()
     xt = gensym()
@@ -645,7 +687,7 @@ function p_mayer_exa!(p, p_ocp, e, type)
     code = @match type begin
         :min => :(ExaModels.objective($p_ocp,  $e))
         :max => :(ExaModels.objective($p_ocp, -$e))
-        _ => throw("p_mayer_exa!: wrong type", p.lnum, p.line)
+        _ => throw("p_mayer_exa!: wrong type", p.lnum, p.line) # should never be called 
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -767,11 +809,10 @@ end true # final boolean to show parsing log
 """
 macro def(e)
     try
-        e_pref = e_prefix()
         code = @match parsing_backend() begin
             :fun => def_fun(e)
             :exa => def_exa(e)
-            _    => :(throw($e_pref.ParsingError("Unimplemented parsing backend"))) 
+            _    => :(throw("unknown parsing backend"))
         end
         return esc(code)
     catch ex
@@ -781,11 +822,10 @@ end
 
 macro def(ocp, e, log=false)
     try
-        e_pref = e_prefix()
         code = @match parsing_backend() begin
             :fun => def_fun(e, log)
             :exa => def_exa(e, log)
-            _    => :(throw($e_pref.ParsingError("Unimplemented parsing backend"))) 
+            _    => :(throw("unknown parsing backend"))
         end
         code = :($ocp = $code)
         return esc(code)
