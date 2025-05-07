@@ -17,7 +17,7 @@
 __default_parsing_backend() = 1 # :fun
 __default_grid_size_exa() = 200
 __default_backend_exa() = nothing
-__default_init_exa() = (0.1, 0.1, 0.1, 0.0, 0.1) # default init for v, x, u, t0, tf
+__default_init_exa() = (0.1, 0.1, 0.1) # default init for v, x, u
 __default_base_type_exa() = Float64 
 
 # Modules vars 
@@ -483,7 +483,7 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
     label isa Symbol || return __throw("forbidden label: $label", p.lnum, p.line)
     return parsing(:constraint)(p, p_ocp, e1, e2, e3, c_type, label)
 end
- 
+
 function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
     pref = prefix()
     llabel = QuoteNode(label)
@@ -530,6 +530,45 @@ function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
     return __wrap(code, p.lnum, p.line)
 end
 
+function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
+    code = @match c_type begin
+        :boundary || :variable_fun || (:initial, rg) || (:final, rg) => begin # :initial and :final now treated as boundary
+            x0 = gensym()
+            xf = gensym()
+            e2 = replace_call(e2, p.x, p.t0, x0)
+            e2 = replace_call(e2, p.x, p.tf, xf)
+            e2 = subs2(e2, x0, p.x, 0)
+            e2 = subs2(e2, xf, p.x, :grid_size)
+            :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3))
+        end
+        (:control_range, rg) => begin
+            ut = gensym()
+            e2 = replace_call(e2, p.u, p.t, ut)
+            e2 = subs2(e2, ut, p.u, :j)
+            :(ExaModels.constraint($p_ocp, $e2 for j = 0:grid_size; lcon = $e1, ucon = $e3))
+        end
+        (:state_range, rg) => begin
+            xt = gensym()
+            e2 = replace_call(e2, p.x, p.t, xt)
+            e2 = subs2(e2, xt, p.x, :j)
+            :(ExaModels.constraint($p_ocp, $e2 for j = 0:grid_size; lcon = $e1, ucon = $e3))
+        end
+        (:variable_range, rg) => :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3))
+        :state_fun || control_fun || :mixed => begin
+            xt = gensym()
+            ut = gensym()
+            e2 = replace_call(e2, p.x, p.t, xt)
+            e2 = replace_call(e2, p.u, p.t, ut)
+            e2 = subs2(e2, xt, p.x, :j)
+            e2 = subs2(e2, ut, p.u, :j)
+            :(ExaModels.constraint($p_ocp, $e2 for j = 0:grid_size; lcon = $e1, ucon = $e3))
+        end
+        _ => return __throw("bad constraint declaration", p.lnum, p.line)
+    end
+    code = Expr(:block, :(length($e1) == length($e3) == 1 || throw("constraints must be scalar")), code)
+    return __wrap(code, p.lnum, p.line)
+end
+
 function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
     log && println("dynamics: ∂($x)($t) == $e")
     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
@@ -540,48 +579,6 @@ function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
     t ≠ p.t && return __throw("wrong time $t for dynamics", p.lnum, p.line)
     return parsing(:dynamics)(p, p_ocp, x, t, e, label)
 end
-
-#function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
-#    x0 = gensym() 
-#    xf = gensym() 
-#    e = replace_call(e, p.x, p.t0, x0)
-#    e = replace_call(e, p.x, p.tf, xf)
-#    e = subs2(e, x0, p.x, 0)
-#    e = subs2(e, xf, p.x, :grid_size)
-#    # now, x[i](t0) has been replaced by x[i, 0] and x[i](tf) by x[i, grid_size]
-#code = @match c_type begin
-#        :boundary || :variable_fun || (:initial, rg) || (:final, rg) => begin
-#            x0 = gensym()
-#            xf = gensym()
-#            ee2 = replace_call(e2, p.x, p.t0, x0)
-#            ee2 = replace_call(ee2, p.x, p.tf, xf)
-#                $pref.constraint!($p_ocp, :boundary; f=$gs, lb=$e1, ub=$e3, label=$llabel)
-#        end
-#        (:control_range, rg) =>
-#            :($pref.constraint!($p_ocp, :control; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
-#        (:state_range, rg) =>
-#            :($pref.constraint!($p_ocp, :state; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
-#        (:variable_range, rg) =>
-#            :($pref.constraint!($p_ocp, :variable; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
-#        :state_fun || control_fun || :mixed => begin # now all treated as path
-#            gs = gensym()
-#            xt = gensym()
-#            ut = gensym()
-#            r = gensym()
-#            ee2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
-#            args = [r, p.t, xt, ut, p.v]
-#            quote
-#                function $gs($(args...))
-#                    @views $r[:] .= $ee2
-#                    return nothing
-#                end
-#                $pref.constraint!($p_ocp, :path; f=$gs, lb=$e1, ub=$e3, label=$llabel)
-#            end
-#        end
-#        _ => return __throw("bad constraint declaration", p.lnum, p.line)
-#    end
-#    return __wrap(code, p.lnum, p.line)
-#end
 
 function p_dynamics_fun!(p, p_ocp, x, t, e, label)
     pref = prefix()
@@ -751,6 +748,7 @@ PARSING_EXA[:variable] = p_variable_exa!
 PARSING_EXA[:time] = p_time_exa!
 PARSING_EXA[:state] = p_state_exa!
 PARSING_EXA[:control] = p_control_exa!
+PARSING_EXA[:constraint] = p_constraint_exa!
 PARSING_EXA[:mayer] = p_mayer_exa!
 
 const PARSING_DIR = OrderedDict{Symbol, OrderedDict{Symbol, Function}}()
