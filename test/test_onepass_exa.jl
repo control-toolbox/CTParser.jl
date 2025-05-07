@@ -100,13 +100,24 @@ function test_onepass_exa()
     @testset "constraint" begin
 
         o = @def begin
-                t ∈ [0, 1], time
+                tf ∈ R, variable
+                t ∈ [0, tf], time
                 x ∈ R², state
                 u ∈ R, control
-                x₁(0) == 1.0
-                x₁(0) + 2cos(x₂(1)) → min
+                x₁(0) == 1
+                x₂(tf) == 2
+                -1 ≤ x₂(0) + x₁(tf) + tf ≤ 1
+                tf ≤ 5
+                tf^2 ≥ 5
+                x₁(t) ≤ 1
+                -1 ≤ u(t) ≤ 1
+                cos(x₁(t)) ≤ 1
+                cos(u(t)) ≤ 1
+                x₁(t) + u(t) == 1
+                x₁(0) + 2cos(x₂(tf)) → min
         end
         @test o() isa ExaModels.ExaModel
+        # tester x(0) == 1
 
     end
 

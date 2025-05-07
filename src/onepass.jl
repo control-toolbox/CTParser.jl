@@ -531,8 +531,10 @@ function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
 end
 
 function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
+    isnothing(e1) && (e1 = -Inf)
+    isnothing(e3) && (e3 =  Inf)
     code = @match c_type begin
-        :boundary || :variable_fun || (:initial, rg) || (:final, rg) => begin # :initial and :final now treated as boundary
+        :boundary || :variable_fun || (:initial, rg) || (:final, rg) => begin
             x0 = gensym()
             xf = gensym()
             e2 = replace_call(e2, p.x, p.t0, x0)
