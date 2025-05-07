@@ -71,6 +71,7 @@ $(TYPEDEF)
     aliases::OrderedDict{Union{Symbol,Expr},Union{Real,Symbol,Expr}} = __init_aliases() # Dict ordered by Symbols *and Expr* just for scalar variable / state / control
     lnum::Int = 0
     line::String = ""
+    dt::Symbol = gensym()
 end
 
 __init_aliases(; max_dim=20) = begin
@@ -310,8 +311,8 @@ end
 
 function p_variable_exa!(p, p_ocp, v, q, vv; components_names=nothing)
     code = :(ExaModels.variable($p_ocp, $q; start=init[1]))
-    code = __wrap(code, p.lnum, p.line) # affectation must be done outside try ... catch 
-    code = :($v = $code)
+    code = __wrap(code, p.lnum, p.line)
+    code = :($v = $code) # affectation must be done outside try ... catch )
     return code
 end
 
@@ -331,13 +332,13 @@ function p_time_fun!(p, p_ocp, t, t0, tf)
         (false, false) => :($pref.time!($p_ocp; t0=$t0, tf=$tf, time_name=$tt))
         (true, false) => @match t0 begin
             :($v1[$i]) && if (v1 == p.v) end => :($pref.time!($p_ocp; ind0=$i, tf=$tf, time_name=$tt))
-            :($v1) && if (v1 == p.v) &&  p.is_scalar_v end => :( $pref.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt) )
+            :($v1) && if (v1 == p.v) &&  p.is_scalar_v end => :( $pref.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt) ) # debug: never executed (check!)
             :($v1) && if (v1 == p.v) && !p.is_scalar_v end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         (false, true) => @match tf begin
             :($v1[$i]) && if (v1 == p.v) end => :($pref.time!($p_ocp; t0=$t0, indf=$i, time_name=$tt))
-            :($v1) && if (v1 == p.v) &&  p.is_scalar_v end => :( $pref.time!($p_ocp; t0=$t0, indf=1, time_name=$tt) )
+            :($v1) && if (v1 == p.v) &&  p.is_scalar_v end => :( $pref.time!($p_ocp; t0=$t0, indf=1, time_name=$tt) ) # debug: never executed (check!)
             :($v1) && if (v1 == p.v) && !p.is_scalar_v end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
@@ -351,10 +352,29 @@ function p_time_fun!(p, p_ocp, t, t0, tf)
 end
 
 function p_time_exa!(p, p_ocp, t, t0, tf)
-    code = :(LineNumberNode(0, "to be completed")) # debug (works only for fixed t0 and tf)
     # also set p.dt = gensym and $(p.dt) = ($(p.tf) - $(p.t0)) / grid_size (can be effective or ExaModels.variable)
     # do not encapsulate declarations into try ... catch
-    return __wrap(code, p.lnum, p.line)
+    @match (has(t0, p.v), has(tf, p.v)) begin
+        (false, false) => nothing
+        (true, false) => @match t0 begin
+            :($v1[$i]) && if (v1 == p.v) end => nothing 
+            :($v1) && if (v1 == p.v) && !p.is_scalar_v end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
+            _ => return __throw("bad time declaration", p.lnum, p.line)
+        end
+        (false, true) => @match tf begin
+            :($v1[$i]) && if (v1 == p.v) end => nothing
+            :($v1) && if (v1 == p.v) && !p.is_scalar_v end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
+            _ => return __throw("bad time declaration", p.lnum, p.line)
+        end
+        _ => @match (t0, tf) begin
+            (:($v1[$i]), :($v2[$j])) && if (v1 == v2 == p.v) end => nothing
+            _ => return __throw("bad time declaration", p.lnum, p.line)
+        end
+    end
+    code = :(($tf - $t0) / grid_size)
+    code = __wrap(code, p.lnum, p.line)
+    code = :($(p.dt) = $code) # affectation must be done outside try ... catch 
+    return code
 end
 
 function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
@@ -403,8 +423,8 @@ end
 
 function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
     code = :(ExaModels.variable($p_ocp, $n, 0:grid_size; start = init[2]))
-    code = __wrap(code, p.lnum, p.line) # affectation must be done outside try ... catch 
-    code = :($x = $code)
+    code = __wrap(code, p.lnum, p.line)
+    code = :($x = $code) # affectation must be done outside try ... catch )
     return code
 end
 
@@ -451,8 +471,8 @@ end
 
 function p_control_exa!(p, p_ocp, u, m, uu; components_names=nothing)
     code = :($u = ExaModels.variable($p_ocp, $m, 0:grid_size; start = init[3]))
-    code = __wrap(code, p.lnum, p.line) # affectation must be done outside try ... catch 
-    code = :($u = $code)
+    code = __wrap(code, p.lnum, p.line)
+    code = :($u = $code) # affectation must be done outside try ... catch )
     return code
 end
 
