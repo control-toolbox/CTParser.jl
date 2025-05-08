@@ -194,6 +194,19 @@ function test_onepass_exa()
         end
         @test o() isa ExaModels.ExaModel
 
+        o = @def begin
+                v ∈ R⁴, variable
+                t ∈ [0, 1], time
+                x ∈ R⁴, state
+                u ∈ R, control
+                v₁ == 1
+                v[1:2:3] == [1, 2]
+                v[1:3] == [1, 2, 3]
+                v == [1, 2, 3, 4]
+                x₁(0) + 2cos(x₂(1)) → min
+        end
+        @test o() isa ExaModels.ExaModel
+
    end
 
 end

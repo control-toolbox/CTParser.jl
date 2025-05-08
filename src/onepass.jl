@@ -576,11 +576,15 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = subs3(e2, xf, p.x, :i, :grid_size)
             :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3))
         end
-        (:control_range, rg) => begin # todo: iterator for rg
-            ut = gensym()
-            e2 = replace_call(e2, p.u, p.t, ut)
-            e2 = subs2(e2, ut, p.u, :j)
-            :(ExaModels.constraint($p_ocp, $e2 for j ∈ 0:grid_size; lcon = $e1, ucon = $e3))
+        (:variable_range, rg) => begin
+            if isnothing(rg)
+                rg = :(1:$(p.dim_v))
+                e2 = subs(e2, p.v, :($(p.v)[$rg]))
+            elseif !is_range(rg)
+                rg = [rg]
+            end
+            e2 = subs4(e2, p.v, p.v, :i)
+            :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3))
         end
         (:state_range, rg) => begin # todo: iterator for rg
             xt = gensym()
@@ -588,8 +592,11 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = subs2(e2, xt, p.x, :j)
             :(ExaModels.constraint($p_ocp, $e2 for j ∈ 0:grid_size; lcon = $e1, ucon = $e3))
         end
-        (:variable_range, rg) => begin # todo: iterator for rg
-            :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3)) 
+        (:control_range, rg) => begin # todo: iterator for rg
+            ut = gensym()
+            e2 = replace_call(e2, p.u, p.t, ut)
+            e2 = subs2(e2, ut, p.u, :j)
+            :(ExaModels.constraint($p_ocp, $e2 for j ∈ 0:grid_size; lcon = $e1, ucon = $e3))
         end
         :state_fun || control_fun || :mixed => begin
             code = :(length($e1) == length($e3) == 1 || throw($e_pref.ParsingError("this constraint must be scalar")))

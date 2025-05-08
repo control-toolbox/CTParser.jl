@@ -43,6 +43,14 @@ function test_utils()
 
     end
     
+    @testset "subs4" begin
+
+        e = :(v[1:2:d] * 2xf[1:3])
+        @test subs4(e, :v, :v, :i) == :(v[i] * (2 * xf[1:3]))
+        @test subs4(e, :xf, :xf, 1) == :(v[1:2:d] * (2 * xf[1]))
+
+    end
+    
     @testset "replace_call" begin
     
         t = :t
