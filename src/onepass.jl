@@ -552,7 +552,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = subs2(e2, xf, p.x, :grid_size)
             Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3)))
         end
-        (:initial, rg) => begin # todo: treat spearately with iterators :initial and :final
+        (:initial, rg) => begin
             if isnothing(rg)
                 rg = :(1:$(p.dim_x)) # x(t0) implies rg == nothing but means x[1:p.dim_x](t0)
                 e2 = subs(e2, p.x, :($(p.x)[$rg]))
@@ -564,11 +564,17 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = subs3(e2, x0, p.x, :i, 0)
             :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3))
         end
-        (:final, rg) => begin # todo: treat spearately with iterators :initial and :final
+        (:final, rg) => begin
+            if isnothing(rg)
+                rg = :(1:$(p.dim_x))
+                e2 = subs(e2, p.x, :($(p.x)[$rg]))
+            elseif !is_range(rg)
+                rg = [rg]
+            end
             xf = gensym()
             e2 = replace_call(e2, p.x, p.tf, xf)
-            e2 = subs2(e2, xf, p.x, :grid_size)
-            :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3))
+            e2 = subs3(e2, xf, p.x, :i, :grid_size)
+            :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3))
         end
         (:control_range, rg) => begin # todo: iterator for rg
             ut = gensym()

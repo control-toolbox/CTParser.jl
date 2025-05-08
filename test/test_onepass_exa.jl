@@ -171,9 +171,25 @@ function test_onepass_exa()
         o = @def begin
                 tf ∈ R, variable
                 t ∈ [0, tf], time
-                x ∈ R², state
+                x ∈ R⁴, state
                 u ∈ R, control
-                x(0) == [1, 2]
+                x₁(0) == 1
+                x[1:2:3](0) == [1, 2]
+                x[1:3](0) == [1, 2, 3]
+                x(0) == [1, 2, 3, 4]
+                x₁(0) + 2cos(x₂(tf)) → min
+        end
+        @test o() isa ExaModels.ExaModel
+
+        o = @def begin
+                tf ∈ R, variable
+                t ∈ [0, tf], time
+                x ∈ R⁴, state
+                u ∈ R, control
+                x₁(tf) == 1
+                x[1:2:3](tf) == [1, 2]
+                x[1:3](tf) == [1, 2, 3]
+                x(tf) == [1, 2, 3, 4]
                 x₁(0) + 2cos(x₂(tf)) → min
         end
         @test o() isa ExaModels.ExaModel
