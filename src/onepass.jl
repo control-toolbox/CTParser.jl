@@ -67,8 +67,9 @@ $(TYPEDEF)
     tf::Union{Real,Symbol,Expr,Nothing} = nothing
     x::Union{Symbol,Nothing} = nothing
     u::Union{Symbol,Nothing} = nothing
-    is_scalar_v::Bool = false
-    is_scalar_x::Bool = false # todo: remove in future, when allowing componentwise declaration of dynamics
+    dim_v::Union{Integer, Symbol, Expr, Nothing} = nothing
+    dim_x::Union{Integer, Symbol, Expr, Nothing} = nothing
+    dim_u::Union{Integer, Symbol, Expr, Nothing} = nothing
     aliases::OrderedDict{Union{Symbol,Expr},Union{Real,Symbol,Expr}} = __init_aliases() # Dict ordered by Symbols *and Expr* just for scalar variable / state / control
     lnum::Int = 0
     line::String = ""
@@ -279,9 +280,9 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
         p.aliases[Symbol(v, CTBase.ctindices(1))] = :($vg[1])
         p.aliases[Symbol(v, 1)] = :($vg[1])
         v = vg 
-        p.is_scalar_v = true
     end
     p.v = v
+    p.dim_v = q
     qq = q isa Int ? q : 9
     for i in 1:qq
         p.aliases[Symbol(v, CTBase.ctindices(i))] = :($v[$i])
@@ -333,14 +334,14 @@ function p_time_fun!(p, p_ocp, t, t0, tf)
         (false, false) => :($pref.time!($p_ocp; t0=$t0, tf=$tf, time_name=$tt))
         (true, false) => @match t0 begin
             :($v1[$i]) && if (v1 == p.v) end => :($pref.time!($p_ocp; ind0=$i, tf=$tf, time_name=$tt))
-            :($v1) && if (v1 == p.v) &&  p.is_scalar_v end => :( $pref.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt) ) # todo: never executed (check!)
-            :($v1) && if (v1 == p.v) && !p.is_scalar_v end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
+            :($v1) && if (v1 == p.v) &&  (p.dim_v == 1) end => :( $pref.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt) ) # todo: never executed (check!)
+            :($v1) && if (v1 == p.v) && !(p.dim_v == 1) end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         (false, true) => @match tf begin
             :($v1[$i]) && if (v1 == p.v) end => :($pref.time!($p_ocp; t0=$t0, indf=$i, time_name=$tt))
-            :($v1) && if (v1 == p.v) &&  p.is_scalar_v end => :( $pref.time!($p_ocp; t0=$t0, indf=1, time_name=$tt) ) # todo: never executed (check!)
-            :($v1) && if (v1 == p.v) && !p.is_scalar_v end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
+            :($v1) && if (v1 == p.v) &&  (p.dim_v == 1) end => :( $pref.time!($p_ocp; t0=$t0, indf=1, time_name=$tt) ) # todo: never executed (check!)
+            :($v1) && if (v1 == p.v) && !(p.dim_v ==1) end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         _ => @match (t0, tf) begin
@@ -359,12 +360,12 @@ function p_time_exa!(p, p_ocp, t, t0, tf)
         (false, false) => nothing
         (true, false) => @match t0 begin
             :($v1[$i]) && if (v1 == p.v) end => nothing 
-            :($v1) && if (v1 == p.v) && !p.is_scalar_v end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
+            :($v1) && if (v1 == p.v) && !(p.dim_v == 1) end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         (false, true) => @match tf begin
             :($v1[$i]) && if (v1 == p.v) end => nothing
-            :($v1) && if (v1 == p.v) && !p.is_scalar_v end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
+            :($v1) && if (v1 == p.v) && !(p.dim_v == 1) end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         _ => @match (t0, tf) begin
@@ -390,9 +391,9 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
         p.aliases[Symbol(x, CTBase.ctindices(1))] = :($xg[1])
         p.aliases[Symbol(x, 1)] = :($xg[1])
         x = xg 
-        p.is_scalar_x = true # todo: remove in future
     end
     p.x = x
+    p.dim_x = n
     nn = n isa Int ? n : 9
     for i in 1:nn
         p.aliases[Symbol(x, CTBase.ctindices(i))] = :($x[$i])
@@ -442,6 +443,7 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
         u = ug 
     end
     p.u = u
+    p.dim_u = m
     mm = m isa Int ? m : 9
     for i in 1:mm
         p.aliases[Symbol(u, CTBase.ctindices(i))] = :($u[$i])
@@ -631,7 +633,7 @@ function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log=false)
 end
     
 function p_dynamics_coord_fun!(p, p_ocp, x, i, t, e, label)
-    p.is_scalar_x || return __throw("dynamics cannot be defined coordinatewise", p.lnum, p.line)
+    (p.dim_x == 1) || return __throw("dynamics cannot be defined coordinatewise", p.lnum, p.line)
     i == 1 || return __throw("out of range dynamics index", p.lnum, p.line)
     return p_dynamics!(p, p_ocp, x, t, e, label) # i.e. implemented only for scalar case (future, to be completed)
 end
