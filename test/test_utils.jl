@@ -34,6 +34,14 @@ function test_utils()
         @test subs2(subs2(e, :x0, :x, 0), :xf, :x, :N) == :(x0 * (2 * x[3, N]) - cos(xf) * (2 * x[2, 0]))
     
     end
+
+    @testset "subs3" begin
+
+        e = :(x0[1:2:d] * 2xf[1:3])
+        @test subs3(e, :x0, :x, :i, 0) == :(x[i, 0] * (2 * xf[1:3]))
+        @test subs3(e, :xf, :x, 1, :N) == :(x0[1:2:d] * (2 * x[1, N]))
+
+    end
     
     @testset "replace_call" begin
     

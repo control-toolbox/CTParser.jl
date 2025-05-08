@@ -94,6 +94,34 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Substitute x[rg] by y[i, j], whatever rg, in e.
+
+# Examples
+```@example
+julia> e = :(x0[1:2:d] * 2xf[1:3])
+:(x0[1:2:d] * (2 * xf[1:3]))
+
+julia> subs3(e, :x0, :x, :i, 0)
+:(x[i, 0] * (2 * xf[1:3]))
+
+julia> subs3(e, :xf, :x, 1, :N)
+:(x0[1:2:d] * (2 * x[1, N]))
+```
+"""
+function subs3(e, x, y, i, j)
+    foo(x, y, j) = (h, args...) -> begin
+        f = Expr(h, args...)
+        @match f begin
+            :($xx[$rg]) && if (xx == x) end => :($y[$i, $j])
+            _ => f
+        end
+    end
+    expr_it(e, foo(x, y, j), x -> x)
+end    
+
+"""
+$(TYPEDSIGNATURES)
+
 Replace calls in e of the form `(...x...)(t)` by `(...y...)`.
 
 # Example

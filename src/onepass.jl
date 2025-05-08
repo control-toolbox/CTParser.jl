@@ -106,6 +106,10 @@ __wrap(e, n, line) = quote
     end
 end
 
+is_range(x) = false 
+is_range(x::T) where {T <: AbstractRange} = true 
+is_range(x::Expr) = (x.head == :call) && (x.args[1] == :(:))
+
 # Main code
 
 """
@@ -549,12 +553,16 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3)))
         end
         (:initial, rg) => begin # todo: treat spearately with iterators :initial and :final
-        # p: is_scalar_x/v => dim_x/v
-        # rg = isnothing(rg) ? (1:p.dim_x) : rg
+            if isnothing(rg)
+                rg = :(1:$(p.dim_x)) # x(t0) implies rg == nothing but means x[1:p.dim_x](t0)
+                e2 = subs(e2, p.x, :($(p.x)[$rg]))
+            elseif !is_range(rg)
+                rg = [rg]
+            end
             x0 = gensym()
             e2 = replace_call(e2, p.x, p.t0, x0)
-            e2 = subs2(e2, x0, p.x, 0)
-            :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3))
+            e2 = subs3(e2, x0, p.x, :i, 0)
+            :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3))
         end
         (:final, rg) => begin # todo: treat spearately with iterators :initial and :final
             xf = gensym()
@@ -566,13 +574,13 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             ut = gensym()
             e2 = replace_call(e2, p.u, p.t, ut)
             e2 = subs2(e2, ut, p.u, :j)
-            :(ExaModels.constraint($p_ocp, $e2 for j = 0:grid_size; lcon = $e1, ucon = $e3))
+            :(ExaModels.constraint($p_ocp, $e2 for j ∈ 0:grid_size; lcon = $e1, ucon = $e3))
         end
         (:state_range, rg) => begin # todo: iterator for rg
             xt = gensym()
             e2 = replace_call(e2, p.x, p.t, xt)
             e2 = subs2(e2, xt, p.x, :j)
-            :(ExaModels.constraint($p_ocp, $e2 for j = 0:grid_size; lcon = $e1, ucon = $e3))
+            :(ExaModels.constraint($p_ocp, $e2 for j ∈ 0:grid_size; lcon = $e1, ucon = $e3))
         end
         (:variable_range, rg) => begin # todo: iterator for rg
             :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3)) 
@@ -585,7 +593,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = replace_call(e2, p.u, p.t, ut)
             e2 = subs2(e2, xt, p.x, :j)
             e2 = subs2(e2, ut, p.u, :j)
-            Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2 for j = 0:grid_size; lcon = $e1, ucon = $e3)))
+            Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2 for j ∈ 0:grid_size; lcon = $e1, ucon = $e3)))
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
     end

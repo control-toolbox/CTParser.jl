@@ -168,6 +168,16 @@ function test_onepass_exa()
         end
         @test_throws CTBase.ParsingError o() isa ExaModels.ExaModel
 
+        o = @def begin
+                tf ∈ R, variable
+                t ∈ [0, tf], time
+                x ∈ R², state
+                u ∈ R, control
+                x(0) == [1, 2]
+                x₁(0) + 2cos(x₂(tf)) → min
+        end
+        @test o() isa ExaModels.ExaModel
+
    end
 
 end
