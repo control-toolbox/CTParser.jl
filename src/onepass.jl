@@ -1,5 +1,6 @@
 # onepass
-# todo: as_range / as_vector for rg / lb, ub could be done here in p_constraint when calling PREFIX.constraint!
+# todo: check todo's
+# - as_range / as_vector for rg / lb, ub could be done here in p_constraint when calling PREFIX.constraint!
 # - cannot call solve if problem not fully defined (dynamics not defined...)
 # - doc: explain projections wrt to t0, tf, t; (...x1...x2...)(t) -> ...gensym1...gensym2... (most internal first)
 # - additional checks: when generating functions (constraints, dynamics, costs), there should not be any x or u left
@@ -332,13 +333,13 @@ function p_time_fun!(p, p_ocp, t, t0, tf)
         (false, false) => :($pref.time!($p_ocp; t0=$t0, tf=$tf, time_name=$tt))
         (true, false) => @match t0 begin
             :($v1[$i]) && if (v1 == p.v) end => :($pref.time!($p_ocp; ind0=$i, tf=$tf, time_name=$tt))
-            :($v1) && if (v1 == p.v) &&  p.is_scalar_v end => :( $pref.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt) ) # debug: never executed (check!)
+            :($v1) && if (v1 == p.v) &&  p.is_scalar_v end => :( $pref.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt) ) # todo: never executed (check!)
             :($v1) && if (v1 == p.v) && !p.is_scalar_v end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         (false, true) => @match tf begin
             :($v1[$i]) && if (v1 == p.v) end => :($pref.time!($p_ocp; t0=$t0, indf=$i, time_name=$tt))
-            :($v1) && if (v1 == p.v) &&  p.is_scalar_v end => :( $pref.time!($p_ocp; t0=$t0, indf=1, time_name=$tt) ) # debug: never executed (check!)
+            :($v1) && if (v1 == p.v) &&  p.is_scalar_v end => :( $pref.time!($p_ocp; t0=$t0, indf=1, time_name=$tt) ) # todo: never executed (check!)
             :($v1) && if (v1 == p.v) && !p.is_scalar_v end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
@@ -533,41 +534,59 @@ end
 function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
     isnothing(e1) && (e1 = -Inf)
     isnothing(e3) && (e3 =  Inf)
+    e_pref = e_prefix()
     code = @match c_type begin
-        :boundary || :variable_fun || (:initial, rg) || (:final, rg) => begin
+        :boundary || :variable_fun => begin
+            code = :(length($e1) == length($e3) == 1 || throw($e_pref.ParsingError("this constraint must be scalar")))
             x0 = gensym()
             xf = gensym()
             e2 = replace_call(e2, p.x, p.t0, x0)
             e2 = replace_call(e2, p.x, p.tf, xf)
             e2 = subs2(e2, x0, p.x, 0)
             e2 = subs2(e2, xf, p.x, :grid_size)
+            Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3)))
+        end
+        (:initial, rg) => begin # todo: treat spearately with iterators :initial and :final
+        # p: is_scalar_x/v => dim_x/v
+        # rg = isnothing(rg) ? (1:p.dim_x) : rg
+            x0 = gensym()
+            e2 = replace_call(e2, p.x, p.t0, x0)
+            e2 = subs2(e2, x0, p.x, 0)
             :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3))
         end
-        (:control_range, rg) => begin
+        (:final, rg) => begin # todo: treat spearately with iterators :initial and :final
+            xf = gensym()
+            e2 = replace_call(e2, p.x, p.tf, xf)
+            e2 = subs2(e2, xf, p.x, :grid_size)
+            :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3))
+        end
+        (:control_range, rg) => begin # todo: iterator for rg
             ut = gensym()
             e2 = replace_call(e2, p.u, p.t, ut)
             e2 = subs2(e2, ut, p.u, :j)
             :(ExaModels.constraint($p_ocp, $e2 for j = 0:grid_size; lcon = $e1, ucon = $e3))
         end
-        (:state_range, rg) => begin
+        (:state_range, rg) => begin # todo: iterator for rg
             xt = gensym()
             e2 = replace_call(e2, p.x, p.t, xt)
             e2 = subs2(e2, xt, p.x, :j)
             :(ExaModels.constraint($p_ocp, $e2 for j = 0:grid_size; lcon = $e1, ucon = $e3))
         end
-        (:variable_range, rg) => :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3))
+        (:variable_range, rg) => begin # todo: iterator for rg
+            :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3)) 
+        end
         :state_fun || control_fun || :mixed => begin
+            code = :(length($e1) == length($e3) == 1 || throw($e_pref.ParsingError("this constraint must be scalar")))
             xt = gensym()
             ut = gensym()
             e2 = replace_call(e2, p.x, p.t, xt)
             e2 = replace_call(e2, p.u, p.t, ut)
             e2 = subs2(e2, xt, p.x, :j)
             e2 = subs2(e2, ut, p.u, :j)
-            :(ExaModels.constraint($p_ocp, $e2 for j = 0:grid_size; lcon = $e1, ucon = $e3))
+            Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2 for j = 0:grid_size; lcon = $e1, ucon = $e3)))
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
     end
-    code = Expr(:block, :(length($e1) == length($e3) == 1 || throw("constraints must be scalar")), code)
     return __wrap(code, p.lnum, p.line)
 end
 

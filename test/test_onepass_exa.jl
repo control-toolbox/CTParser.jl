@@ -117,8 +117,17 @@ function test_onepass_exa()
                 x₁(0) + 2cos(x₂(tf)) → min
         end
         @test o() isa ExaModels.ExaModel
-        # tester x(0) == 1
 
-    end
+        o = @def begin
+                tf ∈ R, variable
+                t ∈ [0, tf], time
+                x ∈ R², state
+                u ∈ R, control
+                -1 ≤ x₂(0) + x₁(tf) + tf ≤ [1, 2]
+                x₁(0) + 2cos(x₂(tf)) → min
+        end
+        @test_throws CTBase.ParsingError o() isa ExaModels.ExaModel
+
+   end
 
 end
