@@ -334,17 +334,17 @@ function test_onepass_exa()
             r(tf) → max
 
         end
-        @test o() isa ExaModels.ExaModel
         tfs = 0.18761155665063417
         xs = [ 1.0          1.00105   1.00398   1.00751    1.01009    1.01124
               -1.83989e-40  0.056163  0.1       0.0880311  0.0492518  0.0123601
                1.0          0.811509  0.650867  0.6        0.6        0.6 ]
         us = [0.599377 0.835887 0.387328 -5.87733e-9 -9.03538e-9 -8.62101e-9]
-        m = o(; grid_size = 4, init = (tfs, xs, us))
-        s = madnlp(m)
-        @test s.objective isa Real #≈ 6 atol = 1e-3
-        s = ipopt(m)
-        @test s.objective isa Real #≈ 6 atol = 1e-3
+        m = o(; grid_size = length(us) - 1, init = (tfs, xs, us))
+        sm = madnlp(m)
+        @test sm.objective ≈ -1.01 atol = 1e-2
+        si = ipopt(m)
+        @test si.objective ≈ -1.01 atol = 1e-2
+        @test sm.objective ≈ si.objective atol = 1e-2
 
     end
 
