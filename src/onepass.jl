@@ -721,7 +721,7 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
         if scheme == :trapezoidal
             ExaModels.constraint($p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for j ∈ 0:(grid_size - 1))
         else
-            throw($e_pref.ParsingError("unknown numerical scheme"), p.lnum, p.line)
+            throw($e_pref.ParsingError("unknown numerical scheme"), $(p.lnum), $(p.line))
         end
     end
     return __wrap(code, p.lnum, p.line)

@@ -245,7 +245,11 @@ function test_onepass_exa()
                 x₁(0) + 2cos(x₂(1)) → min
         end
         @test o() isa ExaModels.ExaModel
+
+    end
     
+    @testset "dynamics" begin
+
         o = @def begin
                 t ∈ [0, 1], time
                 x ∈ R⁴, state
@@ -265,8 +269,31 @@ function test_onepass_exa()
         end
         @test o() isa ExaModels.ExaModel
 
-        # dynamics: check non autonomous!
-    
+    end
+
+    # debug: test p_dynamics_coord, test scheme not :trapezoidal
+
+    @testset "use case no. 1: simple example" begin
+
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            x(0) == [-1, 0, 0]
+            x[1:2](1) == [0, 0]
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∂(x₃)(t) == 0.5u(t)^2
+            x₃(1) → min
+        end
+        @test o() isa ExaModels.ExaModel
+
+    end
+
+    @testset "use case no. 1: simple example" begin
+
+        @test true # solve and compare objective
+
     end
 
 end
