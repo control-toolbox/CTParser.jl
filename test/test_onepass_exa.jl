@@ -141,7 +141,7 @@ function test_onepass_exa()
                 -1 ≤ x₂(0) + x₁(tf) + tf ≤ [1, 2]
                 x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws CTBase.ParsingError o() isa ExaModels.ExaModel
+        @test_throws ParsingError o()
 
         o = @def begin
                 tf ∈ R, variable
@@ -151,7 +151,7 @@ function test_onepass_exa()
                 tf^2 ≥ [1, 5]
                 x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws CTBase.ParsingError o() isa ExaModels.ExaModel
+        @test_throws ParsingError o()
 
         o = @def begin
                 tf ∈ R, variable
@@ -161,7 +161,7 @@ function test_onepass_exa()
                 cos(x₁(t)) ≤ [1, 2]
                 x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws CTBase.ParsingError o() isa ExaModels.ExaModel
+        @test_throws ParsingError o()
 
         o = @def begin
                 tf ∈ R, variable
@@ -171,7 +171,7 @@ function test_onepass_exa()
                 cos(u(t)) ≤ [1, 2]
                 x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws CTBase.ParsingError o() isa ExaModels.ExaModel
+        @test_throws ParsingError o()
 
         o = @def begin
                 tf ∈ R, variable
@@ -181,7 +181,7 @@ function test_onepass_exa()
                 x₁(t) + u(t) == [1, 2]
                 x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws CTBase.ParsingError o() isa ExaModels.ExaModel
+        @test_throws ParsingError o()
 
         o = @def begin
                 tf ∈ R, variable
@@ -245,6 +245,27 @@ function test_onepass_exa()
                 x₁(0) + 2cos(x₂(1)) → min
         end
         @test o() isa ExaModels.ExaModel
+    
+        o = @def begin
+                t ∈ [0, 1], time
+                x ∈ R⁴, state
+                u ∈ R⁵, control
+                ẋ(t) == u[1:4](t)
+                x₁(0) + 2cos(x₂(1)) → min
+        end
+        @test_throws ParsingError o()
+
+        o = @def begin
+                t ∈ [0, 1], time
+                x ∈ R, state
+                u ∈ R⁵, control
+                x(t) + u₂(t) + t == 1
+                ẋ(t) == t + u₁(t)
+                x(0) + 2cos(x(1)) → min
+        end
+        @test o() isa ExaModels.ExaModel
+
+        # dynamics: check non autonomous!
     
     end
 

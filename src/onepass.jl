@@ -16,6 +16,7 @@
 # Defaults
 
 __default_parsing_backend() = 1 # :fun
+__default_scheme_exa() = :(:trapezoidal)
 __default_grid_size_exa() = 200
 __default_backend_exa() = nothing
 __default_init_exa() = (0.1, 0.1, 0.1) # default init for v, x, u
@@ -74,6 +75,7 @@ $(TYPEDEF)
     lnum::Int = 0
     line::String = ""
     dt::Symbol = gensym()
+    dyn_coords::Vector{Int64} = Int64[]
 end
 
 __init_aliases(; max_dim=20) = begin
@@ -639,6 +641,8 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = replace_call(e2, p.u, p.t, ut)
             e2 = subs2(e2, xt, p.x, :j)
             e2 = subs2(e2, ut, p.u, :j)
+            e2 = subs(e2, p.t, :($(p.t0) + j * $(p.dt)))
+            # debug: add time dependence as in dynamics!!!
             Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2 for j ∈ 0:grid_size; lcon = $e1, ucon = $e3)))
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
@@ -654,10 +658,10 @@ function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
     x ≠ p.x && return __throw("wrong state $x for dynamics", p.lnum, p.line)
     t ≠ p.t && return __throw("wrong time $t for dynamics", p.lnum, p.line)
-    return parsing(:dynamics)(p, p_ocp, x, t, e, label)
+    return parsing(:dynamics)(p, p_ocp, x, t, e)
 end
 
-function p_dynamics_fun!(p, p_ocp, x, t, e, label)
+function p_dynamics_fun!(p, p_ocp, x, t, e)
     pref = prefix()
     xt = gensym()
     ut = gensym()
@@ -675,6 +679,10 @@ function p_dynamics_fun!(p, p_ocp, x, t, e, label)
     return __wrap(code, p.lnum, p.line)
 end
 
+function p_dynamics_exa!(p, p_ocp, x, t, e)
+    return __throw("dynamics must be defined coordinatewise", p.lnum, p.line) # note: scalar case is redirected before to coordinatewise case
+end
+
 function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log=false)
     log && println("dynamics: ∂($x[$i])($t) == $e")
     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
@@ -683,13 +691,40 @@ function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log=false)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
     x ≠ p.x && return __throw("wrong state $x for dynamics", p.lnum, p.line)
     t ≠ p.t && return __throw("wrong time $t for dynamics", p.lnum, p.line)
-    return parsing(:dynamics_coord)(p, p_ocp, x, i, t, e, label)
+    return parsing(:dynamics_coord)(p, p_ocp, x, i, t, e)
 end
     
-function p_dynamics_coord_fun!(p, p_ocp, x, i, t, e, label)
-    (p.dim_x == 1) || return __throw("dynamics cannot be defined coordinatewise", p.lnum, p.line)
+function p_dynamics_coord_fun!(p, p_ocp, x, i, t, e)
+    p.dim_x == 1 || return __throw("dynamics cannot be defined coordinatewise", p.lnum, p.line)
     i == 1 || return __throw("out of range dynamics index", p.lnum, p.line)
-    return p_dynamics!(p, p_ocp, x, t, e, label) # i.e. implemented only for scalar case (future, to be completed)
+    return p_dynamics!(p, p_ocp, x, t, e) # i.e. implemented only for scalar case (future, to be completed)
+end
+
+function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
+    i ∈ p.dyn_coords && return __throw("dynamics coordinate $i already defined", p.lnum, p.line)
+    append!(p.dyn_coords, i)
+    xt = gensym()
+    ut = gensym()
+    e = replace_call(e, p.x, p.t, xt)
+    e = replace_call(e, p.u, p.t, ut)
+    j1 = :j
+    j2 = :(j + 1)
+    ej1 = subs2(e, xt, p.x, j1)
+    ej1 = subs2(ej1, ut, p.u, j1)
+    ej1 = subs(ej1, p.t, :($(p.t0) + $j1 * $(p.dt)))
+    ej2 = subs2(e, xt, p.x, j2)
+    ej2 = subs2(ej2, ut, p.u, j2)
+    ej2 = subs(ej2, p.t, :($(p.t0) + $j2 * $(p.dt)))
+    dxij = :($(p.x)[$i, $j2]- $(p.x)[$i, $j1])
+    e_pref = e_prefix()
+    code = quote 
+        if scheme == :trapezoidal
+            ExaModels.constraint($p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for j ∈ 0:(grid_size - 1))
+        else
+            throw($e_pref.ParsingError("unknown numerical scheme"), p.lnum, p.line)
+        end
+    end
+    return __wrap(code, p.lnum, p.line)
 end
 
 function p_lagrange!(p, p_ocp, e, type; log=false)
@@ -828,6 +863,8 @@ PARSING_EXA[:time] = p_time_exa!
 PARSING_EXA[:state] = p_state_exa!
 PARSING_EXA[:control] = p_control_exa!
 PARSING_EXA[:constraint] = p_constraint_exa!
+PARSING_EXA[:dynamics] = p_dynamics_exa!
+PARSING_EXA[:dynamics_coord] = p_dynamics_coord_exa!
 PARSING_EXA[:mayer] = p_mayer_exa!
 
 const PARSING_DIR = OrderedDict{Symbol, OrderedDict{Symbol, Function}}()
@@ -886,10 +923,11 @@ end true # final boolean to show parsing log
 """
 macro def(e)
     try
+        e_pref = e_prefix()
         code = @match parsing_backend() begin
             :fun => def_fun(e)
             :exa => def_exa(e)
-            _    => :(throw("unknown parsing backend"))
+            _    => :(throw($e_pref.ParsingError("unknown parsing backend"))) # debug: add @test_throw of this case in tests
         end
         return esc(code)
     catch ex
@@ -899,10 +937,11 @@ end
 
 macro def(ocp, e, log=false)
     try
+        e_pref = e_prefix()
         code = @match parsing_backend() begin
             :fun => def_fun(e, log)
             :exa => def_exa(e, log)
-            _    => :(throw("unknown parsing backend"))
+            _    => :(throw($e_pref.ParsingError("unknown parsing backend"))) # debug: add @test_throw of this case in test
         end
         code = :($ocp = $code)
         return esc(code)
@@ -925,16 +964,22 @@ end
 
 function def_exa(e, log=false)
     p_ocp = gensym() # ExaModel name (this is the pre OCP, here)
-    p = ParsingInfo() # need to initialise symbols for N, backend, inits... by gensyms
+    p = ParsingInfo()
     code = parse!(p, p_ocp, e; log = log)
+    dyn_check = quote # debug: error, not just warning (then update all tests...)
+        !isempty($(p.dyn_coords)) || @warn "dynamics not defined" # throw($e_pref.ParsingError("dynamics not defined"))
+        sort($(p.dyn_coords)) == 1:$(p.dim_x) || @warn "some coordinates of dynamics undefined" # throw($e_pref.ParsingError("some coordinates of dynamics undefined"))
+    end
+    default_scheme = __default_scheme_exa()
     default_grid_size = __default_grid_size_exa()
     default_backend = __default_backend_exa()
     default_init = __default_init_exa()
     default_base_type = __default_base_type_exa()
     code = quote
-        function (; grid_size = $default_grid_size, backend = $default_backend, init = $default_init, base_type = $default_base_type)
+        function (; scheme = $default_scheme, grid_size = $default_grid_size, backend = $default_backend, init = $default_init, base_type = $default_base_type)
             $p_ocp = ExaModels.ExaCore(base_type; backend = backend)
             $code
+            $dyn_check
             return ExaModels.ExaModel($p_ocp)
         end
     end
