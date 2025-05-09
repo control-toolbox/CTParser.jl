@@ -3015,4 +3015,10 @@ function test_onepass_fun()
 
     end
 
+    @testset "pragma" begin
+
+        @test_throws ParsingError @def PRAGMA(println("foo"))
+
+    end
+
 end

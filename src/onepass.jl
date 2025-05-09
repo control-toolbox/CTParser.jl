@@ -131,6 +131,8 @@ parse!(p, p_ocp, e; log=false) = begin
     end
     #
     @match e begin
+        # PRAGMA
+        :(PRAGMA($e)) => p_pragma!(p, p_ocp, e; log)
         # aliases
         :($a = $e1) => @match e1 begin
             :(($names) ∈ R^$q, variable) =>
@@ -255,6 +257,20 @@ parse!(p, p_ocp, e; log=false) = begin
             end
         end
     end
+end
+
+function p_pragma!(p, p_ocp, e; log=false)
+    log && println("PRAGMA: $e")
+    return parsing(:pragma)(p, p_ocp, e)
+end
+
+function p_pragma_fun!(p, p_ocp, e)
+    return __throw("PRAGMA not allowed", p.lnum, p.line)
+end
+
+function p_pragma_exa!(p, p_ocp, e)
+    code = e
+    return __wrap(code, p.lnum, p.line)
 end
 
 function p_alias!(p, p_ocp, a, e; log=false)
@@ -477,7 +493,7 @@ function p_control_fun!(p, p_ocp, u, m, uu; components_names=nothing)
 end
 
 function p_control_exa!(p, p_ocp, u, m, uu; components_names=nothing)
-    code = :($u = ExaModels.variable($p_ocp, $m, 0:grid_size; start = init[3]))
+    code = :(ExaModels.variable($p_ocp, $m, 0:grid_size; start = init[3]))
     code = __wrap(code, p.lnum, p.line)
     code = :($u = $code) # affectation must be done outside try ... catch )
     return code
@@ -774,6 +790,7 @@ end
 # Summary of available parsing options
 
 const PARSING_FUN = OrderedDict{Symbol, Function}()
+PARSING_FUN[:pragma] = p_pragma_fun!
 PARSING_FUN[:alias] = p_alias_fun!
 PARSING_FUN[:variable] = p_variable_fun!
 PARSING_FUN[:time] = p_time_fun!
@@ -787,6 +804,7 @@ PARSING_FUN[:mayer] = p_mayer_fun!
 PARSING_FUN[:bolza] = p_bolza_fun!
 
 const PARSING_EXA = OrderedDict{Symbol, Function}()
+PARSING_EXA[:pragma] = p_pragma_exa!
 PARSING_EXA[:alias] = p_alias_exa!
 PARSING_EXA[:variable] = p_variable_exa!
 PARSING_EXA[:time] = p_time_exa!
