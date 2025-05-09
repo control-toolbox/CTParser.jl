@@ -16,7 +16,7 @@
 # Defaults
 
 __default_parsing_backend() = 1 # :fun
-__default_scheme_exa() = :(:trapezoidal)
+__default_scheme_exa() = :trapezoidal
 __default_grid_size_exa() = 200
 __default_backend_exa() = nothing
 __default_init_exa() = (0.1, 0.1, 0.1) # default init for v, x, u
@@ -716,12 +716,11 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     ej2 = subs2(ej2, ut, p.u, j2)
     ej2 = subs(ej2, p.t, :($(p.t0) + $j2 * $(p.dt)))
     dxij = :($(p.x)[$i, $j2]- $(p.x)[$i, $j1])
-    e_pref = e_prefix()
     code = quote 
         if scheme == :trapezoidal
             ExaModels.constraint($p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for j ∈ 0:(grid_size - 1))
         else
-            throw($e_pref.ParsingError("unknown numerical scheme"), $(p.lnum), $(p.line))
+           throw("unknown numerical scheme") # and this throw is __wrapped 
         end
     end
     return __wrap(code, p.lnum, p.line)
@@ -795,8 +794,7 @@ function p_mayer_exa!(p, p_ocp, e, type)
     # now, x[i](t0) has been replaced by x[i, 0] and x[i](tf) by x[i, grid_size]
     code = @match type begin
         :min => :(ExaModels.objective($p_ocp,  $e))
-        :max => :(ExaModels.objective($p_ocp, -$e))
-        _ => throw("p_mayer_exa!: wrong type", p.lnum, p.line) # should never be called 
+        _ => :(ExaModels.objective($p_ocp, -$e))
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -927,7 +925,7 @@ macro def(e)
         code = @match parsing_backend() begin
             :fun => def_fun(e)
             :exa => def_exa(e)
-            _    => :(throw($e_pref.ParsingError("unknown parsing backend"))) # debug: add @test_throw of this case in tests
+            _ => :(throw($e_pref.ParsingError("unknown parsing backend"))) # debug: add @test_throw of this case in tests
         end
         return esc(code)
     catch ex
@@ -941,7 +939,7 @@ macro def(ocp, e, log=false)
         code = @match parsing_backend() begin
             :fun => def_fun(e, log)
             :exa => def_exa(e, log)
-            _    => :(throw($e_pref.ParsingError("unknown parsing backend"))) # debug: add @test_throw of this case in test
+            _ => :(throw($e_pref.ParsingError("unknown parsing backend"))) # debug: add @test_throw of this case in test
         end
         code = :($ocp = $code)
         return esc(code)
@@ -970,7 +968,7 @@ function def_exa(e, log=false)
         !isempty($(p.dyn_coords)) || @warn "dynamics not defined" # throw($e_pref.ParsingError("dynamics not defined"))
         sort($(p.dyn_coords)) == 1:$(p.dim_x) || @warn "some coordinates of dynamics undefined" # throw($e_pref.ParsingError("some coordinates of dynamics undefined"))
     end
-    default_scheme = __default_scheme_exa()
+    default_scheme = QuoteNode(__default_scheme_exa())
     default_grid_size = __default_grid_size_exa()
     default_backend = __default_backend_exa()
     default_init = __default_init_exa()
