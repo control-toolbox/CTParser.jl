@@ -556,8 +556,8 @@ function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
 end
 
 function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
-    isnothing(e1) && (e1 = -Inf)
-    isnothing(e3) && (e3 =  Inf)
+    isnothing(e1) && (e1 = :(-Inf * ones(length($e3))))
+    isnothing(e3) && (e3 = :( Inf * ones(length($e1))))
     e_pref = e_prefix()
     code = @match c_type begin
         :boundary || :variable_fun => begin
@@ -615,7 +615,6 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = replace_call(e2, p.x, p.t, xt)
             e2 = subs3(e2, xt, p.x, :i, :j)
             ikj = gensym()
-            # debug: if e1 or e3 +/- Inf, replace by length(rg) vector of +/- Inf
             code = :($ikj = [($rg[k], k, j) for (k, j) in Base.product(1:length($rg), 0:grid_size)])
             code = Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2 for (i, k, j) ∈ $ikj; lcon = ($e1[k] for (i, k, j) ∈ $ikj), ucon = ($e3[k] for (i, k, j) ∈ $ikj))))
 
@@ -631,7 +630,6 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = replace_call(e2, p.u, p.t, ut)
             e2 = subs3(e2, ut, p.u, :i, :j)
             ikj = gensym()
-            # debug: if e1 or e3 +/- Inf, replace by length(rg) vector of +/- Inf
             code = :($ikj = [($rg[k], k, j) for (k, j) in Base.product(1:length($rg), 0:grid_size)])
             code = Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2 for (i, k, j) ∈ $ikj; lcon = ($e1[k] for (i, k, j) ∈ $ikj), ucon = ($e3[k] for (i, k, j) ∈ $ikj))))
         end
@@ -720,6 +718,10 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     code = quote 
         if scheme == :trapezoidal
             ExaModels.constraint($p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for j ∈ 0:(grid_size - 1))
+        elseif scheme == :euler
+            ExaModels.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for j ∈ 0:(grid_size - 1))
+        elseif scheme == :euler_b
+            ExaModels.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for j ∈ 0:(grid_size - 1))
         else
            throw("unknown numerical scheme") # and this throw is __wrapped 
         end

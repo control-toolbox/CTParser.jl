@@ -253,6 +253,21 @@ function test_onepass_exa()
         end
         @test o() isa ExaModels.ExaModel
 
+        o = @def begin
+                v ∈ R³, variable
+                t ∈ [0, 1], time
+                x ∈ R⁴, state
+                u ∈ R⁵, control
+                v ≤ [1, 2, 3]
+                v[1:2] ≥ [1, 2]
+                u[2:2:4](t) ≤ [1, 2]
+                u[2:4](t) ≥ [1, 2, 3]
+                u[2:2:4](t) ≤ [1, 2]
+                u[2:4](t) ≥ [1, 2, 3]
+                x₁(0) + 2cos(x₂(1)) → min
+        end
+        @test o() isa ExaModels.ExaModel
+
     end
     
     @testset "dynamics" begin
@@ -346,6 +361,24 @@ function test_onepass_exa()
         @test si.objective ≈ -1.01 atol = 1e-2
         @test sm.objective ≈ si.objective atol = 1e-2
 
+        # debug
+        o = @def begin
+                v ∈ R³, variable
+                t ∈ [0, 1], time
+                x ∈ R⁴, state
+                u ∈ R⁵, control
+                v ≤ [1, 2, 3]
+                v[1:2] ≥ [1, 2]
+                u[2:2:4](t) ≤ [1, 2]
+                u[2:4](t) ≥ [1, 2, 3]
+                u[2:2:4](t) ≤ [1, 2]
+                u[2:4](t) ≥ [1, 2, 3]
+                x₁(0) + 2cos(x₂(1)) → min
+        end
+        @test o() isa ExaModels.ExaModel
+
     end
+
+    # debug: test euler(_b)
 
 end
