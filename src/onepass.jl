@@ -936,7 +936,7 @@ macro def(e)
         code = @match parsing_backend() begin
             :fun => def_fun(e)
             :exa => def_exa(e)
-            _ => :(throw($e_pref.ParsingError("unknown parsing backend"))) # debug: add @test_throw of this case in tests
+            _ => :(throw($e_pref.ParsingError("unknown parsing backend"))) # debug: return throw, instead? and add @test_throw of this case in tests
         end
         return esc(code)
     catch ex
@@ -950,7 +950,7 @@ macro def(ocp, e, log=false)
         code = @match parsing_backend() begin
             :fun => def_fun(e, log)
             :exa => def_exa(e, log)
-            _ => :(throw($e_pref.ParsingError("unknown parsing backend"))) # debug: add @test_throw of this case in test
+            _ => :(throw($e_pref.ParsingError("unknown parsing backend"))) # debug: see above
         end
         code = :($ocp = $code)
         return esc(code)

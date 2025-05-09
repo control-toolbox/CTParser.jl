@@ -4,6 +4,7 @@ CTBase = "54762871-cc72-4466-b8e8-f6c8b58076cd"
 CTModels = "34c4fa32-2049-4079-8329-de33c2a22e2d"
 ExaModels = "1037b233-b668-4ce9-9b63-f9f681f55dd2"
 MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
+NLPModelsIpopt = "f4238b75-b362-5c4c-b852-0801c9a21d71"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
@@ -12,4 +13,5 @@ CTBase = "0.16"
 CTModels = "0.3"
 ExaModels = "0.8"
 MadNLP = "0.8"
+NLPModelsIpopt = "0.10"
 Test = "1"

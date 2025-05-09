@@ -292,6 +292,7 @@ function test_onepass_exa()
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
+        @test o() isa ExaModels.ExaModel
         m = o()
         s = madnlp(m)
         @test s.objective ≈ 6 atol = 1e-3
@@ -328,12 +329,22 @@ function test_onepass_exa()
 
             ∂(r)(t) == v(t)
             ∂(v)(t) == -Cd * v(t)^2 * exp(-β * (r(t) - 1)) / m(t) - 1 / r(t)^2 + u(t) * Tmax / m(t)
-            ∂(m)(t) ==  -b * Tmax * u(t)
+            ∂(m)(t) == -b * Tmax * u(t)
 
             r(tf) → max
 
         end
         @test o() isa ExaModels.ExaModel
+        tfs = 0.18761155665063417
+        xs = [ 1.0          1.00105   1.00398   1.00751    1.01009    1.01124
+              -1.83989e-40  0.056163  0.1       0.0880311  0.0492518  0.0123601
+               1.0          0.811509  0.650867  0.6        0.6        0.6 ]
+        us = [0.599377 0.835887 0.387328 -5.87733e-9 -9.03538e-9 -8.62101e-9]
+        m = o(; grid_size = 4, init = (tfs, xs, us))
+        s = madnlp(m)
+        @test s.objective isa Real #≈ 6 atol = 1e-3
+        s = ipopt(m)
+        @test s.objective isa Real #≈ 6 atol = 1e-3
 
     end
 
