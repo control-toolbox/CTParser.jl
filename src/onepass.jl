@@ -602,11 +602,20 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = subs4(e2, p.v, p.v, :i)
             :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3))
         end
-        (:state_range, rg) => begin # todo: iterator for rg
+        (:state_range, rg) => begin
+            if isnothing(rg)
+                rg = :(1:$(p.dim_x))
+                e2 = subs(e2, p.x, :($(p.x)[$rg]))
+            elseif !is_range(rg)
+                rg = [rg]
+            end
             xt = gensym()
             e2 = replace_call(e2, p.x, p.t, xt)
-            e2 = subs2(e2, xt, p.x, :j)
-            :(ExaModels.constraint($p_ocp, $e2 for j ∈ 0:grid_size; lcon = $e1, ucon = $e3))
+            e2 = subs3(e2, xt, p.x, :i, :j)
+            ikj = gensym()
+            code = :($ikj = [($rg[k], k, j) for (k, j) in Base.product(1:length($rg), 0:grid_size)])
+            code = Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2 for (i, k, j) ∈ $ikj; lcon = ($e1[k] for (i, k, j) ∈ $ikj), ucon = ($e3[k] for (i, k, j) ∈ $ikj))))
+
         end
         (:control_range, rg) => begin # todo: iterator for rg
             ut = gensym()
