@@ -615,6 +615,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = replace_call(e2, p.x, p.t, xt)
             e2 = subs3(e2, xt, p.x, :i, :j)
             ikj = gensym()
+            # debug: if e1 or e3 +/- Inf, replace by length(rg) vector of +/- Inf
             code = :($ikj = [($rg[k], k, j) for (k, j) in Base.product(1:length($rg), 0:grid_size)])
             code = Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2 for (i, k, j) ∈ $ikj; lcon = ($e1[k] for (i, k, j) ∈ $ikj), ucon = ($e3[k] for (i, k, j) ∈ $ikj))))
 
@@ -630,6 +631,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = replace_call(e2, p.u, p.t, ut)
             e2 = subs3(e2, ut, p.u, :i, :j)
             ikj = gensym()
+            # debug: if e1 or e3 +/- Inf, replace by length(rg) vector of +/- Inf
             code = :($ikj = [($rg[k], k, j) for (k, j) in Base.product(1:length($rg), 0:grid_size)])
             code = Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2 for (i, k, j) ∈ $ikj; lcon = ($e1[k] for (i, k, j) ∈ $ikj), ucon = ($e3[k] for (i, k, j) ∈ $ikj))))
         end
