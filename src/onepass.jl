@@ -642,7 +642,6 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = subs2(e2, xt, p.x, :j)
             e2 = subs2(e2, ut, p.u, :j)
             e2 = subs(e2, p.t, :($(p.t0) + j * $(p.dt)))
-            # debug: add time dependence as in dynamics!!!
             Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2 for j ∈ 0:grid_size; lcon = $e1, ucon = $e3)))
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
@@ -752,6 +751,10 @@ function p_lagrange_fun!(p, p_ocp, e, type)
     return __wrap(code, p.lnum, p.line)
 end
 
+function p_lagrange_exa!(p, p_ocp, e, type)
+    return __throw("Lagrange cost to be implemented", p.lnum, p.line)
+end
+
 function p_mayer!(p, p_ocp, e, type; log=false)
     log && println("objective (Mayer): $e → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
@@ -837,6 +840,10 @@ function p_bolza_fun!(p, p_ocp, e1, e2, type)
     return __wrap(code, p.lnum, p.line)
 end
 
+function p_bolza_exa!(p, p_ocp, e1, e2, type)
+    return __throw("Bolza cost to be implemented", p.lnum, p.line)
+end
+
 # Summary of available parsing options
 
 const PARSING_FUN = OrderedDict{Symbol, Function}()
@@ -863,7 +870,9 @@ PARSING_EXA[:control] = p_control_exa!
 PARSING_EXA[:constraint] = p_constraint_exa!
 PARSING_EXA[:dynamics] = p_dynamics_exa!
 PARSING_EXA[:dynamics_coord] = p_dynamics_coord_exa!
+PARSING_EXA[:lagrange] = p_lagrange_exa!
 PARSING_EXA[:mayer] = p_mayer_exa!
+PARSING_EXA[:bolza] = p_bolza_exa!
 
 const PARSING_DIR = OrderedDict{Symbol, OrderedDict{Symbol, Function}}()
 PARSING_DIR[:fun] = PARSING_FUN
