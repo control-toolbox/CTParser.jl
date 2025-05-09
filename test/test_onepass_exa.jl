@@ -14,7 +14,7 @@ function test_onepass_exa()
                 t ∈ [0, 1], time
                 x ∈ R³, state
                 u ∈ R⁴, control
-                PRAGMA(println("Barracuda sort de ce corps !"))
+                PRAGMA(println("Barracuda sors de ce corps !"))
                 c = v₁ + b + x₁(0) + 2cos(x₃(1))
                 c → min
         end
@@ -230,6 +230,18 @@ function test_onepass_exa()
                 x[1:2:3](t) == [1, 2]
                 x[1:3](t) == [1, 2, 3]
                 x(t) == [1, 2, 3, 4]
+                x₁(0) + 2cos(x₂(1)) → min
+        end
+        @test o() isa ExaModels.ExaModel
+    
+        o = @def begin
+                t ∈ [0, 1], time
+                x ∈ R⁴, state
+                u ∈ R⁵, control
+                u₁(t) == 1
+                u[2:2:4](t) == [1, 2]
+                u[2:4](t) == [1, 2, 3]
+                u(t) == [1, 2, 3, 4, 5]
                 x₁(0) + 2cos(x₂(1)) → min
         end
         @test o() isa ExaModels.ExaModel

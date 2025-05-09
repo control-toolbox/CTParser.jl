@@ -617,11 +617,19 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             code = Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2 for (i, k, j) ∈ $ikj; lcon = ($e1[k] for (i, k, j) ∈ $ikj), ucon = ($e3[k] for (i, k, j) ∈ $ikj))))
 
         end
-        (:control_range, rg) => begin # todo: iterator for rg
+        (:control_range, rg) => begin
+            if isnothing(rg)
+                rg = :(1:$(p.dim_u))
+                e2 = subs(e2, p.u, :($(p.u)[$rg]))
+            elseif !is_range(rg)
+                rg = [rg]
+            end
             ut = gensym()
             e2 = replace_call(e2, p.u, p.t, ut)
-            e2 = subs2(e2, ut, p.u, :j)
-            :(ExaModels.constraint($p_ocp, $e2 for j ∈ 0:grid_size; lcon = $e1, ucon = $e3))
+            e2 = subs3(e2, ut, p.u, :i, :j)
+            ikj = gensym()
+            code = :($ikj = [($rg[k], k, j) for (k, j) in Base.product(1:length($rg), 0:grid_size)])
+            code = Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2 for (i, k, j) ∈ $ikj; lcon = ($e1[k] for (i, k, j) ∈ $ikj), ucon = ($e3[k] for (i, k, j) ∈ $ikj))))
         end
         :state_fun || control_fun || :mixed => begin
             code = :(length($e1) == length($e3) == 1 || throw($e_pref.ParsingError("this constraint must be scalar")))
