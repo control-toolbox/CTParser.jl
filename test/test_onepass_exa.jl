@@ -280,7 +280,58 @@ function __test_onepass_exa(backend = nothing)
         @test o(; backend = backend) isa ExaModels.ExaModel
 
     end
-    
+        
+    @testset "variable range" begin
+
+        o = @def begin
+                v ∈ R⁵, variable
+                t ∈ [0, 1], time
+                x ∈ R³, state
+                u ∈ R⁴, control
+                0 ≤ v[1] ≤ 1
+                [0, 0] ≤ v[2:3] ≤ [1, 1]
+                [0, 0] ≤ v[2:2:5] ≤ [1, 1]
+                [0, 0, 0, 0, 0] ≤ v ≤ [1, 1, 1, 1, 1]
+                x₁ → min
+        end
+        @test o(; backend = backend) isa ExaModels.ExaModel
+
+    end
+
+    @testset "state range" begin
+
+        o = @def begin
+                v ∈ R², variable
+                t ∈ [0, 1], time
+                x ∈ R⁵, state
+                u ∈ R⁴, control
+                0 ≤ x[1](t) ≤ 1
+                [0, 0] ≤ x[2:3](t) ≤ [1, 1]
+                [0, 0] ≤ x[2:2:5](t) ≤ [1, 1]
+                [0, 0, 0, 0, 0] ≤ x(t) ≤ [1, 1, 1, 1, 1]
+                x₁ → min
+        end
+        @test o(; backend = backend) isa ExaModels.ExaModel
+
+    end
+
+    @testset "control range" begin
+
+        o = @def begin
+                v ∈ R², variable
+                t ∈ [0, 1], time
+                x ∈ R⁴, state
+                u ∈ R⁵, control
+                0 ≤ u[1](t) ≤ 1
+                [0, 0] ≤ u[2:3](t) ≤ [1, 1]
+                [0, 0] ≤ u[2:2:5](t) ≤ [1, 1]
+                [0, 0, 0, 0, 0] ≤ u(t) ≤ [1, 1, 1, 1, 1]
+                x₁ → min
+        end
+        @test o(; backend = backend) isa ExaModels.ExaModel
+
+    end
+
     @testset "dynamics" begin
 
         o = @def begin
@@ -373,7 +424,9 @@ function __test_onepass_exa(backend = nothing)
 
         # N = 200
         # exa0: o = -1.0125736217178989e+00, t = 89.562 ms, m = 3447 alloc
+        # o = -1.0125736217159587e+00, 77.135 ms (4829 allocations: 157.13 MiB)
         # exa2: o = -1.0125790390647729e+00, t = 289.723 ms, m = 693293 alloc
+        # o = -1.0125790380554995e+00, 152.611 ms (314769 allocations: 9.32 MiB) 
         N = 200 
         t = tfs * 0:N
         xs = _xs.(t); xs = stack(xs[:])
@@ -382,58 +435,7 @@ function __test_onepass_exa(backend = nothing)
         m = o(; backend = backend, grid_size = N, init = (tfs, xs, us))
         s = madnlp(m; tol = tol)
         @test s.objective ≈ -1.0125736217178989e+00 atol = 1e-5 # note: difference of 1e-5 with CUDA
-        #@btime madnlp($m1; tol = $tol) # debug
-
-    end
-
-    @testset "variable range" begin
-
-        o = @def begin
-                v ∈ R⁵, variable
-                t ∈ [0, 1], time
-                x ∈ R³, state
-                u ∈ R⁴, control
-                0 ≤ v[1] ≤ 1
-                [0, 0] ≤ v[2:3] ≤ [1, 1]
-                [0, 0] ≤ v[2:2:5] ≤ [1, 1]
-                [0, 0, 0, 0, 0] ≤ v ≤ [1, 1, 1, 1, 1]
-                x₁ → min
-        end
-        @test o(; backend = backend) isa ExaModels.ExaModel
-
-    end
-
-    @testset "state range" begin
-
-        o = @def begin
-                v ∈ R², variable
-                t ∈ [0, 1], time
-                x ∈ R⁵, state
-                u ∈ R⁴, control
-                0 ≤ x[1](t) ≤ 1
-                [0, 0] ≤ x[2:3](t) ≤ [1, 1]
-                [0, 0] ≤ x[2:2:5](t) ≤ [1, 1]
-                [0, 0, 0, 0, 0] ≤ x(t) ≤ [1, 1, 1, 1, 1]
-                x₁ → min
-        end
-        @test o(; backend = backend) isa ExaModels.ExaModel
-
-    end
-
-    @testset "control range" begin
-
-        o = @def begin
-                v ∈ R², variable
-                t ∈ [0, 1], time
-                x ∈ R⁴, state
-                u ∈ R⁵, control
-                0 ≤ u[1](t) ≤ 1
-                [0, 0] ≤ u[2:3](t) ≤ [1, 1]
-                [0, 0] ≤ u[2:2:5](t) ≤ [1, 1]
-                [0, 0, 0, 0, 0] ≤ u(t) ≤ [1, 1, 1, 1, 1]
-                x₁ → min
-        end
-        @test o(; backend = backend) isa ExaModels.ExaModel
+        @btime madnlp($m; tol = $tol) # debug
 
     end
 
