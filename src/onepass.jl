@@ -76,6 +76,9 @@ $(TYPEDEF)
     line::String = ""
     dt::Symbol = gensym()
     dyn_coords::Vector{Int64} = Int64[]
+    l_v::Symbol = gensym()
+    u_v::Symbol = gensym()
+    box_v::Expr = :(LineNumberNode(0, "box constraints: variable"))
 end
 
 __init_aliases(; max_dim=20) = begin
@@ -111,6 +114,7 @@ end
 is_range(x) = false 
 is_range(x::T) where {T <: AbstractRange} = true 
 is_range(x::Expr) = (x.head == :call) && (x.args[1] == :(:))
+as_range(x) = is_range(x) ? x : [x] 
 
 # Main code
 
@@ -334,7 +338,9 @@ function p_variable_fun!(p, p_ocp, v, q, vv; components_names=nothing)
 end
 
 function p_variable_exa!(p, p_ocp, v, q, vv; components_names=nothing)
-    code = :(ExaModels.variable($p_ocp, $q; start=init[1]))
+    code_box = :($(p.l_v) = -Inf * ones($q); $(p.u_v) = Inf * ones($q))
+    p.box_v = Expr(:block, p.box_v, code_box) 
+    code = :(ExaModels.variable($p_ocp, $q; lvar = $(p.l_v), uvar = $(p.u_v), start = init[1]))
     code = __wrap(code, p.lnum, p.line)
     code = :($v = $code) # affectation must be done outside try ... catch )
     return code
@@ -575,7 +581,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
                 rg = :(1:$(p.dim_x)) # x(t0) implies rg == nothing but means x[1:p.dim_x](t0)
                 e2 = subs(e2, p.x, :($(p.x)[$rg]))
             elseif !is_range(rg)
-                rg = [rg]
+                rg = as_range(rg)
             end
             x0 = gensym()
             e2 = replace_call(e2, p.x, p.t0, x0)
@@ -587,7 +593,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
                 rg = :(1:$(p.dim_x))
                 e2 = subs(e2, p.x, :($(p.x)[$rg]))
             elseif !is_range(rg)
-                rg = [rg]
+                rg = as_range(rg)
             end
             xf = gensym()
             e2 = replace_call(e2, p.x, p.tf, xf)
@@ -599,17 +605,22 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
                 rg = :(1:$(p.dim_v))
                 e2 = subs(e2, p.v, :($(p.v)[$rg]))
             elseif !is_range(rg)
-                rg = [rg]
+                rg = as_range(rg)
             end
-            e2 = subs4(e2, p.v, p.v, :i)
-            :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3))
+            code_box = :($(p.l_v)[$rg] .= $e1; $(p.u_v)[$rg] .= $e3)
+            p.box_v = Expr(:block, p.box_v, code_box)
+            ee1 = QuoteNode(e1) 
+            ee3 = QuoteNode(e3) 
+            code = :()
+            #e2 = subs4(e2, p.v, p.v, :i) debug
+            # :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3)) debug
         end
         (:state_range, rg) => begin
             if isnothing(rg)
                 rg = :(1:$(p.dim_x))
                 e2 = subs(e2, p.x, :($(p.x)[$rg]))
             elseif !is_range(rg)
-                rg = [rg]
+                rg = as_range(rg)
             end
             xt = gensym()
             e2 = replace_call(e2, p.x, p.t, xt)
@@ -624,7 +635,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
                 rg = :(1:$(p.dim_u))
                 e2 = subs(e2, p.u, :($(p.u)[$rg]))
             elseif !is_range(rg)
-                rg = [rg]
+                rg = as_range(rg)
             end
             ut = gensym()
             e2 = replace_call(e2, p.u, p.t, ut)
@@ -988,6 +999,7 @@ function def_exa(e, log=false)
     default_base_type = __default_base_type_exa()
     code = quote
         function (; scheme = $default_scheme, grid_size = $default_grid_size, backend = $default_backend, init = $default_init, base_type = $default_base_type)
+            $(p.box_v) # lvar and uvar for variable
             $p_ocp = ExaModels.ExaCore(base_type; backend = backend)
             $code
             $dyn_check
