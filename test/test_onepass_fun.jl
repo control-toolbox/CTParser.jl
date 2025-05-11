@@ -365,12 +365,12 @@ function test_onepass_fun()
         @test initial_time(o, [1, 2]) == 1
         @test final_time(o, [1, 2]) == 2
 
-        @test_throws ParsingError @def o begin # debug: check time! in onepass, then uncomment 
+        @test_throws ParsingError @def o begin
             t0 ∈ R², variable
             t ∈ [t0, 1], time
         end
  
-        @test_throws ParsingError @def o begin # debug: check time! in onepass, then uncomment 
+        @test_throws ParsingError @def o begin
             tf ∈ R², variable
             t ∈ [0, tf], time
         end

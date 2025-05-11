@@ -760,7 +760,6 @@ function p_lagrange_fun!(p, p_ocp, e, type)
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
     ttype = QuoteNode(type)
     gs = gensym()
-    r = gensym()
     args = [p.t, xt, ut, p.v]
     code = quote
         function $gs($(args...))
@@ -793,7 +792,6 @@ function p_mayer_fun!(p, p_ocp, e, type)
     gs = gensym()
     x0 = gensym()
     xf = gensym()
-    r = gensym()
     e = replace_call(e, p.x, p.t0, x0)
     e = replace_call(e, p.x, p.tf, xf)
     ttype = QuoteNode(type)
@@ -837,14 +835,12 @@ function p_bolza_fun!(p, p_ocp, e1, e2, type)
     gs1 = gensym()
     x0 = gensym()
     xf = gensym()
-    r1 = gensym()
     e1 = replace_call(e1, p.x, p.t0, x0)
     e1 = replace_call(e1, p.x, p.tf, xf)
     args1 = [x0, xf, p.v]
     gs2 = gensym()
     xt = gensym()
     ut = gensym()
-    r2 = gensym()
     e2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
     args2 = [p.t, xt, ut, p.v]
     ttype = QuoteNode(type)
@@ -954,7 +950,7 @@ macro def(e)
         code = @match parsing_backend() begin
             :fun => def_fun(e)
             :exa => def_exa(e)
-            _ => :(throw($e_pref.ParsingError("unknown parsing backend"))) # debug: return throw, instead? and add @test_throw of this case in tests
+            _ => throw("unknown parsing backend")
         end
         return esc(code)
     catch ex
@@ -968,7 +964,7 @@ macro def(ocp, e, log=false)
         code = @match parsing_backend() begin
             :fun => def_fun(e, log)
             :exa => def_exa(e, log)
-            _ => :(throw($e_pref.ParsingError("unknown parsing backend"))) # debug: see above
+            _ => throw("unknown parsing backend") # should be prevented by parsing_backend!
         end
         code = :($ocp = $code)
         return esc(code)
@@ -990,12 +986,13 @@ function def_fun(e, log=false)
 end
 
 function def_exa(e, log=false)
+    e_pref = e_prefix()
     p_ocp = gensym() # ExaModel name (this is the pre OCP, here)
     p = ParsingInfo()
     code = parse!(p, p_ocp, e; log = log)
     dyn_check = quote # debug: error, not just warning (then update all tests...)
-        !isempty($(p.dyn_coords)) || @warn "dynamics not defined" # throw($e_pref.ParsingError("dynamics not defined"))
-        sort($(p.dyn_coords)) == 1:$(p.dim_x) || @warn "some coordinates of dynamics undefined" # throw($e_pref.ParsingError("some coordinates of dynamics undefined"))
+        !isempty($(p.dyn_coords)) || throw($e_pref.ParsingError("dynamics not defined"))
+        sort($(p.dyn_coords)) == 1:$(p.dim_x) || throw($e_pref.ParsingError("some coordinates of dynamics undefined"))
     end
     default_scheme = QuoteNode(__default_scheme_exa())
     default_grid_size = __default_grid_size_exa()
@@ -1013,6 +1010,6 @@ function def_exa(e, log=false)
             return ExaModels.ExaModel($p_ocp)
         end
     end
-    println("code:\n", code) # debug
+    #println("code:\n", code)
     return code
 end
