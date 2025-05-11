@@ -136,7 +136,7 @@ julia> subs4(e, :xf, :xf, 1)
 :(v[1:2:d] * (2 * xf[1]))
 ```
 """
-function subs4(e, x, y, i)
+function subs4(e, x, y, i) # debug: remove since unused (check)
     foo(x, y, i) = (h, args...) -> begin
         f = Expr(h, args...)
         @match f begin

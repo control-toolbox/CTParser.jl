@@ -9,7 +9,7 @@
 # - add assert for pre/post conditions and invariants
 # - add tests on ParsingError + run time errors (wrapped in try ... catch's - use string to be precise)
 # - currently "t ∈ [ 0+0, 1 ], time" is allowed, and compels to declare "x(0+0) == ..."
-# - exa: generated function forbids to use kwarg names (grid_size...) in expressions; could either (i) replace such names in the user code (e.g. by a gensym...), but not se readable; (ii) throw an explicit error ("grid_size etc. are reserved names")
+# - exa: generated function forbids to use kwarg names (grid_size...) in expressions; could either (i) replace such names in the user code (e.g. prefixing by a gensym...), but not so readable; (ii) throw an explicit error ("grid_size etc. are reserved names")
 # - exa: x = ExaModels.variable($p_ocp, $n / 1:$n...) ?
 # - exa: what about expressons with x(t), not indexed but used as a scalar? should be x[:, ...] in ExaModels? does it occur (sum(x(t)...))
 
@@ -79,6 +79,9 @@ $(TYPEDEF)
     l_v::Symbol = gensym()
     u_v::Symbol = gensym()
     box_v::Expr = :(LineNumberNode(0, "box constraints: variable"))
+    l_x::Symbol = gensym()
+    u_x::Symbol = gensym()
+    box_x::Expr = :(LineNumberNode(0, "box constraints: state"))
 end
 
 __init_aliases(; max_dim=20) = begin
@@ -452,6 +455,8 @@ function p_state_fun!(p, p_ocp, x, n, xx; components_names=nothing)
 end
 
 function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
+    code_box = :($(p.l_x) = -Inf * ones($n); $(p.u_x) = Inf * ones($n))
+    p.box_x = Expr(:block, p.box_x, code_box) 
     code = :(ExaModels.variable($p_ocp, $n, 0:grid_size; start = init[2]))
     code = __wrap(code, p.lnum, p.line)
     code = :($x = $code) # affectation must be done outside try ... catch )
@@ -607,13 +612,13 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
+            e1 = __wrap(e1, p.lnum, p.line)
+            e3 = __wrap(e3, p.lnum, p.line)
             code_box = :($(p.l_v)[$rg] .= $e1; $(p.u_v)[$rg] .= $e3)
             p.box_v = Expr(:block, p.box_v, code_box)
             ee1 = QuoteNode(e1) 
             ee3 = QuoteNode(e3) 
             code = :()
-            #e2 = subs4(e2, p.v, p.v, :i) debug
-            # :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3)) debug
         end
         (:state_range, rg) => begin
             if isnothing(rg)
@@ -1000,6 +1005,7 @@ function def_exa(e, log=false)
     code = quote
         function (; scheme = $default_scheme, grid_size = $default_grid_size, backend = $default_backend, init = $default_init, base_type = $default_base_type)
             $(p.box_v) # lvar and uvar for variable
+            $(p.box_x) # lvar and uvar for state
             $p_ocp = ExaModels.ExaCore(base_type; backend = backend)
             $code
             $dyn_check
