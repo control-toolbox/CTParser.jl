@@ -100,7 +100,7 @@ function test_onepass_exa()
         end
         @test o() isa ExaModels.ExaModel
 
-        t0 = 0
+        t0 = 0.0
         o = @def begin
                 t ∈ [t0, 1], time
                 x ∈ R², state
@@ -108,7 +108,7 @@ function test_onepass_exa()
                 x₁(t0) + 2cos(x₂(1)) → min
         end
 
-        tf = 1
+        tf = 1.0
         o = @def begin
                 t ∈ [0, tf], time
                 x ∈ R², state
@@ -319,15 +319,15 @@ function test_onepass_exa()
 
     @testset "use case no. 2: Goddard" begin
 
-        r0 = 1      
-        v0 = 0     
-        m0 = 1    
+        r0 = 1.0     
+        v0 = 0.0
+        m0 = 1.0 
         vmax = 0.1 
         mf = 0.6   
-        Cd = 310
+        Cd = 310.0
         Tmax = 3.5
-        β = 500
-        b = 2
+        β = 500.0
+        b = 2.0
 
         o = @def begin
 
@@ -338,9 +338,9 @@ function test_onepass_exa()
 
             x(0) == [r0, v0, m0]
             m(tf) == mf
-            0 ≤ u(t) ≤ 1
+            0.0 ≤ u(t) ≤ 1.0
             r(t) ≥ r0
-            0 ≤ v(t) ≤ vmax
+            0.0 ≤ v(t) ≤ vmax
 
             ∂(r)(t) == v(t)
             ∂(v)(t) == -Cd * v(t)^2 * exp(-β * (r(t) - 1)) / m(t) - 1 / r(t)^2 + u(t) * Tmax / m(t)
@@ -349,33 +349,36 @@ function test_onepass_exa()
             r(tf) → max
 
         end
+
         tfs = 0.18761155665063417
         xs = [ 1.0          1.00105   1.00398   1.00751    1.01009    1.01124
               -1.83989e-40  0.056163  0.1       0.0880311  0.0492518  0.0123601
                1.0          0.811509  0.650867  0.6        0.6        0.6 ]
         us = [0.599377 0.835887 0.387328 -5.87733e-9 -9.03538e-9 -8.62101e-9]
-        m = o(; grid_size = length(us) - 1, init = (tfs, xs, us))
-        sm = madnlp(m)
-        @test sm.objective ≈ -1.01 atol = 1e-2
-        si = ipopt(m)
-        @test si.objective ≈ -1.01 atol = 1e-2
-        @test sm.objective ≈ si.objective atol = 1e-2
+        N0 = length(us) - 1
+        t = tfs * 0:N0
+        _xs = linear_interpolation(t, [xs[:, j] for j ∈ 1:N0+1], extrapolation_bc=Line())
+        _us = linear_interpolation(t, [us[:, j] for j ∈ 1:N0+1], extrapolation_bc=Line())
 
-        # debug
-        o = @def begin
-                v ∈ R³, variable
-                t ∈ [0, 1], time
-                x ∈ R⁴, state
-                u ∈ R⁵, control
-                v ≤ [1, 2, 3]
-                v[1:2] ≥ [1, 2]
-                u[2:2:4](t) ≤ [1, 2]
-                u[2:4](t) ≥ [1, 2, 3]
-                u[2:2:4](t) ≤ [1, 2]
-                u[2:4](t) ≥ [1, 2, 3]
-                x₁(0) + 2cos(x₂(1)) → min
-        end
-        @test o() isa ExaModels.ExaModel
+        # N = 200
+        # exa0: o = -1.0125736217178989e+00, t = 89.562 ms, m = 3447 alloc
+        # exa2: o = -1.0125790390647729e+00, t = 289.723 ms, m = 693293 alloc
+        N = 200 
+        t = tfs * 0:N
+        xs = _xs.(t); xs = stack(xs[:])
+        us = _us.(t); us = stack(us[:])
+        tol = 1e-7
+
+        m1 = o(; grid_size = N, init = (tfs, xs, us))
+        s1 = madnlp(m1; tol = tol)
+        s1 = madnlp(m1; tol = tol) # debug
+        @test s1.objective ≈ -1.0125736217178989e+00 atol = 1e-10
+        #m2 = o(; grid_size = N, init = (tfs, xs, us), backend = CUDABackend()) # debug
+        #s2 = madnlp(m2; tol = tol)
+        #@test s2.objective ≈ -1.0125790390647729e+00 atol = 1e-5
+
+        @btime madnlp($m1; tol = $tol) # debug
+        #@btime  madnlp(m2; tol = tol)
 
     end
 
