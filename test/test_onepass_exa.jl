@@ -314,6 +314,9 @@ function test_onepass_exa()
         m = o(; grid_size = 1000)
         s = madnlp(m)
         @test s.objective ≈ 6 atol = 1e-4
+        m = o(; grid_size = 1000, backend = CUDABackend())
+        s = madnlp(m)
+        @test s.objective ≈ 6 atol = 1e-3
 
     end
 
@@ -371,7 +374,6 @@ function test_onepass_exa()
 
         m1 = o(; grid_size = N, init = (tfs, xs, us))
         s1 = madnlp(m1; tol = tol)
-        s1 = madnlp(m1; tol = tol) # debug
         @test s1.objective ≈ -1.0125736217178989e+00 atol = 1e-10
         #m2 = o(; grid_size = N, init = (tfs, xs, us), backend = CUDABackend()) # debug
         #s2 = madnlp(m2; tol = tol)
