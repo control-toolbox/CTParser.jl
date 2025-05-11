@@ -1,4 +1,5 @@
 # utils
+# todo: check todo's in source
 
 """
 $(TYPEDSIGNATURES)
@@ -59,6 +60,93 @@ subs(e, e1, e2) = begin
     end
     expr_it(e, foo(e1, e2), f -> f == e1 ? e2 : f)
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Substitute x[i] by y[i, j], whatever i, in e.
+
+# Examples
+```@example
+julia> e = :(x0[1] * 2xf[3] - cos(xf[2]) * 2x0[2])
+:(x0[1] * (2 * xf[3]) - cos(xf[2]) * (2 * x0[2]))
+
+julia> subs2(subs2(e, :x0, :x, 0), :xf, :x, :N)
+:(x[1, 0] * (2 * x[3, N]) - cos(x[2, N]) * (2 * x[2, 0]))
+
+julia> e = :(x0 * 2xf[3] - cos(xf) * 2x0[2])
+:(x0 * (2 * xf[3]) - cos(xf) * (2 * x0[2]))
+
+julia> subs2(subs2(e, :x0, :x, 0), :xf, :x, :N)
+:(x0 * (2 * x[3, N]) - cos(xf) * (2 * x[2, 0]))
+```
+"""
+function subs2(e, x, y, j)
+    foo(x, y, j) = (h, args...) -> begin
+        f = Expr(h, args...)
+        @match f begin
+            :($xx[$i]) && if (xx == x) end => :($y[$i, $j])
+            _ => f
+        end
+    end
+    expr_it(e, foo(x, y, j), x -> x)
+end    
+
+"""
+$(TYPEDSIGNATURES)
+
+Substitute x[rg] by y[i, j], whatever rg, in e.
+
+# Examples
+```@example
+julia> e = :(x0[1:2:d] * 2xf[1:3])
+:(x0[1:2:d] * (2 * xf[1:3]))
+
+julia> subs3(e, :x0, :x, :i, 0)
+:(x[i, 0] * (2 * xf[1:3]))
+
+julia> subs3(e, :xf, :x, 1, :N)
+:(x0[1:2:d] * (2 * x[1, N]))
+```
+"""
+function subs3(e, x, y, i, j)
+    foo(x, y, i, j) = (h, args...) -> begin
+        f = Expr(h, args...)
+        @match f begin
+            :($xx[$rg]) && if (xx == x) end => :($y[$i, $j])
+            _ => f
+        end
+    end
+    expr_it(e, foo(x, y, i, j), x -> x)
+end    
+
+"""
+$(TYPEDSIGNATURES)
+
+Substitute x[rg] by y[i], whatever rg, in e.
+
+# Examples
+```@example
+julia> e = :(v[1:2:d] * 2xf[1:3])
+:(v[1:2:d] * (2 * xf[1:3]))
+
+julia> subs4(e, :v, :v, :i)
+:(v[i] * (2 * xf[1:3]))
+
+julia> subs4(e, :xf, :xf, 1)
+:(v[1:2:d] * (2 * xf[1]))
+```
+"""
+function subs4(e, x, y, i) # todo: remove since unused (check)
+    foo(x, y, i) = (h, args...) -> begin
+        f = Expr(h, args...)
+        @match f begin
+            :($xx[$rg]) && if (xx == x) end => :($y[$i])
+            _ => f
+        end
+    end
+    expr_it(e, foo(x, y, i), x -> x)
+end    
 
 """
 $(TYPEDSIGNATURES)
