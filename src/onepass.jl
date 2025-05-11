@@ -11,7 +11,7 @@
 # - currently "t ∈ [ 0+0, 1 ], time" is allowed, and compels to declare "x(0+0) == ..."
 # - exa: generated function forbids to use kwarg names (grid_size...) in expressions; could either (i) replace such names in the user code (e.g. prefixing by a gensym...), but not so readable; (ii) throw an explicit error ("grid_size etc. are reserved names")
 # - exa: x = ExaModels.variable($p_ocp, $n / 1:$n...) ?
-# - exa: what about expressons with x(t), not indexed but used as a scalar? should be x[:, ...] in ExaModels? does it occur (sum(x(t)...))
+# - exa: what about expressions with x(t), not indexed but used as a scalar? should be x[:, ...] in ExaModels? does it occur (sum(x(t)...))
 
 # Defaults
 
@@ -990,7 +990,7 @@ function def_exa(e, log=false)
     p_ocp = gensym() # ExaModel name (this is the pre OCP, here)
     p = ParsingInfo()
     code = parse!(p, p_ocp, e; log = log)
-    dyn_check = quote # debug: error, not just warning (then update all tests...)
+    dyn_check = quote
         !isempty($(p.dyn_coords)) || throw($e_pref.ParsingError("dynamics not defined"))
         sort($(p.dyn_coords)) == 1:$(p.dim_x) || throw($e_pref.ParsingError("some coordinates of dynamics undefined"))
     end
