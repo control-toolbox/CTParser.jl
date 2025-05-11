@@ -82,6 +82,9 @@ $(TYPEDEF)
     l_x::Symbol = gensym()
     u_x::Symbol = gensym()
     box_x::Expr = :(LineNumberNode(0, "box constraints: state"))
+    l_u::Symbol = gensym()
+    u_u::Symbol = gensym()
+    box_u::Expr = :(LineNumberNode(0, "box constraints: control"))
 end
 
 __init_aliases(; max_dim=20) = begin
@@ -457,7 +460,7 @@ end
 function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
     code_box = :($(p.l_x) = -Inf * ones($n); $(p.u_x) = Inf * ones($n))
     p.box_x = Expr(:block, p.box_x, code_box) 
-    code = :(ExaModels.variable($p_ocp, $n, 0:grid_size; start = init[2]))
+    code = :(ExaModels.variable($p_ocp, $n, 0:grid_size; lvar = [$(p.l_x)[i] for (i, j) ∈ Base.product(1:$n, 0:grid_size)], uvar = [$(p.u_x)[i] for (i, j) ∈ Base.product(1:$n, 0:grid_size)], start = init[2]))
     code = __wrap(code, p.lnum, p.line)
     code = :($x = $code) # affectation must be done outside try ... catch )
     return code
@@ -506,7 +509,9 @@ function p_control_fun!(p, p_ocp, u, m, uu; components_names=nothing)
 end
 
 function p_control_exa!(p, p_ocp, u, m, uu; components_names=nothing)
-    code = :(ExaModels.variable($p_ocp, $m, 0:grid_size; start = init[3]))
+    code_box = :($(p.l_u) = -Inf * ones($m); $(p.u_u) = Inf * ones($m))
+    p.box_u = Expr(:block, p.box_u, code_box) 
+    code = :(ExaModels.variable($p_ocp, $m, 0:grid_size; lvar = [$(p.l_u)[i] for (i, j) ∈ Base.product(1:$m, 0:grid_size)], uvar = [$(p.u_u)[i] for (i, j) ∈ Base.product(1:$m, 0:grid_size)], start = init[3]))
     code = __wrap(code, p.lnum, p.line)
     code = :($u = $code) # affectation must be done outside try ... catch )
     return code
@@ -616,8 +621,6 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e3 = __wrap(e3, p.lnum, p.line)
             code_box = :($(p.l_v)[$rg] .= $e1; $(p.u_v)[$rg] .= $e3)
             p.box_v = Expr(:block, p.box_v, code_box)
-            ee1 = QuoteNode(e1) 
-            ee3 = QuoteNode(e3) 
             code = :()
         end
         (:state_range, rg) => begin
@@ -627,13 +630,11 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
-            xt = gensym()
-            e2 = replace_call(e2, p.x, p.t, xt)
-            e2 = subs3(e2, xt, p.x, :i, :j)
-            ikj = gensym()
-            code = :($ikj = [($rg[k], k, j) for (k, j) in Base.product(1:length($rg), 0:grid_size)])
-            code = Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2 for (i, k, j) ∈ $ikj; lcon = ($e1[k] for (i, k, j) ∈ $ikj), ucon = ($e3[k] for (i, k, j) ∈ $ikj))))
-
+            e1 = __wrap(e1, p.lnum, p.line)
+            e3 = __wrap(e3, p.lnum, p.line)
+            code_box = :($(p.l_x)[$rg] .= $e1; $(p.u_x)[$rg] .= $e3)
+            p.box_x = Expr(:block, p.box_x, code_box)
+            code = :()
         end
         (:control_range, rg) => begin
             if isnothing(rg)
@@ -642,12 +643,11 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
-            ut = gensym()
-            e2 = replace_call(e2, p.u, p.t, ut)
-            e2 = subs3(e2, ut, p.u, :i, :j)
-            ikj = gensym()
-            code = :($ikj = [($rg[k], k, j) for (k, j) in Base.product(1:length($rg), 0:grid_size)])
-            code = Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2 for (i, k, j) ∈ $ikj; lcon = ($e1[k] for (i, k, j) ∈ $ikj), ucon = ($e3[k] for (i, k, j) ∈ $ikj))))
+            e1 = __wrap(e1, p.lnum, p.line)
+            e3 = __wrap(e3, p.lnum, p.line)
+            code_box = :($(p.l_u)[$rg] .= $e1; $(p.u_u)[$rg] .= $e3)
+            p.box_u = Expr(:block, p.box_u, code_box)
+            code = :()
         end
         :state_fun || control_fun || :mixed => begin
             code = :(length($e1) == length($e3) == 1 || throw($e_pref.ParsingError("this constraint must be scalar")))
@@ -1006,6 +1006,7 @@ function def_exa(e, log=false)
         function (; scheme = $default_scheme, grid_size = $default_grid_size, backend = $default_backend, init = $default_init, base_type = $default_base_type)
             $(p.box_v) # lvar and uvar for variable
             $(p.box_x) # lvar and uvar for state
+            $(p.box_u) # lvar and uvar for control
             $p_ocp = ExaModels.ExaCore(base_type; backend = backend)
             $code
             $dyn_check
