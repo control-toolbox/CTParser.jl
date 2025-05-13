@@ -7,7 +7,6 @@ import ExaModels
 using MadNLP
 using MadNLPGPU
 using CUDA
-using KernelAbstractions
 using BenchmarkTools
 using Interpolations
 
