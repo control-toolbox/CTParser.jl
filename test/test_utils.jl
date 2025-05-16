@@ -2,7 +2,7 @@
 
 function test_utils()
 
-    @testset "subs" begin
+    @testset "subs" begin println("subs")
 
         e = :(∫(r(t)^2 + 2u₁(t)) → min)
         @test subs(e, :r, :(x[1])) == :(∫((x[1])(t)^2 + 2 * u₁(t)) → min)
@@ -25,7 +25,7 @@ function test_utils()
     
     end
     
-    @testset "subs2" begin
+    @testset "subs2" begin println("subs2")
 
         e = :(x0[1] * 2xf[3] - cos(xf[2]) * 2x0[2])
         @test subs2(subs2(e, :x0, :x, 0), :xf, :x, :N) == :(x[1, 0] * (2 * x[3, N]) - cos(x[2, N]) * (2 * x[2, 0]))
@@ -35,7 +35,7 @@ function test_utils()
     
     end
 
-    @testset "subs3" begin
+    @testset "subs3" begin println("subs3")
 
         e = :(x0[1:2:d] * 2xf[1:3])
         @test subs3(e, :x0, :x, :i, 0) == :(x[i, 0] * (2 * xf[1:3]))
@@ -43,7 +43,7 @@ function test_utils()
 
     end
     
-    @testset "subs4" begin
+    @testset "subs4" begin println("subs4")
 
         e = :(v[1:2:d] * 2xf[1:3])
         @test subs4(e, :v, :v, :i) == :(v[i] * (2 * xf[1:3]))
@@ -51,7 +51,7 @@ function test_utils()
 
     end
     
-    @testset "replace_call" begin
+    @testset "replace_call" begin println("replace_call")
     
         t = :t
         t0 = 0
@@ -90,7 +90,7 @@ function test_utils()
     
     end
     
-    @testset "has" begin
+    @testset "has" begin println("has")
     
         e = :(∫(x[1](t)^2 + 2 * u(t)) → min)
         @test has(e, :x, :t)
@@ -109,7 +109,29 @@ function test_utils()
     
     end
     
-    @testset "constraint_type" begin
+    @testset "concat" begin println("concat")
+
+        e1 = :(x = 1; y = 2)
+        e2 = :(z = 3)
+        e = concat(e1, e2)
+        @test length(e.args) == length(e1.args) + 1
+
+        e1 = :(z = 3)
+        e2 = :(x = 1; y = 2)
+        e = concat(e1, e2)
+        @test length(e.args) == 1 + length(e2.args)
+
+        e1 = :(z = 3)
+        e = concat(e1, e1)
+        @test length(e.args) == 2 
+
+        e1 = :(x = 1; y = 2)
+        e = concat(e1, e1)
+        @test length(e.args) == 2 * length(e1.args)
+
+    end
+
+    @testset "constraint_type" begin println("constraint_type")
     
         t = :t
         t0 = 0

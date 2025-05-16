@@ -55,6 +55,8 @@ end
 
 # Utils
 
+__symgen(s...) = Symbol(s..., gensym())
+
 """
 $(TYPEDEF)
 
@@ -62,7 +64,7 @@ $(TYPEDEF)
 
 """
 @with_kw mutable struct ParsingInfo
-    v::Symbol = Symbol(:unset_, gensym()) # not nothing as, if unset, this name is still used in function args
+    v::Symbol = __symgen(:unset) # not nothing as, if unset, this name is still used in function args
     t::Union{Symbol,Nothing} = nothing
     t0::Union{Real,Symbol,Expr,Nothing} = nothing
     tf::Union{Real,Symbol,Expr,Nothing} = nothing
@@ -74,16 +76,16 @@ $(TYPEDEF)
     aliases::OrderedDict{Union{Symbol,Expr},Union{Real,Symbol,Expr}} = __init_aliases() # Dict ordered by Symbols *and Expr* just for scalar variable / state / control
     lnum::Int = 0
     line::String = ""
-    dt::Symbol = gensym()
+    dt::Symbol = __symgen(:dt)
     dyn_coords::Vector{Int64} = Int64[]
-    l_v::Symbol = gensym()
-    u_v::Symbol = gensym()
+    l_v::Symbol = __symgen(:l_v)
+    u_v::Symbol = __symgen(:u_v)
     box_v::Expr = :(LineNumberNode(0, "box constraints: variable"))
-    l_x::Symbol = gensym()
-    u_x::Symbol = gensym()
+    l_x::Symbol = __symgen(:l_x)
+    u_x::Symbol = __symgen(:u_x)
     box_x::Expr = :(LineNumberNode(0, "box constraints: state"))
-    l_u::Symbol = gensym()
-    u_u::Symbol = gensym()
+    l_u::Symbol = __symgen(:l_u)
+    u_u::Symbol = __symgen(:u_u)
     box_u::Expr = :(LineNumberNode(0, "box constraints: control"))
 end
 
@@ -306,7 +308,7 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
     v isa Symbol || return __throw("forbidden variable name: $v", p.lnum, p.line)
     vv = QuoteNode(v)
     if q == 1
-        vg = Symbol(v, gensym())
+        vg = __symgen(v)
         p.aliases[:($v[1])] = :($vg[1]) # case for which the Dict of aliases can be indexed by Expr, not only Symbol; avoids (otherwise harmless) vg[1][1] that will not be accepted for t0 or tf (same for state and control)
         p.aliases[v] = :($vg[1])
         p.aliases[Symbol(v, CTBase.ctindices(1))] = :($vg[1])
@@ -345,7 +347,7 @@ end
 
 function p_variable_exa!(p, p_ocp, v, q, vv; components_names=nothing)
     code_box = :($(p.l_v) = -Inf * ones($q); $(p.u_v) = Inf * ones($q))
-    p.box_v = Expr(:block, p.box_v, code_box) 
+    p.box_v = concat(p.box_v, code_box)
     code = :(ExaModels.variable($p_ocp, $q; lvar = $(p.l_v), uvar = $(p.u_v), start = init[1]))
     code = __wrap(code, p.lnum, p.line)
     code = :($v = $code) # affectation must be done outside try ... catch )
@@ -388,8 +390,6 @@ function p_time_fun!(p, p_ocp, t, t0, tf)
 end
 
 function p_time_exa!(p, p_ocp, t, t0, tf)
-    # also set p.dt = gensym and $(p.dt) = ($(p.tf) - $(p.t0)) / grid_size (can be effective or ExaModels.variable)
-    # do not encapsulate declarations into try ... catch
     @match (has(t0, p.v), has(tf, p.v)) begin
         (false, false) => nothing
         (true, false) => @match t0 begin
@@ -419,7 +419,7 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
     p.aliases[Symbol(Unicode.normalize(string(x, "̇")))] = :(∂($x))
     xx = QuoteNode(x)
     if n == 1
-        xg = Symbol(x, gensym())
+        xg = __symgen(x)
         p.aliases[:($x[1])] = :($xg[1]) # not compulsory as xg[1][1] is ok
         p.aliases[x] = :($xg[1])
         p.aliases[Symbol(x, CTBase.ctindices(1))] = :($xg[1])
@@ -459,7 +459,7 @@ end
 
 function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
     code_box = :($(p.l_x) = -Inf * ones($n); $(p.u_x) = Inf * ones($n))
-    p.box_x = Expr(:block, p.box_x, code_box) 
+    p.box_x = concat(p.box_x, code_box)
     code = :(ExaModels.variable($p_ocp, $n, 0:grid_size; lvar = [$(p.l_x)[i] for (i, j) ∈ Base.product(1:$n, 0:grid_size)], uvar = [$(p.u_x)[i] for (i, j) ∈ Base.product(1:$n, 0:grid_size)], start = init[2]))
     code = __wrap(code, p.lnum, p.line)
     code = :($x = $code) # affectation must be done outside try ... catch )
@@ -471,7 +471,7 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
     u isa Symbol || return __throw("forbidden control name: $u", p.lnum, p.line)
     uu = QuoteNode(u)
     if m == 1
-        ug = Symbol(u, gensym())
+        ug = __symgen(u)
         p.aliases[:($u[1])] = :($ug[1]) # not compulsory as ug[1][1] is ok
         p.aliases[u] = :($ug[1])
         p.aliases[Symbol(u, CTBase.ctindices(1))] = :($ug[1])
@@ -510,14 +510,14 @@ end
 
 function p_control_exa!(p, p_ocp, u, m, uu; components_names=nothing)
     code_box = :($(p.l_u) = -Inf * ones($m); $(p.u_u) = Inf * ones($m))
-    p.box_u = Expr(:block, p.box_u, code_box) 
+    p.box_u = concat(p.box_u, code_box) 
     code = :(ExaModels.variable($p_ocp, $m, 0:grid_size; lvar = [$(p.l_u)[i] for (i, j) ∈ Base.product(1:$m, 0:grid_size)], uvar = [$(p.u_u)[i] for (i, j) ∈ Base.product(1:$m, 0:grid_size)], start = init[3]))
     code = __wrap(code, p.lnum, p.line)
     code = :($u = $code) # affectation must be done outside try ... catch )
     return code
 end
 
-function p_constraint!(p, p_ocp, e1, e2, e3, label=gensym(); log=false)
+function p_constraint!(p, p_ocp, e1, e2, e3, label = __symgen(:label); log = false)
     c_type = constraint_type(e2, p.t, p.t0, p.tf, p.x, p.u, p.v)
     log && println("constraint ($c_type): $e1 ≤ $e2 ≤ $e3,    ($label)")
     label isa Int && (label = Symbol(:eq, label))
@@ -530,19 +530,19 @@ function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
     llabel = QuoteNode(label)
     code = @match c_type begin
         :boundary || :variable_fun || (:initial, rg) || (:final, rg) => begin # :initial and :final now treated as boundary
-            gs = gensym()
-            x0 = gensym()
-            xf = gensym()
-            r = gensym()
+            fun = __symgen(:fun)
+            x0 = __symgen(:x0)
+            xf = __symgen(:xf)
+            r = __symgen(:r)
             ee2 = replace_call(e2, p.x, p.t0, x0)
             ee2 = replace_call(ee2, p.x, p.tf, xf)
             args = [r, x0, xf, p.v]
             quote
-                function $gs($(args...))
+                function $fun($(args...))
                     @views $r[:] .= $ee2
                     return nothing
                 end
-                $pref.constraint!($p_ocp, :boundary; f=$gs, lb=$e1, ub=$e3, label=$llabel)
+                $pref.constraint!($p_ocp, :boundary; f=$fun, lb=$e1, ub=$e3, label=$llabel)
             end
         end
         (:control_range, rg) =>
@@ -552,18 +552,18 @@ function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
         (:variable_range, rg) =>
             :($pref.constraint!($p_ocp, :variable; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
         :state_fun || control_fun || :mixed => begin # now all treated as path
-            gs = gensym()
-            xt = gensym()
-            ut = gensym()
-            r = gensym()
+            fun = __symgen(:fun)
+            xt = __symgen(:xt)
+            ut = __symgen(:ut)
+            r = __symgen(:r)
             ee2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
             args = [r, p.t, xt, ut, p.v]
             quote
-                function $gs($(args...))
+                function $fun($(args...))
                     @views $r[:] .= $ee2
                     return nothing
                 end
-                $pref.constraint!($p_ocp, :path; f=$gs, lb=$e1, ub=$e3, label=$llabel)
+                $pref.constraint!($p_ocp, :path; f=$fun, lb=$e1, ub=$e3, label=$llabel)
             end
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
@@ -578,13 +578,13 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
     code = @match c_type begin
         :boundary || :variable_fun => begin
             code = :(length($e1) == length($e3) == 1 || throw($e_pref.ParsingError("this constraint must be scalar")))
-            x0 = gensym()
-            xf = gensym()
+            x0 = __symgen(:x0)
+            xf = __symgen(:xf)
             e2 = replace_call(e2, p.x, p.t0, x0)
             e2 = replace_call(e2, p.x, p.tf, xf)
             e2 = subs2(e2, x0, p.x, 0)
             e2 = subs2(e2, xf, p.x, :grid_size)
-            Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3)))
+            concat(code, :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3)))
         end
         (:initial, rg) => begin
             if isnothing(rg)
@@ -593,7 +593,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
-            x0 = gensym()
+            x0 = __symgen(:x0)
             e2 = replace_call(e2, p.x, p.t0, x0)
             e2 = subs3(e2, x0, p.x, :i, 0)
             :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3))
@@ -605,7 +605,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
-            xf = gensym()
+            xf = __symgen(:xf)
             e2 = replace_call(e2, p.x, p.tf, xf)
             e2 = subs3(e2, xf, p.x, :i, :grid_size)
             :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3))
@@ -620,7 +620,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e1 = __wrap(e1, p.lnum, p.line)
             e3 = __wrap(e3, p.lnum, p.line)
             code_box = :($(p.l_v)[$rg] .= $e1; $(p.u_v)[$rg] .= $e3)
-            p.box_v = Expr(:block, p.box_v, code_box)
+            p.box_v = concat(p.box_v, code_box)
             code = :()
         end
         (:state_range, rg) => begin
@@ -633,7 +633,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e1 = __wrap(e1, p.lnum, p.line)
             e3 = __wrap(e3, p.lnum, p.line)
             code_box = :($(p.l_x)[$rg] .= $e1; $(p.u_x)[$rg] .= $e3)
-            p.box_x = Expr(:block, p.box_x, code_box)
+            p.box_x = concat(p.box_x, code_box)
             code = :()
         end
         (:control_range, rg) => begin
@@ -646,19 +646,19 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e1 = __wrap(e1, p.lnum, p.line)
             e3 = __wrap(e3, p.lnum, p.line)
             code_box = :($(p.l_u)[$rg] .= $e1; $(p.u_u)[$rg] .= $e3)
-            p.box_u = Expr(:block, p.box_u, code_box)
+            p.box_u = concat(p.box_u, code_box)
             code = :()
         end
         :state_fun || control_fun || :mixed => begin
             code = :(length($e1) == length($e3) == 1 || throw($e_pref.ParsingError("this constraint must be scalar")))
-            xt = gensym()
-            ut = gensym()
+            xt = __symgen(:xt)
+            ut = __symgen(:ut)
             e2 = replace_call(e2, p.x, p.t, xt)
             e2 = replace_call(e2, p.u, p.t, ut)
             e2 = subs2(e2, xt, p.x, :j)
             e2 = subs2(e2, ut, p.u, :j)
             e2 = subs(e2, p.t, :($(p.t0) + j * $(p.dt)))
-            Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2 for j ∈ 0:grid_size; lcon = $e1, ucon = $e3)))
+            concat(code, :(ExaModels.constraint($p_ocp, $e2 for j ∈ 0:grid_size; lcon = $e1, ucon = $e3)))
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
     end
@@ -678,18 +678,18 @@ end
 
 function p_dynamics_fun!(p, p_ocp, x, t, e)
     pref = prefix()
-    xt = gensym()
-    ut = gensym()
+    xt = __symgen(:xt)
+    ut = __symgen(:ut)
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
-    gs = gensym()
-    r = gensym()
+    fun = __symgen(:fun)
+    r = __symgen(:r)
     args = [r, p.t, xt, ut, p.v]
     code = quote
-        function $gs($(args...))
+        function $fun($(args...))
             @views $r[:] .= $e
             return nothing
         end
-        $pref.dynamics!($p_ocp, $gs)
+        $pref.dynamics!($p_ocp, $fun)
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -718,8 +718,8 @@ end
 function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     i ∈ p.dyn_coords && return __throw("dynamics coordinate $i already defined", p.lnum, p.line)
     append!(p.dyn_coords, i)
-    xt = gensym()
-    ut = gensym()
+    xt = __symgen(:xt)
+    ut = __symgen(:ut)
     e = replace_call(e, p.x, p.t, xt)
     e = replace_call(e, p.u, p.t, ut)
     j1 = :j
@@ -755,17 +755,17 @@ end
     
 function p_lagrange_fun!(p, p_ocp, e, type)
     pref = prefix()
-    xt = gensym()
-    ut = gensym()
+    xt = __symgen(:xt)
+    ut = __symgen(:ut)
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
     ttype = QuoteNode(type)
-    gs = gensym()
+    fun = __symgen(:fun)
     args = [p.t, xt, ut, p.v]
     code = quote
-        function $gs($(args...))
+        function $fun($(args...))
             return @views $e
         end
-        $pref.objective!($p_ocp, $ttype; lagrange=$gs)
+        $pref.objective!($p_ocp, $ttype; lagrange=$fun)
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -789,25 +789,25 @@ end
 
 function p_mayer_fun!(p, p_ocp, e, type)
     pref = prefix()
-    gs = gensym()
-    x0 = gensym()
-    xf = gensym()
+    fun = __symgen(:fun)
+    x0 = __symgen(:x0)
+    xf = __symgen(:xf)
     e = replace_call(e, p.x, p.t0, x0)
     e = replace_call(e, p.x, p.tf, xf)
     ttype = QuoteNode(type)
     args = [x0, xf, p.v]
     code = quote
-        function $gs($(args...))
+        function $fun($(args...))
             return @views $e
         end
-        $pref.objective!($p_ocp, $ttype; mayer=$gs)
+        $pref.objective!($p_ocp, $ttype; mayer=$fun)
     end
     return __wrap(code, p.lnum, p.line)
 end
 
 function p_mayer_exa!(p, p_ocp, e, type)
-    x0 = gensym() 
-    xf = gensym() 
+    x0 = __symgen(:x0) 
+    xf = __symgen(:xf) 
     e = replace_call(e, p.x, p.t0, x0)
     e = replace_call(e, p.x, p.tf, xf)
     e = subs2(e, x0, p.x, 0)
@@ -832,26 +832,26 @@ end
 
 function p_bolza_fun!(p, p_ocp, e1, e2, type)
     pref = prefix()
-    gs1 = gensym()
-    x0 = gensym()
-    xf = gensym()
+    fun1 = __symgen(:fun1)
+    x0 = __symgen(:x0)
+    xf = __symgen(:xf)
     e1 = replace_call(e1, p.x, p.t0, x0)
     e1 = replace_call(e1, p.x, p.tf, xf)
     args1 = [x0, xf, p.v]
-    gs2 = gensym()
-    xt = gensym()
-    ut = gensym()
+    fun2 = __symgen(:fun2)
+    xt = __symgen(:xt)
+    ut = __symgen(:ut)
     e2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
     args2 = [p.t, xt, ut, p.v]
     ttype = QuoteNode(type)
     code = quote
-        function $gs1($(args1...))
+        function $fun1($(args1...))
             return @views $e1
         end
-        function $gs2($(args2...))
+        function $fun2($(args2...))
             return @views $e2
         end
-        $pref.objective!($p_ocp, $ttype; mayer=$gs1, lagrange=$gs2)
+        $pref.objective!($p_ocp, $ttype; mayer=$fun1, lagrange=$fun2)
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -975,19 +975,19 @@ end
 
 function def_fun(e, log=false)
     pref = prefix()
-    p_ocp = gensym()
+    p_ocp = __symgen(:p_ocp)
     code = :($p_ocp = $pref.PreModel())
     p = ParsingInfo()
-    code = Expr(:block, code, parse!(p, p_ocp, e; log=log))
+    code = concat(code, parse!(p, p_ocp, e; log=log))
     ee = QuoteNode(e)
-    code = Expr(:block, code, :($pref.definition!($p_ocp, $ee)))
-    code = Expr(:block, code, :($pref.build_model($p_ocp)))
+    code = concat(code, :($pref.definition!($p_ocp, $ee)))
+    code = concat(code, :($pref.build_model($p_ocp)))
     return code
 end
 
 function def_exa(e, log=false)
     e_pref = e_prefix()
-    p_ocp = gensym() # ExaModel name (this is the pre OCP, here)
+    p_ocp = __symgen(:p_ocp) # ExaModel name (this is the pre OCP, here)
     p = ParsingInfo()
     code = parse!(p, p_ocp, e; log = log)
     dyn_check = quote
