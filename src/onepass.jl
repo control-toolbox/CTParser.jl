@@ -347,7 +347,7 @@ end
 
 function p_variable_exa!(p, p_ocp, v, q, vv; components_names=nothing)
     code_box = :($(p.l_v) = -Inf * ones($q); $(p.u_v) = Inf * ones($q))
-    p.box_v = Expr(:block, p.box_v, code_box) 
+    p.box_v = concat(p.box_v, code_box)
     code = :(ExaModels.variable($p_ocp, $q; lvar = $(p.l_v), uvar = $(p.u_v), start = init[1]))
     code = __wrap(code, p.lnum, p.line)
     code = :($v = $code) # affectation must be done outside try ... catch )
@@ -459,7 +459,7 @@ end
 
 function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
     code_box = :($(p.l_x) = -Inf * ones($n); $(p.u_x) = Inf * ones($n))
-    p.box_x = Expr(:block, p.box_x, code_box) 
+    p.box_x = concat(p.box_x, code_box)
     code = :(ExaModels.variable($p_ocp, $n, 0:grid_size; lvar = [$(p.l_x)[i] for (i, j) ∈ Base.product(1:$n, 0:grid_size)], uvar = [$(p.u_x)[i] for (i, j) ∈ Base.product(1:$n, 0:grid_size)], start = init[2]))
     code = __wrap(code, p.lnum, p.line)
     code = :($x = $code) # affectation must be done outside try ... catch )
@@ -510,7 +510,7 @@ end
 
 function p_control_exa!(p, p_ocp, u, m, uu; components_names=nothing)
     code_box = :($(p.l_u) = -Inf * ones($m); $(p.u_u) = Inf * ones($m))
-    p.box_u = Expr(:block, p.box_u, code_box) 
+    p.box_u = concat(p.box_u, code_box) 
     code = :(ExaModels.variable($p_ocp, $m, 0:grid_size; lvar = [$(p.l_u)[i] for (i, j) ∈ Base.product(1:$m, 0:grid_size)], uvar = [$(p.u_u)[i] for (i, j) ∈ Base.product(1:$m, 0:grid_size)], start = init[3]))
     code = __wrap(code, p.lnum, p.line)
     code = :($u = $code) # affectation must be done outside try ... catch )
@@ -584,7 +584,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = replace_call(e2, p.x, p.tf, xf)
             e2 = subs2(e2, x0, p.x, 0)
             e2 = subs2(e2, xf, p.x, :grid_size)
-            Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3)))
+            concat(code, :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3)))
         end
         (:initial, rg) => begin
             if isnothing(rg)
@@ -620,7 +620,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e1 = __wrap(e1, p.lnum, p.line)
             e3 = __wrap(e3, p.lnum, p.line)
             code_box = :($(p.l_v)[$rg] .= $e1; $(p.u_v)[$rg] .= $e3)
-            p.box_v = Expr(:block, p.box_v, code_box)
+            p.box_v = concat(p.box_v, code_box)
             code = :()
         end
         (:state_range, rg) => begin
@@ -633,7 +633,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e1 = __wrap(e1, p.lnum, p.line)
             e3 = __wrap(e3, p.lnum, p.line)
             code_box = :($(p.l_x)[$rg] .= $e1; $(p.u_x)[$rg] .= $e3)
-            p.box_x = Expr(:block, p.box_x, code_box)
+            p.box_x = concat(p.box_x, code_box)
             code = :()
         end
         (:control_range, rg) => begin
@@ -646,7 +646,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e1 = __wrap(e1, p.lnum, p.line)
             e3 = __wrap(e3, p.lnum, p.line)
             code_box = :($(p.l_u)[$rg] .= $e1; $(p.u_u)[$rg] .= $e3)
-            p.box_u = Expr(:block, p.box_u, code_box)
+            p.box_u = concat(p.box_u, code_box)
             code = :()
         end
         :state_fun || control_fun || :mixed => begin
@@ -658,7 +658,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = subs2(e2, xt, p.x, :j)
             e2 = subs2(e2, ut, p.u, :j)
             e2 = subs(e2, p.t, :($(p.t0) + j * $(p.dt)))
-            Expr(:block, code, :(ExaModels.constraint($p_ocp, $e2 for j ∈ 0:grid_size; lcon = $e1, ucon = $e3)))
+            concat(code, :(ExaModels.constraint($p_ocp, $e2 for j ∈ 0:grid_size; lcon = $e1, ucon = $e3)))
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
     end
@@ -978,10 +978,10 @@ function def_fun(e, log=false)
     p_ocp = __symgen(:p_ocp)
     code = :($p_ocp = $pref.PreModel())
     p = ParsingInfo()
-    code = Expr(:block, code, parse!(p, p_ocp, e; log=log))
+    code = concat(code, parse!(p, p_ocp, e; log=log))
     ee = QuoteNode(e)
-    code = Expr(:block, code, :($pref.definition!($p_ocp, $ee)))
-    code = Expr(:block, code, :($pref.build_model($p_ocp)))
+    code = concat(code, :($pref.definition!($p_ocp, $ee)))
+    code = concat(code, :($pref.build_model($p_ocp)))
     return code
 end
 

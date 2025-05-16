@@ -310,6 +310,49 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Concatenate two expressions without creating extra blocks (as `Expr(:block, e1, e2)` would do).
+
+# Example
+```@example
+julia> e1 = :(x = 1; y = 2)
+quote
+    x = 1
+    #= REPL[3]:1 =#
+    y = 2
+end
+
+julia> e2 = :(z = 3)
+:(z = 3)
+
+julia> concat(e1, e2)
+quote
+    x = 1
+    #= REPL[3]:1 =#
+    y = 2
+    z = 3
+end
+
+julia> concat(e1, e1)
+quote
+    x = 1
+    #= REPL[3]:1 =#
+    y = 2
+    x = 1
+    #= REPL[3]:1 =#
+    y = 2
+end
+```
+"""
+concat(e1, e2) = @match (e1.head, e2.head) begin
+        (:block, :block) => Expr(:block, e1.args..., e2.args...)
+        (:block, _     ) => Expr(:block, e1.args..., e2        )
+        (_     , :block) => Expr(:block, e1        , e2.args...)
+        _                => Expr(:block, e1        , e2        )
+    end
+
+"""
+$(TYPEDSIGNATURES)
+
 Return the type constraint among
 `:initial`, `:final`, `:boundary`, `:control_range`, `:control_fun`,
 `:state_range`, `:state_fun`, `:mixed`, `:variable_range`, `:variable_fun` (`:other` otherwise),
