@@ -12,6 +12,7 @@
 # - exa: generated function forbids to use kwarg names (grid_size...) in expressions; could either (i) replace such names in the user code (e.g. prefixing by a gensym...), but not so readable; (ii) throw an explicit error ("grid_size etc. are reserved names")
 # - exa: x = ExaModels.variable($p_ocp, $n / 1:$n...) ?
 # - exa: what about expressions with x(t), not indexed but used as a scalar? should be x[:, ...] in ExaModels? does it occur (sum(x(t)...))
+# - iterators i and j (cf. dyn / lagrange): gensym's!
 
 # Defaults
 
@@ -771,7 +772,28 @@ function p_lagrange_fun!(p, p_ocp, e, type)
 end
 
 function p_lagrange_exa!(p, p_ocp, e, type)
-    return __throw("Lagrange cost to be implemented", p.lnum, p.line)
+    xt = __symgen(:xt)
+    ut = __symgen(:ut)
+    e = replace_call(e, p.x, p.t, xt)
+    e = replace_call(e, p.u, p.t, ut)
+    j = __symgen(:j)
+    ej = subs2(e, xt, p.x, j)
+    ej = subs2(ej, ut, p.u, j)
+    ej = subs(ej, p.t, :($(p.t0) + $j * $(p.dt)))
+    sg = (type == :min) ? 1 : (-1)
+    code = quote 
+        if scheme == :trapezoidal
+            ExaModels.objective($p_ocp, $sg * $(p.dt) * $ej / 2 for $j ∈ (0, grid_size))
+            ExaModels.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 1:(grid_size - 1))
+        elseif scheme == :euler
+            ExaModels.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 0:(grid_size - 1))
+        elseif scheme == :euler_b
+            ExaModels.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 1:grid_size)
+        else
+           throw("unknown numerical scheme") # and this throw is __wrapped 
+        end
+    end
+    return __wrap(code, p.lnum, p.line)
 end
 
 function p_mayer!(p, p_ocp, e, type; log=false)
@@ -813,10 +835,8 @@ function p_mayer_exa!(p, p_ocp, e, type)
     e = subs2(e, x0, p.x, 0)
     e = subs2(e, xf, p.x, :grid_size)
     # now, x[i](t0) has been replaced by x[i, 0] and x[i](tf) by x[i, grid_size]
-    code = @match type begin
-        :min => :(ExaModels.objective($p_ocp,  $e))
-        _ => :(ExaModels.objective($p_ocp, -$e))
-    end
+    sg = (type == :min) ? 1 : (-1)
+    code = :(ExaModels.objective($p_ocp, $sg * $e))
     return __wrap(code, p.lnum, p.line)
 end
 
