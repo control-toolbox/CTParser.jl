@@ -18,10 +18,10 @@ end
 
 function __test_onepass_exa(backend = nothing)
 
-    @ignore begin # debug
-    println("onepass_exa: backend = ", isnothing(backend) ? "CPU" : "GPU")
+    backend_name = isnothing(backend) ? "CPU" : "GPU" 
 
-    test_name = "parsing backend"
+    @ignore begin # debug
+    test_name = "parsing backend ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         @test_throws String parsing_backend!(:foo)
@@ -29,7 +29,7 @@ function __test_onepass_exa(backend = nothing)
 
     end
 
-    test_name = "pragma"
+    test_name = "pragma ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -48,7 +48,7 @@ function __test_onepass_exa(backend = nothing)
 
     end
 
-    test_name = "alias"
+    test_name = "alias ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -81,7 +81,7 @@ function __test_onepass_exa(backend = nothing)
 
     end
 
-    test_name = "time"
+    test_name = "time ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
        o = @def begin
@@ -151,7 +151,7 @@ function __test_onepass_exa(backend = nothing)
 
     end
 
-    test_name = "constraint"
+    test_name = "constraint ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -339,7 +339,7 @@ function __test_onepass_exa(backend = nothing)
 
     end
         
-    test_name = "variable range"
+    test_name = "variable range ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -360,7 +360,7 @@ function __test_onepass_exa(backend = nothing)
 
     end
 
-    test_name = "state range"
+    test_name = "state range ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -383,7 +383,7 @@ function __test_onepass_exa(backend = nothing)
 
     end
 
-    test_name = "control range"
+    test_name = "control range ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -405,7 +405,7 @@ function __test_onepass_exa(backend = nothing)
 
     end
 
-    test_name = "dynamics"
+    test_name = "dynamics ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -449,7 +449,7 @@ function __test_onepass_exa(backend = nothing)
 
     end
 
-    test_name = "lagrange cost"
+    test_name = "lagrange cost ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -466,7 +466,7 @@ function __test_onepass_exa(backend = nothing)
 
     end
 
-    test_name = "use case no. 1: simple example (mayer)"
+    test_name = "use case no. 1: simple example (mayer) ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -490,7 +490,7 @@ function __test_onepass_exa(backend = nothing)
 
     end
 
-    test_name = "use case no. 1: simple example (lagrange)"
+    test_name = "use case no. 1: simple example (lagrange) ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -514,7 +514,7 @@ function __test_onepass_exa(backend = nothing)
 
     end
 
-    test_name = "use case no. 2: Goddard"
+    test_name = "use case no. 2: Goddard ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         r0 = 1.0     
@@ -570,7 +570,7 @@ function __test_onepass_exa(backend = nothing)
     end
     end # debug
 
-    test_name = "use case no. 3: quadrotor"
+    test_name = "use case no. 3: quadrotor ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         T = 1
@@ -604,14 +604,14 @@ function __test_onepass_exa(backend = nothing)
         
             0.5∫( (x₁(t) - dt1)^2 + (x₃(t) - dt3)^2 + (x₅(t) - dt5)^2 + x₇(t)^2 + x₈(t)^2 + x₉(t)^2 +
                r * (u₁(t)^2 + u₂(t)^2 + u₃(t)^2 + u₄(t)^2) ) → min
-            #0.5( (x₁(T) - df1)^2 + (x₃(T) - df3)^2 + (x₅(T) - df5)^2 + x₇(T)^2 + x₈(T)^2 + x₉(T)^2 )+ 0.5x[10](T) → min # debug: add mayer term
         
         end
         
-        N = 100
+        N = 1000
         m = o(; grid_size = N, scheme = :euler) 
         @test m isa ExaModels.ExaModel
         sol = madnlp(m)
+        @test sol.status == MadNLP.SOLVE_SUCCEEDED
 
     end
     
