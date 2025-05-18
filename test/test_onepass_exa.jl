@@ -606,7 +606,7 @@ function __test_onepass_exa(backend = nothing)
         end
         
         N = 100
-        m = o(; grid_size = N, scheme = :euler) 
+        m = o(; grid_size = N, scheme = :euler, backend = backend)
         @test m isa ExaModels.ExaModel
         sol = madnlp(m)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
