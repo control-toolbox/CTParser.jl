@@ -20,7 +20,6 @@ function __test_onepass_exa(backend = nothing)
 
     backend_name = isnothing(backend) ? "CPU" : "GPU" 
 
-    @ignore begin # debug
     test_name = "parsing backend ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
@@ -568,7 +567,6 @@ function __test_onepass_exa(backend = nothing)
         @test s.objective ≈ -1.0125736217178989e+00 atol = 1e-5 # note: difference of 1e-5 with CUDA
 
     end
-    end # debug
 
     test_name = "use case no. 3: quadrotor ($backend_name)"
     @testset "$test_name" begin println(test_name)
