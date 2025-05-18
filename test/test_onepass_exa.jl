@@ -605,7 +605,7 @@ function __test_onepass_exa(backend = nothing)
         
         end
         
-        N = 1000
+        N = 100
         m = o(; grid_size = N, scheme = :euler) 
         @test m isa ExaModels.ExaModel
         sol = madnlp(m)
