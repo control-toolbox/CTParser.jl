@@ -503,8 +503,8 @@ function __test_onepass_exa(backend = nothing)
             ∂(x₂)(t) == u(t)
             ∫( 0.5u(t)^2 ) → min
         end
-        @test o(; backend = backend) isa ExaModels.ExaModel
         m = o(; backend = backend)
+        @test m isa ExaModels.ExaModel
         tol = 1e-7
         s = madnlp(m; tol = tol)
         @test s.objective ≈ 6 atol = 1e-2
@@ -609,7 +609,8 @@ function __test_onepass_exa(backend = nothing)
         end
         
         N = 100
-        m = o(; grid_size = N, scheme = :euler) #, init = (0, 0, 0))
+        m = o(; grid_size = N, scheme = :euler) 
+        @test m isa ExaModels.ExaModel
         sol = madnlp(m)
 
     end
