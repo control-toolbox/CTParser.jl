@@ -13,6 +13,7 @@
 # - exa: x = ExaModels.variable($p_ocp, $n / 1:$n...) ?
 # - exa: what about expressions with x(t), not indexed but used as a scalar? should be x[:, ...] in ExaModels? does it occur (sum(x(t)...))
 # - iterators i and j (cf. dyn / lagrange): gensym's!
+# todo: test all constraints bounds (== 1, and 5 ranges)
 
 # Defaults
 
@@ -594,10 +595,11 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
+            code = :(length($e1) == length($e3) == length($rg) || throw($e_pref.ParsingError("wrong bound dimension")))
             x0 = __symgen(:x0)
             e2 = replace_call(e2, p.x, p.t0, x0)
             e2 = subs3(e2, x0, p.x, :i, 0)
-            :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3))
+            concat(code, :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3)))
         end
         (:final, rg) => begin
             if isnothing(rg)
@@ -606,10 +608,11 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
+            code = :(length($e1) == length($e3) == length($rg) || throw($e_pref.ParsingError("wrong bound dimension")))
             xf = __symgen(:xf)
             e2 = replace_call(e2, p.x, p.tf, xf)
             e2 = subs3(e2, xf, p.x, :i, :grid_size)
-            :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3))
+            concat(code, :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3)))
         end
         (:variable_range, rg) => begin
             if isnothing(rg)
@@ -618,11 +621,12 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
+            code_box = :(length($e1) == length($e3) == length($rg) || throw($e_pref.ParsingError("wrong bound dimension")))
             e1 = __wrap(e1, p.lnum, p.line)
             e3 = __wrap(e3, p.lnum, p.line)
-            code_box = :($(p.l_v)[$rg] .= $e1; $(p.u_v)[$rg] .= $e3)
+            code_box = concat(code_box, :($(p.l_v)[$rg] .= $e1; $(p.u_v)[$rg] .= $e3))
             p.box_v = concat(p.box_v, code_box)
-            code = :()
+            :()
         end
         (:state_range, rg) => begin
             if isnothing(rg)
@@ -631,11 +635,12 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
+            code_box = :(length($e1) == length($e3) == length($rg) || throw($e_pref.ParsingError("wrong bound dimension")))
             e1 = __wrap(e1, p.lnum, p.line)
             e3 = __wrap(e3, p.lnum, p.line)
-            code_box = :($(p.l_x)[$rg] .= $e1; $(p.u_x)[$rg] .= $e3)
+            code_box = concat(code_box, :($(p.l_x)[$rg] .= $e1; $(p.u_x)[$rg] .= $e3))
             p.box_x = concat(p.box_x, code_box)
-            code = :()
+            :()
         end
         (:control_range, rg) => begin
             if isnothing(rg)
@@ -644,11 +649,12 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
+            code_box = :(length($e1) == length($e3) == length($rg) || throw($e_pref.ParsingError("wrong bound dimension")))
             e1 = __wrap(e1, p.lnum, p.line)
             e3 = __wrap(e3, p.lnum, p.line)
-            code_box = :($(p.l_u)[$rg] .= $e1; $(p.u_u)[$rg] .= $e3)
+            code_box = concat(code_box, :($(p.l_u)[$rg] .= $e1; $(p.u_u)[$rg] .= $e3))
             p.box_u = concat(p.box_u, code_box)
-            code = :()
+            :()
         end
         :state_fun || control_fun || :mixed => begin
             code = :(length($e1) == length($e3) == 1 || throw($e_pref.ParsingError("this constraint must be scalar")))
@@ -877,7 +883,9 @@ function p_bolza_fun!(p, p_ocp, e1, e2, type)
 end
 
 function p_bolza_exa!(p, p_ocp, e1, e2, type)
-    return __throw("Bolza cost to be implemented", p.lnum, p.line)
+    code1 = p_mayer_exa!(p, p_ocp, e1, type)
+    code2 = p_lagrange_exa!(p, p_ocp, e2, type) # in ExaModels, several objectives means sum
+    return concat(code1, code2)
 end
 
 # Summary of available parsing options

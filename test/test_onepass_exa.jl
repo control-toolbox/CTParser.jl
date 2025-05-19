@@ -513,6 +513,31 @@ function __test_onepass_exa(backend = nothing)
 
     end
 
+    test_name = "use case no. 1: simple example (bolza) ($backend_name)"
+    @testset "$test_name" begin println(test_name)
+
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            x(0) == [-1, 0, 0]
+            x[1:2](1) == [0, 0]
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∂(x₃)(t) == 0.5u(t)^2
+            x₃(1) + ∫( 0.5u(t)^2 ) → min
+        end
+        m = o(; backend = backend)
+        @test m isa ExaModels.ExaModel
+        tol = 1e-7
+        s = madnlp(m; tol = tol)
+        @test s.objective ≈ 2* 6 atol = 1e-2
+        m = o(; backend = backend, grid_size = 1000)
+        s = madnlp(m; tol = tol)
+        @test s.objective ≈ 2 * 6 atol = 1e-3
+
+    end
+    
     test_name = "use case no. 2: Goddard ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
@@ -612,5 +637,5 @@ function __test_onepass_exa(backend = nothing)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
 
     end
-    
+
 end
