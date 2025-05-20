@@ -623,10 +623,8 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
                 rg = as_range(rg)
             end
             code_box = :(length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")) # (vs. __throw) since raised at runtime
-            e1 = __wrap(e1, p.lnum, p.line)
-            e3 = __wrap(e3, p.lnum, p.line)
-            code_box = concat(code_box, :($(p.l_v)[$rg] .= $e1; $(p.u_v)[$rg] .= $e3))
-            p.box_v = __wrap(concat(p.box_v, code_box), p.lnum, p.line)
+            code_box = __wrap(concat(code_box, :($(p.l_v)[$rg] .= $e1; $(p.u_v)[$rg] .= $e3)), p.lnum, p.line)
+            p.box_v = concat(p.box_v, code_box) # not __wrapped since contains definition of l_v/u_v
             :()
         end
         (:state_range, rg) => begin
@@ -637,10 +635,8 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
                 rg = as_range(rg)
             end
             code_box = :(length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")) # (vs. __throw) since raised at runtime
-            e1 = __wrap(e1, p.lnum, p.line)
-            e3 = __wrap(e3, p.lnum, p.line)
-            code_box = concat(code_box, :($(p.l_x)[$rg] .= $e1; $(p.u_x)[$rg] .= $e3))
-            p.box_x = __wrap(concat(p.box_x, code_box), p.lnum, p.line)
+            code_box = __wrap(concat(code_box, :($(p.l_x)[$rg] .= $e1; $(p.u_x)[$rg] .= $e3)), p.lnum, p.line)
+            p.box_x = concat(p.box_x, code_box) # not __wrapped since contains definition of l_x/u_x
             :()
         end
         (:control_range, rg) => begin
@@ -651,10 +647,8 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
                 rg = as_range(rg)
             end
             code_box = :(length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")) # (vs. __throw) since raised at runtime
-            e1 = __wrap(e1, p.lnum, p.line)
-            e3 = __wrap(e3, p.lnum, p.line)
-            code_box = concat(code_box, :($(p.l_u)[$rg] .= $e1; $(p.u_u)[$rg] .= $e3))
-            p.box_u = __wrap(concat(p.box_u, code_box), p.lnum, p.line)
+            code_box = __wrap(concat(code_box, :($(p.l_u)[$rg] .= $e1; $(p.u_u)[$rg] .= $e3)), p.lnum, p.line)
+            p.box_u = concat(p.box_u, code_box) # not __wrapped since contains definition of l_u/u_u
             :()
         end
         :state_fun || control_fun || :mixed => begin
