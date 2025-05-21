@@ -1,5 +1,4 @@
 # test onepass, exa parsing (aka parsing towards ExaModels)
-# todo: add simple min time case (double integrator)
 
 macro ignore(e) return :() end
 
@@ -431,6 +430,17 @@ function __test_onepass_exa(backend = nothing)
                 u ∈ R⁵, control
                 ∂(x₁)(t) == x₁(t) 
                 ∂(x₂)(t) == x₁(t) 
+                ∂(x₃)(t) == x₁(t) 
+                x₁(0) + 2cos(x₂(1)) → min
+        end
+        @test_throws ParsingError o(; backend = backend)
+
+        o = @def begin
+                t ∈ [0, 1], time
+                x ∈ R⁴, state
+                u ∈ R⁵, control
+                ∂(x₁)(t) == x₁(t) 
+                ∂(x₁)(t) == x₁(t) # duplicate!
                 ∂(x₃)(t) == x₁(t) 
                 x₁(0) + 2cos(x₂(1)) → min
         end
