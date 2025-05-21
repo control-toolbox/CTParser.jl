@@ -1,5 +1,4 @@
 # test onepass, exa parsing (aka parsing towards ExaModels)
-# todo: add simple min time case (double integrator)
 
 macro ignore(e) return :() end
 
@@ -37,6 +36,7 @@ function __test_onepass_exa(backend = nothing)
                 x ∈ R³, state
                 u ∈ R⁴, control
                 PRAGMA(println("Barracuda sors de ce corps !"))
+                PRAGMA(println("grid_size = ", grid_size))
                 ∂(x₁)(t) == x₁(t)
                 ∂(x₂)(t) == x₁(t)
                 ∂(x₃)(t) == x₁(t)
@@ -184,7 +184,7 @@ function __test_onepass_exa(backend = nothing)
                 -1 ≤ x₂(0) + x₁(tf) + tf ≤ [1, 2]
                 x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws ParsingError o(; backend = backend)
+        @test_throws String o(; backend = backend)
 
         o = @def begin
                 tf ∈ R, variable
@@ -193,10 +193,10 @@ function __test_onepass_exa(backend = nothing)
                 u ∈ R, control
                 ∂(x₁)(t) == x₁(t)
                 ∂(x₂)(t) == x₁(t)
-                tf^2 ≥ [1, 5]
+                tf^2 ≥ [1, 5] # wrong dim
                 x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws ParsingError o(; backend = backend)
+        @test_throws String o(; backend = backend)
 
         o = @def begin
                 tf ∈ R, variable
@@ -205,10 +205,10 @@ function __test_onepass_exa(backend = nothing)
                 u ∈ R, control
                 ∂(x₁)(t) == x₁(t)
                 ∂(x₂)(t) == x₁(t)
-                cos(x₁(t)) ≤ [1, 2]
+                cos(x₁(t)) ≤ [1, 2] # wrong dim
                 x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws ParsingError o(; backend = backend)
+        @test_throws String o(; backend = backend)
 
         o = @def begin
                 tf ∈ R, variable
@@ -217,10 +217,10 @@ function __test_onepass_exa(backend = nothing)
                 u ∈ R, control
                 ∂(x₁)(t) == x₁(t)
                 ∂(x₂)(t) == x₁(t)
-                cos(u(t)) ≤ [1, 2]
+                cos(u(t)) ≤ [1, 2] # wrong dim
                 x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws ParsingError o(; backend = backend)
+        @test_throws String o(; backend = backend)
 
         o = @def begin
                 tf ∈ R, variable
@@ -229,10 +229,10 @@ function __test_onepass_exa(backend = nothing)
                 u ∈ R, control
                 ∂(x₁)(t) == x₁(t)
                 ∂(x₂)(t) == x₁(t)
-                x₁(t) + u(t) == [1, 2]
+                x₁(t) + u(t) == [1, 2] # wrong dim
                 x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws ParsingError o(; backend = backend)
+        @test_throws String o(; backend = backend)
 
         o = @def begin
                 tf ∈ R, variable
@@ -437,6 +437,17 @@ function __test_onepass_exa(backend = nothing)
 
         o = @def begin
                 t ∈ [0, 1], time
+                x ∈ R⁴, state
+                u ∈ R⁵, control
+                ∂(x₁)(t) == x₁(t) 
+                ∂(x₁)(t) == x₁(t) # duplicate!
+                ∂(x₃)(t) == x₁(t) 
+                x₁(0) + 2cos(x₂(1)) → min
+        end
+        @test_throws ParsingError o(; backend = backend)
+
+        o = @def begin
+                t ∈ [0, 1], time
                 x ∈ R, state
                 u ∈ R⁵, control
                 x(t) + u₂(t) + t == 1
@@ -464,7 +475,162 @@ function __test_onepass_exa(backend = nothing)
         @test o(; backend = backend) isa ExaModels.ExaModel
 
     end
+    
+    test_name = "scalar bounds test"
+    @testset "$test_name" begin println(test_name)
 
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            x(0)^2 == [-1, 0, 0] # should be scalar
+            x[1:2](1) == [0, 0]
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∂(x₃)(t) == 0.5u(t)^2
+            x₃(1) → min
+        end
+        @test_throws String o(; backend = backend)
+
+    end
+
+    test_name = "variable bounds test"
+    @testset "$test_name" begin println(test_name)
+
+        o = @def begin
+            v ∈ R³, variable
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            v[1:2] ≤ 3 # wrong dim
+            x(0) == [-1, 0, 0]
+            x[1:2](1) == [0, 0]
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∂(x₃)(t) == 0.5u(t)^2
+            x₃(1) → min
+        end
+        @test_throws String o(; backend = backend)
+
+    end
+
+    test_name = "state bounds test"
+    @testset "$test_name" begin println(test_name)
+
+        o = @def begin
+            v ∈ R³, variable
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            x(0) == [-1, 0, 0]
+            x[1:2](t) == [0, 0, 0] # wrong dim
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∂(x₃)(t) == 0.5u(t)^2
+            x₃(1) → min
+        end
+        @test_throws String o(; backend = backend)
+
+    end
+
+    test_name = "control bounds test"
+    @testset "$test_name" begin println(test_name)
+
+        o = @def begin
+            v ∈ R³, variable
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            x(0) == [-1, 0, 0]
+            x[1:2](1) == [0, 0]
+            u(t) ≤ [1, 2] # wrong dim 
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∂(x₃)(t) == 0.5u(t)^2
+            x₃(1) → min
+        end
+        @test_throws String o(; backend = backend)
+    
+    end
+
+    test_name = "path bounds test"
+    @testset "$test_name" begin println(test_name)
+
+        o = @def begin
+            v ∈ R³, variable
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            x(0) == [-1, 0, 0]
+            x[1:2](1) == [0, 0]
+            3 ≤ x[1] + u(t) ≤ [1, 2] # wrong dim 
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∂(x₃)(t) == 0.5u(t)^2
+            x₃(1) → min
+        end
+        @test_throws String o(; backend = backend)
+    
+    end
+
+    test_name = "path bounds test"
+    @testset "$test_name" begin println(test_name)
+
+        o = @def begin
+            v ∈ R³, variable
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            x(0) == [-1, 0, 0]
+            x[1:2](1) == [0, 0]
+            [3, 4] ≤ x[1] + u(t) ≤ [1, 2] # wrong dim 
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∂(x₃)(t) == 0.5u(t)^2
+            x₃(1) → min
+        end
+        @test_throws String o(; backend = backend)
+
+    end
+    
+    test_name = "initial bounds test"
+    @testset "$test_name" begin println(test_name)
+
+        o = @def begin
+            v ∈ R³, variable
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            x(0) == [-1, 0] # wrong dim
+            x[1:2](1) == [0, 0]
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∂(x₃)(t) == 0.5u(t)^2
+            x₃(1) → min
+        end
+        @test_throws String o(; backend = backend)
+
+    end
+    
+    test_name = "final bounds test"
+    @testset "$test_name" begin println(test_name)
+
+        o = @def begin
+            v ∈ R³, variable
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            x(1) == [-1, 0] # wrong dim
+            x[1:2](1) == [0, 0]
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∂(x₃)(t) == 0.5u(t)^2
+            x₃(1) → min
+        end
+        @test_throws String o(; backend = backend)
+
+    end
+ 
     test_name = "use case no. 1: simple example (mayer) ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
@@ -513,6 +679,31 @@ function __test_onepass_exa(backend = nothing)
 
     end
 
+    test_name = "use case no. 1: simple example (bolza) ($backend_name)"
+    @testset "$test_name" begin println(test_name)
+
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            x(0) == [-1, 0, 0]
+            x[1:2](1) == [0, 0]
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∂(x₃)(t) == 0.5u(t)^2
+            x₃(1) + ∫( 0.5u(t)^2 ) → min
+        end
+        m = o(; backend = backend)
+        @test m isa ExaModels.ExaModel
+        tol = 1e-7
+        s = madnlp(m; tol = tol)
+        @test s.objective ≈ 2* 6 atol = 1e-2
+        m = o(; backend = backend, grid_size = 1000)
+        s = madnlp(m; tol = tol)
+        @test s.objective ≈ 2 * 6 atol = 1e-3
+
+    end
+    
     test_name = "use case no. 2: Goddard ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
@@ -612,5 +803,6 @@ function __test_onepass_exa(backend = nothing)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
 
     end
-    
+
+   
 end

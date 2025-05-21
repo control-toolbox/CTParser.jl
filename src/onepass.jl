@@ -13,6 +13,7 @@
 # - exa: x = ExaModels.variable($p_ocp, $n / 1:$n...) ?
 # - exa: what about expressions with x(t), not indexed but used as a scalar? should be x[:, ...] in ExaModels? does it occur (sum(x(t)...))
 # - iterators i and j (cf. dyn / lagrange): gensym's!
+# todo: test all constraints bounds (== 1, and 5 ranges)
 
 # Defaults
 
@@ -104,6 +105,7 @@ __init_aliases(; max_dim=20) = begin
     return al
 end
 
+# for static (= not in generated code evaluated at run time) errors; should only appear in syntactic analysis
 __throw(mess, n, line) = begin
     e_pref = e_prefix()
     info = string("\nLine ", n, ": ", line, "\n", mess)
@@ -367,18 +369,19 @@ end
 function p_time_fun!(p, p_ocp, t, t0, tf)
     pref = prefix()
     tt = QuoteNode(t)
+    # todo: scalar var aliased to v[1], so some cases below are excluded; move solme part to syntactic pass
     code = @match (has(t0, p.v), has(tf, p.v)) begin
         (false, false) => :($pref.time!($p_ocp; t0=$t0, tf=$tf, time_name=$tt))
         (true, false) => @match t0 begin
             :($v1[$i]) && if (v1 == p.v) end => :($pref.time!($p_ocp; ind0=$i, tf=$tf, time_name=$tt))
             :($v1) && if (v1 == p.v) &&  (p.dim_v == 1) end => :( $pref.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt) ) # todo: never executed (check!)
-            :($v1) && if (v1 == p.v) && !(p.dim_v == 1) end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
+            :($v1) && if (v1 == p.v) && !(p.dim_v == 1) end => return __throw("variable must be of dimension one for a time", p.lnum, p.line) # todo: v1 immplies dim var > 1 => necessary error
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         (false, true) => @match tf begin
             :($v1[$i]) && if (v1 == p.v) end => :($pref.time!($p_ocp; t0=$t0, indf=$i, time_name=$tt))
             :($v1) && if (v1 == p.v) &&  (p.dim_v == 1) end => :( $pref.time!($p_ocp; t0=$t0, indf=1, time_name=$tt) ) # todo: never executed (check!)
-            :($v1) && if (v1 == p.v) && !(p.dim_v ==1) end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
+            :($v1) && if (v1 == p.v) && !(p.dim_v ==1) end => return __throw("variable must be of dimension one for a time", p.lnum, p.line) # todo: move above in common syntactic pass
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         _ => @match (t0, tf) begin
@@ -393,7 +396,7 @@ end
 function p_time_exa!(p, p_ocp, t, t0, tf)
     @match (has(t0, p.v), has(tf, p.v)) begin
         (false, false) => nothing
-        (true, false) => @match t0 begin
+        (true, false) => @match t0 begin # todo: should be factored in syntactic pass, see todo's above for :fun
             :($v1[$i]) && if (v1 == p.v) end => nothing 
             :($v1) && if (v1 == p.v) && !(p.dim_v == 1) end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
             _ => return __throw("bad time declaration", p.lnum, p.line)
@@ -575,10 +578,9 @@ end
 function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
     isnothing(e1) && (e1 = :(-Inf * ones(length($e3))))
     isnothing(e3) && (e3 = :( Inf * ones(length($e1))))
-    e_pref = e_prefix()
     code = @match c_type begin
         :boundary || :variable_fun => begin
-            code = :(length($e1) == length($e3) == 1 || throw($e_pref.ParsingError("this constraint must be scalar")))
+            code = :(length($e1) == length($e3) == 1 || throw("this constraint must be scalar")) # (vs. __throw) since raised at runtime
             x0 = __symgen(:x0)
             xf = __symgen(:xf)
             e2 = replace_call(e2, p.x, p.t0, x0)
@@ -594,10 +596,11 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
+            code = :(length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")) # (vs. __throw) since raised at runtime
             x0 = __symgen(:x0)
             e2 = replace_call(e2, p.x, p.t0, x0)
             e2 = subs3(e2, x0, p.x, :i, 0)
-            :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3))
+            concat(code, :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3)))
         end
         (:final, rg) => begin
             if isnothing(rg)
@@ -606,10 +609,11 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
+            code = :(length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")) # (vs. __throw) since raised at runtime
             xf = __symgen(:xf)
             e2 = replace_call(e2, p.x, p.tf, xf)
             e2 = subs3(e2, xf, p.x, :i, :grid_size)
-            :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3))
+            concat(code, :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3)))
         end
         (:variable_range, rg) => begin
             if isnothing(rg)
@@ -618,11 +622,10 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
-            e1 = __wrap(e1, p.lnum, p.line)
-            e3 = __wrap(e3, p.lnum, p.line)
-            code_box = :($(p.l_v)[$rg] .= $e1; $(p.u_v)[$rg] .= $e3)
-            p.box_v = concat(p.box_v, code_box)
-            code = :()
+            code_box = :(length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")) # (vs. __throw) since raised at runtime
+            code_box = __wrap(concat(code_box, :($(p.l_v)[$rg] .= $e1; $(p.u_v)[$rg] .= $e3)), p.lnum, p.line)
+            p.box_v = concat(p.box_v, code_box) # not __wrapped since contains definition of l_v/u_v
+            :()
         end
         (:state_range, rg) => begin
             if isnothing(rg)
@@ -631,11 +634,10 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
-            e1 = __wrap(e1, p.lnum, p.line)
-            e3 = __wrap(e3, p.lnum, p.line)
-            code_box = :($(p.l_x)[$rg] .= $e1; $(p.u_x)[$rg] .= $e3)
-            p.box_x = concat(p.box_x, code_box)
-            code = :()
+            code_box = :(length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")) # (vs. __throw) since raised at runtime
+            code_box = __wrap(concat(code_box, :($(p.l_x)[$rg] .= $e1; $(p.u_x)[$rg] .= $e3)), p.lnum, p.line)
+            p.box_x = concat(p.box_x, code_box) # not __wrapped since contains definition of l_x/u_x
+            :()
         end
         (:control_range, rg) => begin
             if isnothing(rg)
@@ -644,14 +646,13 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
-            e1 = __wrap(e1, p.lnum, p.line)
-            e3 = __wrap(e3, p.lnum, p.line)
-            code_box = :($(p.l_u)[$rg] .= $e1; $(p.u_u)[$rg] .= $e3)
-            p.box_u = concat(p.box_u, code_box)
-            code = :()
+            code_box = :(length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")) # (vs. __throw) since raised at runtime
+            code_box = __wrap(concat(code_box, :($(p.l_u)[$rg] .= $e1; $(p.u_u)[$rg] .= $e3)), p.lnum, p.line)
+            p.box_u = concat(p.box_u, code_box) # not __wrapped since contains definition of l_u/u_u
+            :()
         end
         :state_fun || control_fun || :mixed => begin
-            code = :(length($e1) == length($e3) == 1 || throw($e_pref.ParsingError("this constraint must be scalar")))
+            code = :(length($e1) == length($e3) == 1 || throw("this constraint must be scalar")) # (vs. __throw) since raised at runtime
             xt = __symgen(:xt)
             ut = __symgen(:ut)
             e2 = replace_call(e2, p.x, p.t, xt)
@@ -740,7 +741,7 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
         elseif scheme == :euler_b
             ExaModels.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for j ∈ 0:(grid_size - 1))
         else
-           throw("unknown numerical scheme") # and this throw is __wrapped 
+           throw("unknown numerical scheme") # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
     end
     return __wrap(code, p.lnum, p.line)
@@ -790,7 +791,7 @@ function p_lagrange_exa!(p, p_ocp, e, type)
         elseif scheme == :euler_b
             ExaModels.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 1:grid_size)
         else
-           throw("unknown numerical scheme") # and this throw is __wrapped 
+           throw("unknown numerical scheme") # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
     end
     return __wrap(code, p.lnum, p.line)
@@ -877,7 +878,9 @@ function p_bolza_fun!(p, p_ocp, e1, e2, type)
 end
 
 function p_bolza_exa!(p, p_ocp, e1, e2, type)
-    return __throw("Bolza cost to be implemented", p.lnum, p.line)
+    code1 = p_mayer_exa!(p, p_ocp, e1, type)
+    code2 = p_lagrange_exa!(p, p_ocp, e2, type) # in ExaModels, several objectives means sum
+    return concat(code1, code2)
 end
 
 # Summary of available parsing options
@@ -1012,7 +1015,7 @@ function def_exa(e, log=false)
     code = parse!(p, p_ocp, e; log = log)
     dyn_check = quote
         !isempty($(p.dyn_coords)) || throw($e_pref.ParsingError("dynamics not defined"))
-        sort($(p.dyn_coords)) == 1:$(p.dim_x) || throw($e_pref.ParsingError("some coordinates of dynamics undefined"))
+        sort($(p.dyn_coords)) == 1:$(p.dim_x) || throw($e_pref.ParsingError("some coordinates of dynamics undefined"))         
     end
     default_scheme = QuoteNode(__default_scheme_exa())
     default_grid_size = __default_grid_size_exa()
