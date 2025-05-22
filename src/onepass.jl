@@ -73,6 +73,7 @@ $(TYPEDEF)
     dim_v::Union{Integer, Symbol, Expr, Nothing} = nothing
     dim_x::Union{Integer, Symbol, Expr, Nothing} = nothing
     dim_u::Union{Integer, Symbol, Expr, Nothing} = nothing
+    is_autonomous::Bool = true
     aliases::OrderedDict{Union{Symbol,Expr},Union{Real,Symbol,Expr}} = __init_aliases() # Dict ordered by Symbols *and Expr* just for scalar variable / state / control
     lnum::Int = 0
     line::String = ""
@@ -521,6 +522,9 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label = __symgen(:label); log = fal
     log && println("constraint ($c_type): $e1 ≤ $e2 ≤ $e3,    ($label)")
     label isa Int && (label = Symbol(:eq, label))
     label isa Symbol || return __throw("forbidden label: $label", p.lnum, p.line)
+    xut = __symgen(:xut)
+    ee2 = replace_call(e2, [p.x, p.u], p.t, [xut, xut])
+    has(ee2, p.t) && (p.is_autonomous = false)
     return parsing(:constraint)(p, p_ocp, e1, e2, e3, c_type, label)
 end
 
@@ -652,8 +656,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             code = :(length($e1) == length($e3) == 1 || throw("this constraint must be scalar")) # (vs. __throw) since raised at runtime
             xt = __symgen(:xt)
             ut = __symgen(:ut)
-            e2 = replace_call(e2, p.x, p.t, xt)
-            e2 = replace_call(e2, p.u, p.t, ut)
+            e2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
             j = __symgen(:j)
             e2 = subs2(e2, xt, p.x, j)
             e2 = subs2(e2, ut, p.u, j)
@@ -673,6 +676,9 @@ function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
     x ≠ p.x && return __throw("wrong state $x for dynamics", p.lnum, p.line)
     t ≠ p.t && return __throw("wrong time $t for dynamics", p.lnum, p.line)
+    xut = __symgen(:xut)
+    ee = replace_call(e, [p.x, p.u], p.t, [xut, xut])
+    has(ee, p.t) && (p.is_autonomous = false)
     return parsing(:dynamics)(p, p_ocp, x, t, e)
 end
 
@@ -706,6 +712,9 @@ function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log=false)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
     x ≠ p.x && return __throw("wrong state $x for dynamics", p.lnum, p.line)
     t ≠ p.t && return __throw("wrong time $t for dynamics", p.lnum, p.line)
+    xut = __symgen(:xut)
+    ee = replace_call(e, [p.x, p.u], p.t, [xut, xut])
+    has(ee, p.t) && (p.is_autonomous = false)
     return parsing(:dynamics_coord)(p, p_ocp, x, i, t, e)
 end
     
@@ -720,8 +729,7 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     append!(p.dyn_coords, i)
     xt = __symgen(:xt)
     ut = __symgen(:ut)
-    e = replace_call(e, p.x, p.t, xt)
-    e = replace_call(e, p.u, p.t, ut)
+    e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
     j1 = __symgen(:j)
     j2 = :($j1 + 1)
     ej1 = subs2(e, xt, p.x, j1)
@@ -750,6 +758,9 @@ function p_lagrange!(p, p_ocp, e, type; log=false)
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
+    xut = __symgen(:xut)
+    ee = replace_call(e, [p.x, p.u], p.t, [xut, xut])
+    has(ee, p.t) && (p.is_autonomous = false)
     return parsing(:lagrange)(p, p_ocp, e, type)
 end
     
@@ -773,8 +784,7 @@ end
 function p_lagrange_exa!(p, p_ocp, e, type)
     xt = __symgen(:xt)
     ut = __symgen(:ut)
-    e = replace_call(e, p.x, p.t, xt)
-    e = replace_call(e, p.u, p.t, ut)
+    e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
     j = __symgen(:j)
     ej = subs2(e, xt, p.x, j)
     ej = subs2(ej, ut, p.u, j)
@@ -846,6 +856,9 @@ function p_bolza!(p, p_ocp, e1, e2, type; log=false)
     isnothing(p.tf) && return __throw("time not yet declared", p.lnum, p.line)
     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
+    xut = __symgen(:xut)
+    ee2 = replace_call(e2, [p.x, p.u], p.t, [xut, xut])
+    has(ee2, p.t) && (p.is_autonomous = false)
     return parsing(:bolza)(p, p_ocp, e1, e2, type)
 end 
 
@@ -1002,6 +1015,7 @@ function def_fun(e, log=false)
     code = concat(code, parse!(p, p_ocp, e; log=log))
     ee = QuoteNode(e)
     code = concat(code, :($pref.definition!($p_ocp, $ee)))
+    code = concat(code, :($pref.time_dependence!($p_ocp; autonomous = $p.is_autonomous)))
     code = concat(code, :($pref.build_model($p_ocp)))
     return code
 end
