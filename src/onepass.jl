@@ -73,6 +73,7 @@ $(TYPEDEF)
     dim_v::Union{Integer, Symbol, Expr, Nothing} = nothing
     dim_x::Union{Integer, Symbol, Expr, Nothing} = nothing
     dim_u::Union{Integer, Symbol, Expr, Nothing} = nothing
+    is_autonomous::Bool = true
     aliases::OrderedDict{Union{Symbol,Expr},Union{Real,Symbol,Expr}} = __init_aliases() # Dict ordered by Symbols *and Expr* just for scalar variable / state / control
     lnum::Int = 0
     line::String = ""
@@ -652,8 +653,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             code = :(length($e1) == length($e3) == 1 || throw("this constraint must be scalar")) # (vs. __throw) since raised at runtime
             xt = __symgen(:xt)
             ut = __symgen(:ut)
-            e2 = replace_call(e2, p.x, p.t, xt)
-            e2 = replace_call(e2, p.u, p.t, ut)
+            e2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
             j = __symgen(:j)
             e2 = subs2(e2, xt, p.x, j)
             e2 = subs2(e2, ut, p.u, j)
@@ -720,8 +720,7 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     append!(p.dyn_coords, i)
     xt = __symgen(:xt)
     ut = __symgen(:ut)
-    e = replace_call(e, p.x, p.t, xt)
-    e = replace_call(e, p.u, p.t, ut)
+    e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
     j1 = __symgen(:j)
     j2 = :($j1 + 1)
     ej1 = subs2(e, xt, p.x, j1)
@@ -773,8 +772,7 @@ end
 function p_lagrange_exa!(p, p_ocp, e, type)
     xt = __symgen(:xt)
     ut = __symgen(:ut)
-    e = replace_call(e, p.x, p.t, xt)
-    e = replace_call(e, p.u, p.t, ut)
+    e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
     j = __symgen(:j)
     ej = subs2(e, xt, p.x, j)
     ej = subs2(ej, ut, p.u, j)
