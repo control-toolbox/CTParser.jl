@@ -1,5 +1,5 @@
 # onepass
-# todo: check todo's
+# todo:
 # - as_range / as_vector for rg / lb, ub could be done here in p_constraint when calling PREFIX.constraint!
 # - cannot call solve if problem not fully defined (dynamics not defined...)
 # - doc: explain projections wrt to t0, tf, t; (...x1...x2...)(t) -> ...gensym1...gensym2... (most internal first)
