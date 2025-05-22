@@ -444,7 +444,7 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
             return __throw("the number of state components must be $nn", p.lnum, p.line)
         for i in 1:nn
             p.aliases[components_names.args[i]] = :($x[$i])
-            # todo: in future, add aliases for state components (scalar) derivatives, i.e. alias ẋ, ẋ₁, ẋ1 to ∂(x)
+            # todo: in future, add aliases for state components (scalar) derivatives, i.e. alias ẋ₁(t), ẋ1(t) to ∂(x[1])(t)
         end
     end
     return parsing(:state)(p, p_ocp, x, n, xx; components_names=components_names)
@@ -1033,6 +1033,5 @@ function def_exa(e, log=false)
             return ExaModels.ExaModel($p_ocp)
         end
     end
-    #println("code:\n", code)
     return code
 end
