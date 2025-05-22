@@ -19,6 +19,29 @@ function __test_onepass_exa(backend = nothing)
 
     backend_name = isnothing(backend) ? "CPU" : "GPU" 
 
+    test_name = "defaults ($backend_name)"
+    @testset "$test_name" begin println(test_name)
+
+        @test CTParser.__default_parsing_backend() == 1
+        @test CTParser.__default_scheme_exa() == :trapezoidal
+        @test CTParser.__default_grid_size_exa() == 200
+
+    end
+
+    test_name = "auxiliary functions ($backend_name)"
+    @testset "$test_name" begin println(test_name)
+
+        @test CTParser.is_range(1) == false 
+        @test CTParser.is_range(1:2) == true
+        @test CTParser.is_range(1:2:5) == true
+        @test CTParser.is_range(:(x:y:z)) == true
+        @test CTParser.as_range(1) == [1]
+        @test CTParser.as_range(1:2) == 1:2
+        @test CTParser.as_range(:x) == [:x] 
+        @test CTParser.as_range(:(x + 1)) == [:(x + 1)] 
+
+    end
+
     test_name = "parsing backend ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
@@ -82,6 +105,28 @@ function __test_onepass_exa(backend = nothing)
 
     test_name = "time ($backend_name)"
     @testset "$test_name" begin println(test_name)
+
+       o = @def begin
+                v = (a, b) ∈ R², variable
+                t ∈ [v, 0], time
+                x ∈ R, state
+                u ∈ R⁴, control
+                ∂(x₁)(t) == x₁(t)
+                c = v₁ + b + x(a) + 2cos(x(1))
+                c → min
+        end
+        @test_throws ParsingError o(; backend = backend)
+
+       o = @def begin
+                v = (a, b) ∈ R², variable
+                t ∈ [0, v], time
+                x ∈ R, state
+                u ∈ R⁴, control
+                ∂(x₁)(t) == x₁(t)
+                c = v₁ + b + x(a) + 2cos(x(1))
+                c → min
+        end
+        @test_throws ParsingError o(; backend = backend)
 
        o = @def begin
                 v = (a, b) ∈ R², variable
@@ -798,6 +843,10 @@ function __test_onepass_exa(backend = nothing)
         
         N = 100
         m = o(; grid_size = N, scheme = :euler, backend = backend)
+        @test m isa ExaModels.ExaModel
+        sol = madnlp(m)
+        @test sol.status == MadNLP.SOLVE_SUCCEEDED
+        m = o(; grid_size = N, scheme = :euler_b, backend = backend)
         @test m isa ExaModels.ExaModel
         sol = madnlp(m)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED

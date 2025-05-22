@@ -12,8 +12,6 @@
 # - exa: generated function forbids to use kwarg names (grid_size...) in expressions; could either (i) replace such names in the user code (e.g. prefixing by a gensym...), but not so readable; (ii) throw an explicit error ("grid_size etc. are reserved names")
 # - exa: x = ExaModels.variable($p_ocp, $n / 1:$n...) ?
 # - exa: what about expressions with x(t), not indexed but used as a scalar? should be x[:, ...] in ExaModels? does it occur (sum(x(t)...))
-# - iterators i and j (cf. dyn / lagrange): gensym's!
-# todo: test all constraints bounds (== 1, and 5 ranges)
 
 # Defaults
 
@@ -363,25 +361,35 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
     p.t = t
     p.t0 = t0
     p.tf = tf
+    @match (has(t0, p.v), has(tf, p.v)) begin
+        (false, false) => nothing
+        (true, false) => @match t0 begin
+            :($v1[$i]) && if (v1 == p.v) end => nothing 
+            _ => return __throw("bad time declaration", p.lnum, p.line)
+        end
+        (false, true) => @match tf begin
+            :($v1[$i]) && if (v1 == p.v) end => nothing
+            _ => return __throw("bad time declaration", p.lnum, p.line)
+        end
+        _ => @match (t0, tf) begin
+            (:($v1[$i]), :($v2[$j])) && if (v1 == v2 == p.v) end => nothing
+            _ => return __throw("bad time declaration", p.lnum, p.line)
+        end
+    end
     return parsing(:time)(p, p_ocp, t, t0, tf)
 end
 
 function p_time_fun!(p, p_ocp, t, t0, tf)
     pref = prefix()
     tt = QuoteNode(t)
-    # todo: scalar var aliased to v[1], so some cases below are excluded; move solme part to syntactic pass
     code = @match (has(t0, p.v), has(tf, p.v)) begin
         (false, false) => :($pref.time!($p_ocp; t0=$t0, tf=$tf, time_name=$tt))
         (true, false) => @match t0 begin
             :($v1[$i]) && if (v1 == p.v) end => :($pref.time!($p_ocp; ind0=$i, tf=$tf, time_name=$tt))
-            :($v1) && if (v1 == p.v) &&  (p.dim_v == 1) end => :( $pref.time!($p_ocp; ind0=1, tf=$tf, time_name=$tt) ) # todo: never executed (check!)
-            :($v1) && if (v1 == p.v) && !(p.dim_v == 1) end => return __throw("variable must be of dimension one for a time", p.lnum, p.line) # todo: v1 immplies dim var > 1 => necessary error
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         (false, true) => @match tf begin
             :($v1[$i]) && if (v1 == p.v) end => :($pref.time!($p_ocp; t0=$t0, indf=$i, time_name=$tt))
-            :($v1) && if (v1 == p.v) &&  (p.dim_v == 1) end => :( $pref.time!($p_ocp; t0=$t0, indf=1, time_name=$tt) ) # todo: never executed (check!)
-            :($v1) && if (v1 == p.v) && !(p.dim_v ==1) end => return __throw("variable must be of dimension one for a time", p.lnum, p.line) # todo: move above in common syntactic pass
             _ => return __throw("bad time declaration", p.lnum, p.line)
         end
         _ => @match (t0, tf) begin
@@ -394,23 +402,6 @@ function p_time_fun!(p, p_ocp, t, t0, tf)
 end
 
 function p_time_exa!(p, p_ocp, t, t0, tf)
-    @match (has(t0, p.v), has(tf, p.v)) begin
-        (false, false) => nothing
-        (true, false) => @match t0 begin # todo: should be factored in syntactic pass, see todo's above for :fun
-            :($v1[$i]) && if (v1 == p.v) end => nothing 
-            :($v1) && if (v1 == p.v) && !(p.dim_v == 1) end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
-            _ => return __throw("bad time declaration", p.lnum, p.line)
-        end
-        (false, true) => @match tf begin
-            :($v1[$i]) && if (v1 == p.v) end => nothing
-            :($v1) && if (v1 == p.v) && !(p.dim_v == 1) end => return __throw("variable must be of dimension one for a time", p.lnum, p.line)
-            _ => return __throw("bad time declaration", p.lnum, p.line)
-        end
-        _ => @match (t0, tf) begin
-            (:($v1[$i]), :($v2[$j])) && if (v1 == v2 == p.v) end => nothing
-            _ => return __throw("bad time declaration", p.lnum, p.line)
-        end
-    end
     code = :(($tf - $t0) / grid_size)
     code = __wrap(code, p.lnum, p.line)
     code = :($(p.dt) = $code) # affectation must be done outside try ... catch 
@@ -464,7 +455,9 @@ end
 function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
     code_box = :($(p.l_x) = -Inf * ones($n); $(p.u_x) = Inf * ones($n))
     p.box_x = concat(p.box_x, code_box)
-    code = :(ExaModels.variable($p_ocp, $n, 0:grid_size; lvar = [$(p.l_x)[i] for (i, j) ∈ Base.product(1:$n, 0:grid_size)], uvar = [$(p.u_x)[i] for (i, j) ∈ Base.product(1:$n, 0:grid_size)], start = init[2]))
+    i = __symgen(:i)
+    j = __symgen(:j)
+    code = :(ExaModels.variable($p_ocp, $n, 0:grid_size; lvar = [$(p.l_x)[$i] for ($i, $j) ∈ Base.product(1:$n, 0:grid_size)], uvar = [$(p.u_x)[$i] for ($i, $j) ∈ Base.product(1:$n, 0:grid_size)], start = init[2]))
     code = __wrap(code, p.lnum, p.line)
     code = :($x = $code) # affectation must be done outside try ... catch )
     return code
@@ -515,7 +508,9 @@ end
 function p_control_exa!(p, p_ocp, u, m, uu; components_names=nothing)
     code_box = :($(p.l_u) = -Inf * ones($m); $(p.u_u) = Inf * ones($m))
     p.box_u = concat(p.box_u, code_box) 
-    code = :(ExaModels.variable($p_ocp, $m, 0:grid_size; lvar = [$(p.l_u)[i] for (i, j) ∈ Base.product(1:$m, 0:grid_size)], uvar = [$(p.u_u)[i] for (i, j) ∈ Base.product(1:$m, 0:grid_size)], start = init[3]))
+    i = __symgen(:i)
+    j = __symgen(:j)
+    code = :(ExaModels.variable($p_ocp, $m, 0:grid_size; lvar = [$(p.l_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:grid_size)], uvar = [$(p.u_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:grid_size)], start = init[3]))
     code = __wrap(code, p.lnum, p.line)
     code = :($u = $code) # affectation must be done outside try ... catch )
     return code
@@ -598,9 +593,10 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             end
             code = :(length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")) # (vs. __throw) since raised at runtime
             x0 = __symgen(:x0)
+            i = __symgen(:i)
             e2 = replace_call(e2, p.x, p.t0, x0)
-            e2 = subs3(e2, x0, p.x, :i, 0)
-            concat(code, :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3)))
+            e2 = subs3(e2, x0, p.x, i, 0)
+            concat(code, :(ExaModels.constraint($p_ocp, $e2 for $i ∈ $rg; lcon = $e1, ucon = $e3)))
         end
         (:final, rg) => begin
             if isnothing(rg)
@@ -611,9 +607,10 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             end
             code = :(length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")) # (vs. __throw) since raised at runtime
             xf = __symgen(:xf)
+            i = __symgen(:i)
             e2 = replace_call(e2, p.x, p.tf, xf)
-            e2 = subs3(e2, xf, p.x, :i, :grid_size)
-            concat(code, :(ExaModels.constraint($p_ocp, $e2 for i ∈ $rg; lcon = $e1, ucon = $e3)))
+            e2 = subs3(e2, xf, p.x, i, :grid_size)
+            concat(code, :(ExaModels.constraint($p_ocp, $e2 for $i ∈ $rg; lcon = $e1, ucon = $e3)))
         end
         (:variable_range, rg) => begin
             if isnothing(rg)
@@ -657,10 +654,11 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             ut = __symgen(:ut)
             e2 = replace_call(e2, p.x, p.t, xt)
             e2 = replace_call(e2, p.u, p.t, ut)
-            e2 = subs2(e2, xt, p.x, :j)
-            e2 = subs2(e2, ut, p.u, :j)
-            e2 = subs(e2, p.t, :($(p.t0) + j * $(p.dt)))
-            concat(code, :(ExaModels.constraint($p_ocp, $e2 for j ∈ 0:grid_size; lcon = $e1, ucon = $e3)))
+            j = __symgen(:j)
+            e2 = subs2(e2, xt, p.x, j)
+            e2 = subs2(e2, ut, p.u, j)
+            e2 = subs(e2, p.t, :($(p.t0) + $j * $(p.dt)))
+            concat(code, :(ExaModels.constraint($p_ocp, $e2 for $j ∈ 0:grid_size; lcon = $e1, ucon = $e3)))
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
     end
@@ -724,8 +722,8 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     ut = __symgen(:ut)
     e = replace_call(e, p.x, p.t, xt)
     e = replace_call(e, p.u, p.t, ut)
-    j1 = :j
-    j2 = :(j + 1)
+    j1 = __symgen(:j)
+    j2 = :($j1 + 1)
     ej1 = subs2(e, xt, p.x, j1)
     ej1 = subs2(ej1, ut, p.u, j1)
     ej1 = subs(ej1, p.t, :($(p.t0) + $j1 * $(p.dt)))
@@ -735,11 +733,11 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     dxij = :($(p.x)[$i, $j2]- $(p.x)[$i, $j1])
     code = quote 
         if scheme == :trapezoidal
-            ExaModels.constraint($p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for j ∈ 0:(grid_size - 1))
+            ExaModels.constraint($p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 ∈ 0:(grid_size - 1))
         elseif scheme == :euler
-            ExaModels.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for j ∈ 0:(grid_size - 1))
+            ExaModels.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 ∈ 0:(grid_size - 1))
         elseif scheme == :euler_b
-            ExaModels.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for j ∈ 0:(grid_size - 1))
+            ExaModels.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 ∈ 0:(grid_size - 1))
         else
            throw("unknown numerical scheme") # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
