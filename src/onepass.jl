@@ -1015,7 +1015,7 @@ function def_fun(e, log=false)
     code = concat(code, parse!(p, p_ocp, e; log=log))
     ee = QuoteNode(e)
     code = concat(code, :($pref.definition!($p_ocp, $ee)))
-    #code = concat(code, :($pref.definition!($p_ocp, $ee; autonomous = $p.is_autonomous))) # todo (update CTModels.definition)
+    code = concat(code, :($pref.time_dependence!($p_ocp; autonomous = $p.is_autonomous)))
     code = concat(code, :($pref.build_model($p_ocp)))
     return code
 end
