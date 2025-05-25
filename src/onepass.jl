@@ -719,9 +719,21 @@ function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log=false)
 end
     
 function p_dynamics_coord_fun!(p, p_ocp, x, i, t, e)
-    p.dim_x == 1 || return __throw("dynamics cannot be defined coordinatewise", p.lnum, p.line)
-    i == 1 || return __throw("out of range dynamics index", p.lnum, p.line)
-    return p_dynamics!(p, p_ocp, x, t, e) # i.e. implemented only for scalar case (future, to be completed)
+    pref = prefix()
+    xt = __symgen(:xt)
+    ut = __symgen(:ut)
+    e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
+    fun = __symgen(:fun)
+    r = __symgen(:r)
+    args = [r, p.t, xt, ut, p.v]
+    code = quote
+        function $fun($(args...))
+            @views $r[1] .= $e
+            return nothing
+        end
+        $pref.dynamics!($p_ocp, $i, $fun)
+    end
+    return __wrap(code, p.lnum, p.line)
 end
 
 function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
