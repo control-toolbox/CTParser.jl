@@ -36,6 +36,7 @@ __dynamics(ocp) = to_out_of_place(dynamics(ocp), state_dimension(ocp))
 
 function test_onepass_fun()
 
+    @ignore begin # debug
     # ---------------------------------------------------------------
     # ---------------------------------------------------------------
     @testset "@def o syntax" begin
@@ -809,6 +810,110 @@ function test_onepass_fun()
         @test mayer(o)(y0, yf, z) == y0[1] + y0[4]^3 + z[2] + yf[2]
     end
 
+    end # debug
+    # ---------------------------------------------------------------
+    # ---------------------------------------------------------------
+    @testset "dynamics_coords" begin
+        println("dynamics_coords testset...")
+
+        @def o begin
+            t ∈ [0, 1], time
+            x ∈ R^3, state
+            u ∈ R^2, control
+            ∂(x₁)(t) == x[1](t) + 2u[2](t) 
+            ∂(x₂)(t) == 2x[3](t)
+            ∂(x₃)(t) == x[1](t) + u[2](t) 
+            0 => min # generic (untested)
+        end
+        @test state_dimension(o) == 3
+        @test control_dimension(o) == 2
+        x = [1, 2, 3]
+        u = [-1, 2]
+        @test __dynamics(o)(0, x, u, nothing) == [x[1] + 2u[2], 2x[3], x[1] + u[2]]
+
+        @def o begin
+            z ∈ R², variable
+            s ∈ [0, z₁], time
+            y ∈ R⁴, state
+            w ∈ R, control
+            r = y₃
+            v = y₄
+            aa = y₁
+            ∂(y[1])(s) == aa(s)
+            ∂(y[2])(s) == r(s)^2 + w(s) + z₁
+            ∂(y[3])(s) == 0
+            ∂(y[4])(s) == 0
+            0 => min # generic (untested)
+        end
+        z = [5, 6]
+        y = [1, 2, 3, 4]
+        w = [9]
+        @test __dynamics(o)(0, y, w, z) == [y[1], y[3]^2 + w[1] + z[1], 0, 0]
+
+        @def o begin
+            z ∈ R², variable
+            __s ∈ [0, z₁], time
+            y ∈ R⁴, state
+            w ∈ R, control
+            r = y₃
+            v = y₄
+            aa = y₁(__s)
+            ∂(y[1])(__s) == aa(__s)
+            ∂(y[2])(__s) == r²(__s) + w(__s) + z₁
+            ∂(y[3])(__s) == 0
+            ∂(y[4])(__s) == 0
+            0 => min # generic (untested)
+        end
+        z = [5, 6]
+        y = [1, 2, 3, 4]
+        w = [9]
+        @test_throws MethodError __dynamics(o)(0, y, w, z)
+
+        @def o begin
+            z ∈ R², variable
+            s ∈ [0, z₁], time
+            y ∈ R⁴, state
+            w ∈ R, control
+            r = y₃
+            v = y₄
+            aa = y₁(s) + v^3 + z₂
+            ∂(y[1])(s) == aa(s) + w(s)^2
+            ∂(y[2])(s) == r(s)^2
+            ∂(y[3])(s) == 0
+            ∂(y[4])(s) == 0
+            0 => min # generic (untested)
+        end
+        z = [5, 6]
+        y = [1, 2, 3, 4]
+        y0 = y
+        yf = 3y0
+        ww = [19]
+        @test __dynamics(o)(0, y, ww, z) == [y[1] + ww[1]^2 + y[4]^3 + z[2], y[3]^2, 0, 0]
+
+        @def o begin
+            z ∈ R², variable
+            __t ∈ [0, z₁], time
+            y ∈ R⁴, state
+            w ∈ R, control
+            r = y₃
+            v = y₄
+            aa = y₁(0) + v^3 + z₂
+            ∂(y[1])(__t) == aa(__t) + (w^2)(__t)
+            ∂(y[2])(__t) == r(__t)^2
+            ∂(y[3])(__t) == 0
+            ∂(y[4])(__t) == 0
+            aa(0) + y₂(z₁) → min
+        end
+        z = [5, 6]
+        y = [1, 2, 3, 4]
+        y0 = y
+        yf = 3y0
+        w = [11]
+        @test_throws MethodError __dynamics(o)(0, y, w, z)
+        @test mayer(o)(y0, yf, z) == y0[1] + y0[4]^3 + z[2] + yf[2]
+    end
+
+    @ignore begin # debug
     # ---------------------------------------------------------------
     # ---------------------------------------------------------------
     @testset "constraints" begin
@@ -3021,4 +3126,5 @@ function test_onepass_fun()
 
     end
 
+    end # debug
 end
