@@ -366,15 +366,15 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
         (false, false) => nothing
         (true, false) => @match t0 begin
             :($v1[$i]) && if (v1 == p.v) end => nothing 
-            _ => return __throw("bad time declaration", p.lnum, p.line)
+            _ => return __throw("bad time declaration: $t0", p.lnum, p.line)
         end
         (false, true) => @match tf begin
             :($v1[$i]) && if (v1 == p.v) end => nothing
-            _ => return __throw("bad time declaration", p.lnum, p.line)
+            _ => return __throw("bad time declaration: $tf", p.lnum, p.line)
         end
         _ => @match (t0, tf) begin
             (:($v1[$i]), :($v2[$j])) && if (v1 == v2 == p.v) end => nothing
-            _ => return __throw("bad time declaration", p.lnum, p.line)
+            _ => return __throw("bad time declaration: $t0, $tf", p.lnum, p.line)
         end
     end
     return parsing(:time)(p, p_ocp, t, t0, tf)
@@ -387,16 +387,16 @@ function p_time_fun!(p, p_ocp, t, t0, tf)
         (false, false) => :($pref.time!($p_ocp; t0=$t0, tf=$tf, time_name=$tt))
         (true, false) => @match t0 begin
             :($v1[$i]) && if (v1 == p.v) end => :($pref.time!($p_ocp; ind0=$i, tf=$tf, time_name=$tt))
-            _ => return __throw("bad time declaration", p.lnum, p.line)
+            _ => return __throw("p_time: internal error", p.lnum, p.line) # todo: should not happen, check and remove
         end
         (false, true) => @match tf begin
             :($v1[$i]) && if (v1 == p.v) end => :($pref.time!($p_ocp; t0=$t0, indf=$i, time_name=$tt))
-            _ => return __throw("bad time declaration", p.lnum, p.line)
+            _ => return __throw("p_time: internal error", p.lnum, p.line) # todo: should not happen, check and remove
         end
         _ => @match (t0, tf) begin
             (:($v1[$i]), :($v2[$j])) && if (v1 == v2 == p.v)
             end => :($pref.time!($p_ocp; ind0=$i, indf=$j, time_name=$tt))
-            _ => return __throw("bad time declaration", p.lnum, p.line)
+            _ => return __throw("p_time: internal error", p.lnum, p.line) # todo: should not happen, check and remove
         end
     end
     return __wrap(code, p.lnum, p.line)
@@ -747,7 +747,7 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
         elseif scheme == :euler_b
             ExaModels.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 ∈ 0:(grid_size - 1))
         else
-           throw("unknown numerical scheme") # (vs. __throw) since raised at runtime (and __wrap-ped)
+           throw("unknown numerical scheme: $scheme") # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
     end
     return __wrap(code, p.lnum, p.line)
@@ -799,7 +799,7 @@ function p_lagrange_exa!(p, p_ocp, e, type)
         elseif scheme == :euler_b
             ExaModels.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 1:grid_size)
         else
-           throw("unknown numerical scheme") # (vs. __throw) since raised at runtime (and __wrap-ped)
+           throw("unknown numerical scheme: $scheme") # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
     end
     return __wrap(code, p.lnum, p.line)
@@ -1015,7 +1015,7 @@ function def_fun(e, log=false)
     code = concat(code, parse!(p, p_ocp, e; log=log))
     ee = QuoteNode(e)
     code = concat(code, :($pref.definition!($p_ocp, $ee)))
-    #code = concat(code, :($pref.definition!($p_ocp, $ee; autonomous = $p.is_autonomous))) # todo (update CTModels.definition)
+    code = concat(code, :($pref.time_dependence!($p_ocp; autonomous = $p.is_autonomous)))
     code = concat(code, :($pref.build_model($p_ocp)))
     return code
 end
