@@ -728,7 +728,7 @@ function p_dynamics_coord_fun!(p, p_ocp, x, i, t, e)
     args = [r, p.t, xt, ut, p.v]
     code = quote
         function $fun($(args...))
-            @views $r[1] .= $e
+            @views $r .= $e
             return nothing
         end
         $pref.dynamics!($p_ocp, $i, $fun)
