@@ -491,6 +491,25 @@ function __test_onepass_exa(backend = nothing)
 
         o = @def begin
                 t ∈ [0, 1], time
+                x ∈ R⁴, state
+                u ∈ R⁵, control
+                ∂(x[1:5])(t) == x₁(t) # not an integer
+                x₁(0) + 2cos(x₂(1)) → min
+        end
+        @test_throws ParsingError o(; backend = backend)
+
+        i = 1
+        o = @def begin
+                t ∈ [0, 1], time
+                x ∈ R⁴, state
+                u ∈ R⁵, control
+                ∂(x[i])(t) == x₁(t) # not an integer
+                x₁(0) + 2cos(x₂(1)) → min
+        end
+        @test_throws ParsingError o(; backend = backend)
+
+        o = @def begin
+                t ∈ [0, 1], time
                 x ∈ R, state
                 u ∈ R⁵, control
                 x(t) + u₂(t) + t == 1

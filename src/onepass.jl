@@ -728,7 +728,7 @@ function p_dynamics_coord_fun!(p, p_ocp, x, i, t, e)
     args = [r, p.t, xt, ut, p.v]
     code = quote
         function $fun($(args...))
-            @views $r[1] = $e
+            @views $r[:] .= $e # note that i can be a full range (allowed for :fun in CTModels, not for :exa)
             return nothing
         end
         $pref.dynamics!($p_ocp, $i, $fun)
@@ -737,6 +737,7 @@ function p_dynamics_coord_fun!(p, p_ocp, x, i, t, e)
 end
 
 function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
+    i isa Integer || return __throw("dynamics coordinate $i should be an integer", p.lnum, p.line)
     i ∈ p.dyn_coords && return __throw("dynamics coordinate $i already defined", p.lnum, p.line)
     append!(p.dyn_coords, i)
     xt = __symgen(:xt)
