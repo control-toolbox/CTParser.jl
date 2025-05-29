@@ -909,6 +909,28 @@ function test_onepass_fun()
         w = [11]
         @test_throws MethodError __dynamics(o)(0, y, w, z)
         @test mayer(o)(y0, yf, z) == y0[1] + y0[4]^3 + z[2] + yf[2]
+
+        @def o begin
+            z ∈ R², variable
+            s ∈ [0, z₁], time
+            y ∈ R⁹, state
+            w ∈ R, control
+            r = y₃
+            v = y₄
+            aa = y₁
+            ∂(y[1])(s) == aa(s)
+            ∂(y[2:3])(s) == [r(s)^2 + w(s) + z₁, 0]
+            ∂(y[4:6])(s) == [y₁(s), y₂(s), 3]
+            ∂(y[7:7])(s) == [4]
+            ∂(y[8:8])(s) == 5
+            ∂(y[9])(s) == [6]
+            0 => min # generic (untested)
+        end
+        z = [5, 6]
+        y = [1, 2, 3, 4, 5, 6, 7, 8]
+        w = [9]
+        @test __dynamics(o)(0, y, w, z) == [y[1], y[3]^2 + w[1] + z[1], 0, y[1], y[2], 3, 4, 5, 6]
+
     end
 
     # ---------------------------------------------------------------
