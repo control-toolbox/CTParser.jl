@@ -2730,7 +2730,7 @@ function test_onepass_fun()
         # this one is detected by the generated code (and not the parser)
         t0 = 9.0
         tf = 9.1
-        @test_throws Exception @def o begin # was CTException
+        @test_throws UnauthorizedCall @def o begin
             t ∈ [t0, tf], time
             t ∈ [t0, tf], time
         end
@@ -3006,32 +3006,23 @@ function test_onepass_fun()
             t ∈ [0, 1], time
             x ∈ R, state
             u ∈ R², control
-            derivative(x[2])(t) == t * x(t) + u₁(t) # should not parse! 
+            derivative(x[2])(t) == t * x(t) + u₁(t) # out of range
             1 → min 
         end
 
-        @test_throws ParsingError @def begin
+        @test_throws UnauthorizedCall @def begin
             t ∈ [0, 1], time
             x ∈ R², state
             u ∈ R², control
-            derivative(x[1])(t) == t * x[1](t) + u₁(t) # should not (yet) parse! 
+            derivative(x[1])(t) == t * x[1](t) + u₁(t) # incomplete
             1 → min 
         end
 
-        @test_throws ParsingError @def begin
+        @test_throws UnauthorizedCall @def begin
             t ∈ [0, 1], time
-            x ∈ R², state
+            x ∈ R³, state
             u ∈ R², control
-            derivative(x[2])(t) == t * x[1](t) + u₁(t) # should not (yet) parse! 
-            1 → min 
-        end
-
-        @test_throws ParsingError @def begin
-            t ∈ [0, 1], time
-            x ∈ R², state
-            u ∈ R², control
-            derivative(x[1])(t) == t * x[1](t) + u₁(t) # should not (yet) parse! 
-            derivative(x[2])(t) == t * x[1](t) + u₁(t) # should not (yet) parse! 
+            derivative(x[1:2])(t) == t * x[1](t) + u₁(t) # incomplete 
             1 → min 
         end
 
