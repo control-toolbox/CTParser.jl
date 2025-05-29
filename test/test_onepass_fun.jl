@@ -36,7 +36,6 @@ __dynamics(ocp) = to_out_of_place(dynamics(ocp), state_dimension(ocp))
 
 function test_onepass_fun()
 
-    @ignore begin # debug
     # ---------------------------------------------------------------
     # ---------------------------------------------------------------
     @testset "@def o syntax" begin
@@ -810,7 +809,6 @@ function test_onepass_fun()
         @test mayer(o)(y0, yf, z) == y0[1] + y0[4]^3 + z[2] + yf[2]
     end
 
-    end # debug
     # ---------------------------------------------------------------
     # ---------------------------------------------------------------
     @testset "dynamics_coords" begin
@@ -913,7 +911,6 @@ function test_onepass_fun()
         @test mayer(o)(y0, yf, z) == y0[1] + y0[4]^3 + z[2] + yf[2]
     end
 
-    @ignore begin # debug
     # ---------------------------------------------------------------
     # ---------------------------------------------------------------
     @testset "constraints" begin
@@ -3126,5 +3123,4 @@ function test_onepass_fun()
 
     end
 
-    end # debug
 end
