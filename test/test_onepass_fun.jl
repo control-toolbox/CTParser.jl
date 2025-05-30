@@ -1,5 +1,5 @@
 # test onepass, functional parsing (aka CTModels primitives)
-# todo: test non-autonomous and / or variable __dynamics, __constraint
+# todo:
  
 parsing_backend!(:fun)
 
