@@ -898,7 +898,7 @@ function p_bolza_exa!(p, p_ocp, e1, e2, type)
     return concat(code1, code2)
 end
 
-# Summary of available parsing options
+# Summary of available parsing subfunctions (:fun backend)
 
 const PARSING_FUN = OrderedDict{Symbol, Function}()
 PARSING_FUN[:pragma] = p_pragma_fun!
@@ -913,6 +913,8 @@ PARSING_FUN[:dynamics_coord] = p_dynamics_coord_fun!
 PARSING_FUN[:lagrange] = p_lagrange_fun!
 PARSING_FUN[:mayer] = p_mayer_fun!
 PARSING_FUN[:bolza] = p_bolza_fun!
+
+# Summary of available parsing subfunctions (:fun backend)
 
 const PARSING_EXA = OrderedDict{Symbol, Function}()
 PARSING_EXA[:pragma] = p_pragma_exa!
@@ -933,6 +935,44 @@ const PARSING_BACKENDS = (:fun, :exa) # known parsing backends
 const PARSING_DIR = OrderedDict{Symbol, OrderedDict{Symbol, Function}}()
 PARSING_DIR[:fun] = PARSING_FUN
 PARSING_DIR[:exa] = PARSING_EXA
+
+const ACTIVE_PARSING_BACKENDS = OrderedDict{Symbol,Bool}()
+ACTIVE_PARSING_BACKENDS[:fun] = true
+ACTIVE_PARSING_BACKENDS[:exa] = false # default is only :fun active
+
+"""
+$(TYPEDSIGNATURES)
+
+Activate parsing backend. Possible choices: `:exa`.
+"""
+function activate_backend(backend)
+    backend ∈ PARSING_BACKENDS || throw("unknown parsing backend")
+    backend == :fun && throw("backend :fun is always active")
+    ACTIVE_PARSING_BACKENDS[backend] = true
+    return nothing 
+end 
+
+"""
+$(TYPEDSIGNATURES)
+
+Deactivate parsing backend. Possible choices: `:exa`.
+"""
+function deactivate_backend(backend)
+    backend ∈ PARSING_BACKENDS || throw("unknown parsing backend")
+    backend == :fun && throw("backend :fun is always active")
+    ACTIVE_PARSING_BACKENDS[backend] = false
+    return nothing 
+end 
+
+"""
+$(TYPEDSIGNATURES)
+
+Check whether backend is active or not.
+"""
+function is_active_backend(backend)
+    backend ∈ PARSING_BACKENDS || throw("unknown parsing backend")
+    return ACTIVE_PARSING_BACKENDS[backend]
+end 
 
 """
 $(TYPEDSIGNATURES)
@@ -1025,7 +1065,14 @@ function def_fun(e; log = false)
     ee = QuoteNode(e)
     code = concat(code, :($pref.definition!($p_ocp, $ee)))
     code = concat(code, :($pref.time_dependence!($p_ocp; autonomous = $p.is_autonomous)))
-    code = concat(code, :($pref.build_model($p_ocp)))
+    if is_active_backend(:exa)
+        f_exa = __symgen(:f_exa) # debug: use quote with local f_exa...?
+        code_exa = def_exa(e; log = log)
+        code = concat(code, :($f_exa = $code_exa))
+        code = concat(code, :($pref.build_model($p_ocp; f_exa = $f_exa)))
+    else
+        code = concat(code, :($pref.build_model($p_ocp)))
+    end
     return code
 end
 

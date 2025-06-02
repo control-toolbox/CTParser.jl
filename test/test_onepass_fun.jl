@@ -33,6 +33,8 @@ __dynamics(ocp) = to_out_of_place(dynamics(ocp), state_dimension(ocp))
 
 function test_onepass_fun()
 
+    @ignore begin # debug
+
     # ---------------------------------------------------------------
     # ---------------------------------------------------------------
     @testset "@def o syntax" begin
@@ -3127,9 +3129,28 @@ function test_onepass_fun()
 
     end
 
-    @testset "pragma" begin
+    test_name = "pragma"
+    @testset "$test_name" begin println(test_name)
 
         @test_throws ParsingError @def PRAGMA(println("foo"))
+
+    end
+
+    end # debug
+
+    test_name = "parsing_backends"
+    @testset "$test_name" begin println(test_name)
+
+        @test is_active_backend(:fun)
+        @test !is_active_backend(:exa) # testing default
+        activate_backend(:exa)
+        @test is_active_backend(:exa)
+        deactivate_backend(:exa)
+        @test !is_active_backend(:exa)
+        @test_throws String activate_backend(:fun) 
+        @test_throws String deactivate_backend(:fun)
+        @test_throws String activate_backend(:foo) 
+        @test_throws String deactivate_backend(:foo) 
 
     end
 
