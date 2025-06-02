@@ -33,8 +33,6 @@ __dynamics(ocp) = to_out_of_place(dynamics(ocp), state_dimension(ocp))
 
 function test_onepass_fun()
 
-    @ignore begin # debug
-
     # ---------------------------------------------------------------
     # ---------------------------------------------------------------
     @testset "@def o syntax" begin
@@ -3132,11 +3130,17 @@ function test_onepass_fun()
     test_name = "pragma"
     @testset "$test_name" begin println(test_name)
 
-        @test_throws ParsingError @def PRAGMA(println("foo"))
+        o = @def begin
+            PRAGMA(println("foo"))
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            derivative(x)(t) == t * u[1](t) * x(t)
+            1 → min 
+        end
+        @test o isa CTModels.Model 
 
     end
-
-    end # debug
 
     test_name = "parsing_backends"
     @testset "$test_name" begin println(test_name)

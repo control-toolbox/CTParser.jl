@@ -271,7 +271,7 @@ end
 
 function p_pragma_fun!(p, p_ocp, e)
     ee = QuoteNode(e)
-    code = :(LineNumberNode(0, "PRAGMA (only for :exa): $ee")) # todo: implement in :fun if returning function
+    code = :(LineNumberNode(0, "PRAGMA (inactive): " * string($ee))) # todo: implement in :fun if returning function
     return __wrap(code, p.lnum, p.line)
 end
 
