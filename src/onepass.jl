@@ -1071,10 +1071,14 @@ function def_fun(e; log = false)
     p_ocp = __symgen(:p_ocp)
     p = ParsingInfo()
     ee = QuoteNode(e)
-    code = :($p_ocp = $pref.PreModel()) # debug: replace with quote
-    code = concat(code, parse!(p, p_ocp, e; log = log, backend = :fun))
-    code = concat(code, :($pref.definition!($p_ocp, $ee)))
-    code = concat(code, :($pref.time_dependence!($p_ocp; autonomous = $p.is_autonomous)))
+    code = parse!(p, p_ocp, e; log = log, backend = :fun)
+    code = quote
+        $p_ocp = $pref.PreModel()
+        $code
+        $pref.definition!($p_ocp, $ee)
+        $pref.time_dependence!($p_ocp; autonomous = $p.is_autonomous)
+    end
+
     if is_active_backend(:exa)
         build_exa = def_exa(e; log = log)
         code = concat(code, :($pref.build($p_ocp, build_examodel = $build_exa)))
