@@ -93,7 +93,7 @@ __init_aliases(; max_dim=20) = begin
     return al
 end
 
-# for static (= not in generated code evaluated at run time) errors; should only appear in syntactic analysis
+# for static (= not in generated code evaluated at run time) errors; should only appear in syntactic and semantic analysis
 __throw(mess, n, line) = begin
     e_pref = e_prefix()
     info = string("\nLine ", n, ": ", line, "\n", mess)
@@ -504,7 +504,7 @@ function p_control_exa!(p, p_ocp, u, m, uu; components_names=nothing)
     j = __symgen(:j)
     code = :(ExaModels.variable($p_ocp, $m, 0:grid_size; lvar = [$(p.l_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:grid_size)], uvar = [$(p.u_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:grid_size)], start = init[3]))
     code = __wrap(code, p.lnum, p.line)
-    code = :($u = $code) # affectation must be done outside try ... catch )
+    code = :($u = $code) # affectation must be done outside try ... catch
     return code
 end
 
@@ -692,7 +692,7 @@ function p_dynamics_fun!(p, p_ocp, x, t, e)
 end
 
 function p_dynamics_exa!(p, p_ocp, x, t, e)
-    return __throw("dynamics must be defined coordinatewise", p.lnum, p.line) # note: scalar case is redirected before to coordinatewise case
+    return __throw("dynamics must be defined coordinatewise", p.lnum, p.line) # note: scalar case is redirected before coordinatewise case
 end
 
 function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log = false, backend = __default_parsing_backend())
@@ -1051,6 +1051,16 @@ macro def(ocp, e, log=false) # old syntax with ocp name in arguments for compati
     end
 end
 
+# only used internally to test errors that are otherwise captured by :fun before being captured by :exa parsing
+macro def_exa(e)
+    try
+        code = def_exa(e)
+        return esc(code)
+    catch ex
+        :(throw($ex)) # can be caught by user
+    end
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -1059,22 +1069,15 @@ Core computation of `@def` macro, parsing an expression towards a CTModels.Model
 function def_fun(e; log = false)
     pref = prefix()
     p_ocp = __symgen(:p_ocp)
-    code = :($p_ocp = $pref.PreModel())
     p = ParsingInfo()
-    code = concat(code, parse!(p, p_ocp, e; log = log, backend = :fun))
     ee = QuoteNode(e)
+    code = :($p_ocp = $pref.PreModel()) # debug: replace with quote
+    code = concat(code, parse!(p, p_ocp, e; log = log, backend = :fun))
     code = concat(code, :($pref.definition!($p_ocp, $ee)))
     code = concat(code, :($pref.time_dependence!($p_ocp; autonomous = $p.is_autonomous)))
-    println("**** is_active_backend(:exa) = ", is_active_backend(:exa)) # debug
     if is_active_backend(:exa)
-        f_exa = __symgen(:f_exa)
-        code_exa = def_exa(e; log = log)
-        code = quote
-            $code
-            let $f_exa = $code_exa
-                $pref.build($p_ocp; build_examodel = $f_exa)
-            end
-        end
+        build_exa = def_exa(e; log = log)
+        code = concat(code, :($pref.build($p_ocp, build_examodel = $build_exa)))
     else
         code = concat(code, :($pref.build($p_ocp)))
     end
