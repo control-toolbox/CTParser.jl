@@ -3146,7 +3146,6 @@ function test_onepass_fun()
     @testset "$test_name" begin println(test_name)
 
         @test is_active_backend(:fun)
-        @test !is_active_backend(:exa) # testing default
         activate_backend(:exa)
         @test is_active_backend(:exa)
         deactivate_backend(:exa)

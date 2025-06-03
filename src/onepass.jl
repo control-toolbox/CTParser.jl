@@ -15,7 +15,7 @@
 
 # Defaults
 
-__default_parsing_backend() = :debug # to ensure the default is currently not used
+__default_parsing_backend() = :fun
 __default_scheme_exa() = :trapezoidal
 __default_grid_size_exa() = 200
 __default_backend_exa() = nothing
@@ -1065,11 +1065,16 @@ function def_fun(e; log = false)
     ee = QuoteNode(e)
     code = concat(code, :($pref.definition!($p_ocp, $ee)))
     code = concat(code, :($pref.time_dependence!($p_ocp; autonomous = $p.is_autonomous)))
+    println("**** is_active_backend(:exa) = ", is_active_backend(:exa)) # debug
     if is_active_backend(:exa)
-        f_exa = __symgen(:f_exa) # debug: use quote with local f_exa...?
+        f_exa = __symgen(:f_exa)
         code_exa = def_exa(e; log = log)
-        code = concat(code, :($f_exa = $code_exa))
-        code = concat(code, :($pref.build($p_ocp; f_exa = $f_exa)))
+        code = quote
+            $code
+            let $f_exa = $code_exa
+                $pref.build($p_ocp; build_examodel = $f_exa)
+            end
+        end
     else
         code = concat(code, :($pref.build($p_ocp)))
     end
