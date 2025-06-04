@@ -1,8 +1,8 @@
 using Test
 using Aqua
-import CTParser: CTParser, subs, subs2, subs3, subs4, replace_call, has, concat, constraint_type, parsing_backend!, prefix!, e_prefix!, @def
+import CTParser: CTParser, subs, subs2, subs3, subs4, replace_call, has, concat, constraint_type, prefix!, e_prefix!, @def, activate_backend, deactivate_backend, is_active_backend, @def_exa, __default_scheme_exa, __default_grid_size_exa, __default_backend_exa, __default_init_exa, __default_base_type_exa # todo: remove __default... (as soon as discretise_exa has been moved to CTDirect)
 import CTBase: CTBase, ParsingError, UnauthorizedCall
-import CTModels: CTModels, initial_time, final_time, time_name, variable_dimension, variable_components, variable_name, state_dimension, state_components, state_name, control_dimension, control_components, control_name, constraint, dynamics, mayer, lagrange, criterion, Model
+import CTModels: CTModels, initial_time, final_time, time_name, variable_dimension, variable_components, variable_name, state_dimension, state_components, state_name, control_dimension, control_components, control_name, constraint, dynamics, mayer, lagrange, criterion, Model, get_build_examodel
 import ExaModels
 using MadNLP
 using MadNLPGPU

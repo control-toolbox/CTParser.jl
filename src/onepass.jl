@@ -1,5 +1,5 @@
 # onepass
-# todo: check todo's
+# todo:
 # - as_range / as_vector for rg / lb, ub could be done here in p_constraint when calling PREFIX.constraint!
 # - cannot call solve if problem not fully defined (dynamics not defined...)
 # - doc: explain projections wrt to t0, tf, t; (...x1...x2...)(t) -> ...gensym1...gensym2... (most internal first)
@@ -15,7 +15,7 @@
 
 # Defaults
 
-__default_parsing_backend() = 1 # :fun
+__default_parsing_backend() = :fun
 __default_scheme_exa() = :trapezoidal
 __default_grid_size_exa() = 200
 __default_backend_exa() = nothing
@@ -23,17 +23,6 @@ __default_init_exa() = (0.1, 0.1, 0.1) # default init for v, x, u
 __default_base_type_exa() = Float64 
 
 # Modules vars 
-
-const PARSING_BACKENDS = (:fun, :exa) # known parsing backends
-const PARSING_BACKEND = Ref(__default_parsing_backend())
-
-parsing_backend() = PARSING_BACKENDS[PARSING_BACKEND[]]
-
-function parsing_backend!(b)
-    b ∈ PARSING_BACKENDS || throw("unknown parsing backend")
-    PARSING_BACKEND[] = findall(x -> x == b, PARSING_BACKENDS)[1] 
-    return nothing
-end
 
 const PREFIX = Ref(:OptimalControl) # prefix for generated code, assumed to be evaluated within OptimalControl.jl; can be CTModel for tests
 
@@ -104,7 +93,7 @@ __init_aliases(; max_dim=20) = begin
     return al
 end
 
-# for static (= not in generated code evaluated at run time) errors; should only appear in syntactic analysis
+# for static (= not in generated code evaluated at run time) errors; should only appear in syntactic and semantic analysis
 __throw(mess, n, line) = begin
     e_pref = e_prefix()
     info = string("\nLine ", n, ": ", line, "\n", mess)
@@ -138,7 +127,7 @@ Parse the expression `e` and update the `ParsingInfo` structure `p`.
 parse!(p, :p_ocp, :(v ∈ R, variable))
 ```
 """
-parse!(p, p_ocp, e; log=false) = begin
+parse!(p, p_ocp, e; log = false, backend = __default_parsing_backend()) = begin
     #
     p.lnum = p.lnum + 1
     p.line = string(e)
@@ -148,117 +137,117 @@ parse!(p, p_ocp, e; log=false) = begin
     #
     @match e begin
         # PRAGMA
-        :(PRAGMA($e)) => p_pragma!(p, p_ocp, e; log)
+        :(PRAGMA($e)) => p_pragma!(p, p_ocp, e; log, backend)
         # aliases
         :($a = $e1) => @match e1 begin
             :(($names) ∈ R^$q, variable) =>
-                p_variable!(p, p_ocp, a, q; components_names=names, log)
+                p_variable!(p, p_ocp, a, q; components_names=names, log, backend)
             :([$names] ∈ R^$q, variable) =>
-                p_variable!(p, p_ocp, a, q; components_names=names, log)
+                p_variable!(p, p_ocp, a, q; components_names=names, log, backend)
             :(($names) ∈ R^$n, state) =>
-                p_state!(p, p_ocp, a, n; components_names=names, log)
+                p_state!(p, p_ocp, a, n; components_names=names, log, backend)
             :([$names] ∈ R^$n, state) =>
-                p_state!(p, p_ocp, a, n; components_names=names, log)
+                p_state!(p, p_ocp, a, n; components_names=names, log, backend)
             :(($names) ∈ R^$m, control) =>
-                p_control!(p, p_ocp, a, m; components_names=names, log)
+                p_control!(p, p_ocp, a, m; components_names=names, log, backend)
             :([$names] ∈ R^$m, control) =>
-                p_control!(p, p_ocp, a, m; components_names=names, log)
-            _ => p_alias!(p, p_ocp, a, e1; log) # alias
+                p_control!(p, p_ocp, a, m; components_names=names, log, backend)
+            _ => p_alias!(p, p_ocp, a, e1; log, backend) # alias
         end
         # variable                    
-        :($v ∈ R^$q, variable) => p_variable!(p, p_ocp, v, q; log)
-        :($v ∈ R, variable) => p_variable!(p, p_ocp, v, 1; log)
+        :($v ∈ R^$q, variable) => p_variable!(p, p_ocp, v, q; log, backend)
+        :($v ∈ R, variable) => p_variable!(p, p_ocp, v, 1; log, backend)
         # time                        
-        :($t ∈ [$t0, $tf], time) => p_time!(p, p_ocp, t, t0, tf; log)
+        :($t ∈ [$t0, $tf], time) => p_time!(p, p_ocp, t, t0, tf; log, backend)
         # state                       
-        :($x ∈ R^$n, state) => p_state!(p, p_ocp, x, n; log)
-        :($x ∈ R, state) => p_state!(p, p_ocp, x, 1; log)
+        :($x ∈ R^$n, state) => p_state!(p, p_ocp, x, n; log, backend)
+        :($x ∈ R, state) => p_state!(p, p_ocp, x, 1; log, backend)
         # control                     
-        :($u ∈ R^$m, control) => p_control!(p, p_ocp, u, m; log)
-        :($u ∈ R, control) => p_control!(p, p_ocp, u, 1; log)
+        :($u ∈ R^$m, control) => p_control!(p, p_ocp, u, m; log, backend)
+        :($u ∈ R, control) => p_control!(p, p_ocp, u, 1; log, backend)
         # dynamics                    
-        :(∂($x[$i])($t) == $e1) => p_dynamics_coord!(p, p_ocp, x, i, t, e1; log) # must be filtered before ∂($x)($t) pattern
-        :(∂($x[$i])($t) == $e1, $label) => p_dynamics_coord!(p, p_ocp, x, i, t, e1, label; log)
-        :(∂($x)($t) == $e1) => p_dynamics!(p, p_ocp, x, t, e1; log)
-        :(∂($x)($t) == $e1, $label) => p_dynamics!(p, p_ocp, x, t, e1, label; log)
+        :(∂($x[$i])($t) == $e1) => p_dynamics_coord!(p, p_ocp, x, i, t, e1; log, backend) # must be filtered before ∂($x)($t) pattern
+        :(∂($x[$i])($t) == $e1, $label) => p_dynamics_coord!(p, p_ocp, x, i, t, e1, label; log, backend)
+        :(∂($x)($t) == $e1) => p_dynamics!(p, p_ocp, x, t, e1; log, backend)
+        :(∂($x)($t) == $e1, $label) => p_dynamics!(p, p_ocp, x, t, e1, label; log, backend)
         # constraints                 
-        :($e1 == $e2) => p_constraint!(p, p_ocp, e2, e1, e2; log)
-        :($e1 == $e2, $label) => p_constraint!(p, p_ocp, e2, e1, e2, label; log)
-        :($e1 ≤ $e2 ≤ $e3) => p_constraint!(p, p_ocp, e1, e2, e3; log)
-        :($e1 ≤ $e2 ≤ $e3, $label) => p_constraint!(p, p_ocp, e1, e2, e3, label; log)
-        :($e2 ≤ $e3) => p_constraint!(p, p_ocp, nothing, e2, e3; log)
-        :($e2 ≤ $e3, $label) => p_constraint!(p, p_ocp, nothing, e2, e3, label; log)
-        :($e3 ≥ $e2 ≥ $e1) => p_constraint!(p, p_ocp, e1, e2, e3; log)
-        :($e3 ≥ $e2 ≥ $e1, $label) => p_constraint!(p, p_ocp, e1, e2, e3, label; log)
-        :($e2 ≥ $e1) => p_constraint!(p, p_ocp, e1, e2, nothing; log)
-        :($e2 ≥ $e1, $label) => p_constraint!(p, p_ocp, e1, e2, nothing, label; log)
+        :($e1 == $e2) => p_constraint!(p, p_ocp, e2, e1, e2; log, backend)
+        :($e1 == $e2, $label) => p_constraint!(p, p_ocp, e2, e1, e2, label; log, backend)
+        :($e1 ≤ $e2 ≤ $e3) => p_constraint!(p, p_ocp, e1, e2, e3; log, backend)
+        :($e1 ≤ $e2 ≤ $e3, $label) => p_constraint!(p, p_ocp, e1, e2, e3, label; log, backend)
+        :($e2 ≤ $e3) => p_constraint!(p, p_ocp, nothing, e2, e3; log, backend)
+        :($e2 ≤ $e3, $label) => p_constraint!(p, p_ocp, nothing, e2, e3, label; log, backend)
+        :($e3 ≥ $e2 ≥ $e1) => p_constraint!(p, p_ocp, e1, e2, e3; log, backend)
+        :($e3 ≥ $e2 ≥ $e1, $label) => p_constraint!(p, p_ocp, e1, e2, e3, label; log, backend)
+        :($e2 ≥ $e1) => p_constraint!(p, p_ocp, e1, e2, nothing; log, backend)
+        :($e2 ≥ $e1, $label) => p_constraint!(p, p_ocp, e1, e2, nothing, label; log, backend)
         # lagrange cost
-        :(∫($e1) → min) => p_lagrange!(p, p_ocp, e1, :min; log)
-        :(-∫($e1) → min) => p_lagrange!(p, p_ocp, :(-$e1), :min; log)
+        :(∫($e1) → min) => p_lagrange!(p, p_ocp, e1, :min; log, backend)
+        :(-∫($e1) → min) => p_lagrange!(p, p_ocp, :(-$e1), :min; log, backend)
         :($e1 * ∫($e2) → min) => if has(e1, p.t) # this test (and those similar below) is here to allow reduction to p_lagrange! standard call
             (return __throw("time $(p.t) must not appear in $e1", p.lnum, p.line)) 
         else
-            p_lagrange!(p, p_ocp, :($e1 * $e2), :min; log)
+            p_lagrange!(p, p_ocp, :($e1 * $e2), :min; log, backend)
         end
-        :(∫($e1) → max) => p_lagrange!(p, p_ocp, e1, :max; log)
-        :(-∫($e1) → max) => p_lagrange!(p, p_ocp, :(-$e1), :max; log)
+        :(∫($e1) → max) => p_lagrange!(p, p_ocp, e1, :max; log, backend)
+        :(-∫($e1) → max) => p_lagrange!(p, p_ocp, :(-$e1), :max; log, backend)
         :($e1 * ∫($e2) → max) => if has(e1, p.t)
             (return __throw("time $(p.t) must not appear in $e1", p.lnum, p.line))
         else
-            p_lagrange!(p, p_ocp, :($e1 * $e2), :max; log)
+            p_lagrange!(p, p_ocp, :($e1 * $e2), :max; log, backend)
         end
         # bolza cost
-        :($e1 + ∫($e2) → min) => p_bolza!(p, p_ocp, e1, e2, :min; log)
+        :($e1 + ∫($e2) → min) => p_bolza!(p, p_ocp, e1, e2, :min; log, backend)
         :($e1 + $e2 * ∫($e3) → min) => if has(e2, p.t)
             (return __throw("time $(p.t) must not appear in $e2", p.lnum, p.line))
         else
-            p_bolza!(p, p_ocp, e1, :($e2 * $e3), :min; log)
+            p_bolza!(p, p_ocp, e1, :($e2 * $e3), :min; log, backend)
         end
-        :($e1 - ∫($e2) → min) => p_bolza!(p, p_ocp, e1, :(-$e2), :min; log)
+        :($e1 - ∫($e2) → min) => p_bolza!(p, p_ocp, e1, :(-$e2), :min; log, backend)
         :($e1 - $e2 * ∫($e3) → min) => if has(e2, p.t)
             (return __throw("time $(p.t) must not appear in $e2", p.lnum, p.line))
         else
-            p_bolza!(p, p_ocp, e1, :(-$e2 * $e3), :min; log)
+            p_bolza!(p, p_ocp, e1, :(-$e2 * $e3), :min; log, backend)
         end
-        :($e1 + ∫($e2) → max) => p_bolza!(p, p_ocp, e1, e2, :max; log)
+        :($e1 + ∫($e2) → max) => p_bolza!(p, p_ocp, e1, e2, :max; log, backend)
         :($e1 + $e2 * ∫($e3) → max) => if has(e2, p.t)
             (return __throw("time $(p.t) must not appear in $e2", p.lnum, p.line))
         else
-            p_bolza!(p, p_ocp, e1, :($e2 * $e3), :max; log)
+            p_bolza!(p, p_ocp, e1, :($e2 * $e3), :max; log, backend)
         end
-        :($e1 - ∫($e2) → max) => p_bolza!(p, p_ocp, e1, :(-$e2), :max; log)
+        :($e1 - ∫($e2) → max) => p_bolza!(p, p_ocp, e1, :(-$e2), :max; log, backend)
         :($e1 - $e2 * ∫($e3) → max) => if has(e2, p.t)
             (return __throw("time $(p.t) must not appear in $e2", p.lnum, p.line))
         else
-            p_bolza!(p, p_ocp, e1, :(-$e2 * $e3), :max; log)
+            p_bolza!(p, p_ocp, e1, :(-$e2 * $e3), :max; log, backend)
         end
-        :(∫($e2) + $e1 → min) => p_bolza!(p, p_ocp, e1, e2, :min; log)
+        :(∫($e2) + $e1 → min) => p_bolza!(p, p_ocp, e1, e2, :min; log, backend)
         :($e2 * ∫($e3) + $e1 → min) => if has(e2, p.t)
             (return __throw("time $(p.t) must not appear in $e2", p.lnum, p.line))
         else
-            p_bolza!(p, p_ocp, e1, :($e2 * $e3), :min; log)
+            p_bolza!(p, p_ocp, e1, :($e2 * $e3), :min; log, backend)
         end
-        :(∫($e2) - $e1 → min) => p_bolza!(p, p_ocp, :(-$e1), e2, :min; log)
+        :(∫($e2) - $e1 → min) => p_bolza!(p, p_ocp, :(-$e1), e2, :min; log, backend)
         :($e2 * ∫($e3) - $e1 → min) => if has(e2, p.t)
             (return __throw("time $(p.t) must not appear in $e2", p.lnum, p.line))
         else
-            p_bolza!(p, p_ocp, :(-$e1), :($e2 * $e3), :min; log)
+            p_bolza!(p, p_ocp, :(-$e1), :($e2 * $e3), :min; log, backend)
         end
-        :(∫($e2) + $e1 → max) => p_bolza!(p, p_ocp, e1, e2, :max; log)
+        :(∫($e2) + $e1 → max) => p_bolza!(p, p_ocp, e1, e2, :max; log, backend)
         :($e2 * ∫($e3) + $e1 → max) => if has(e2, p.t)
             (return __throw("time $(p.t) must not appear in $e2", p.lnum, p.line))
         else
-            p_bolza!(p, p_ocp, e1, :($e2 * $e3), :max; log)
+            p_bolza!(p, p_ocp, e1, :($e2 * $e3), :max; log, backend)
         end
-        :(∫($e2) - $e1 → max) => p_bolza!(p, p_ocp, :(-$e1), e2, :max; log)
+        :(∫($e2) - $e1 → max) => p_bolza!(p, p_ocp, :(-$e1), e2, :max; log, backend)
         :($e2 * ∫($e3) - $e1 → max) => if has(e2, p.t)
             (return __throw("time $(p.t) must not appear in $e2", p.lnum, p.line))
         else
-            p_bolza!(p, p_ocp, :(-$e1), :($e2 * $e3), :max; log)
+            p_bolza!(p, p_ocp, :(-$e1), :($e2 * $e3), :max; log, backend)
         end
         # mayer cost
-        :($e1 → min) => p_mayer!(p, p_ocp, e1, :min; log)
-        :($e1 → max) => p_mayer!(p, p_ocp, e1, :max; log)
+        :($e1 → min) => p_mayer!(p, p_ocp, e1, :min; log, backend)
+        :($e1 → max) => p_mayer!(p, p_ocp, e1, :max; log, backend)
         #
         _ => begin
             if e isa LineNumberNode
@@ -266,7 +255,7 @@ parse!(p, p_ocp, e; log=false) = begin
                 e
             elseif e isa Expr && e.head == :block
                 p.lnum = p.lnum - 1
-                Expr(:block, map(e -> parse!(p, p_ocp, e; log), e.args)...)
+                Expr(:block, map(e -> parse!(p, p_ocp, e; log, backend), e.args)...)
                 # !!! assumes that map is done sequentially for side effects on p
             else
                 return __throw("unknown syntax", p.lnum, p.line)
@@ -275,13 +264,15 @@ parse!(p, p_ocp, e; log=false) = begin
     end
 end
 
-function p_pragma!(p, p_ocp, e; log=false)
+function p_pragma!(p, p_ocp, e; log = false, backend = __default_parsing_backend())
     log && println("PRAGMA: $e")
-    return parsing(:pragma)(p, p_ocp, e)
+    return parsing(:pragma, backend)(p, p_ocp, e)
 end
 
 function p_pragma_fun!(p, p_ocp, e)
-    return __throw("PRAGMA not allowed", p.lnum, p.line)
+    ee = QuoteNode(e)
+    code = :(LineNumberNode(0, "PRAGMA (inactive): " * string($ee))) # todo: implement in :fun if returning function
+    return __wrap(code, p.lnum, p.line)
 end
 
 function p_pragma_exa!(p, p_ocp, e)
@@ -289,11 +280,11 @@ function p_pragma_exa!(p, p_ocp, e)
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_alias!(p, p_ocp, a, e; log=false)
+function p_alias!(p, p_ocp, a, e; log = false, backend = __default_parsing_backend())
     log && println("alias: $a = $e")
     a isa Symbol || return __throw("forbidden alias name: $a", p.lnum, p.line)
     p.aliases[a] = e
-    return parsing(:alias)(p, p_ocp, a, e)
+    return parsing(:alias, backend)(p, p_ocp, a, e)
 end
     
 function p_alias_fun!(p, p_ocp, a, e)
@@ -305,7 +296,7 @@ end
 
 p_alias_exa! = p_alias_fun!
 
-function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
+function p_variable!(p, p_ocp, v, q; components_names=nothing, log = false, backend = __default_parsing_backend())
     log && println("variable: $v, dim: $q")
     v isa Symbol || return __throw("forbidden variable name: $v", p.lnum, p.line)
     vv = QuoteNode(v)
@@ -333,7 +324,7 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log=false)
             p.aliases[components_names.args[i]] = :($v[$i])
         end # aliases from names given by the user
     end
-    return parsing(:variable)(p, p_ocp, v, q, vv; components_names=components_names)
+    return parsing(:variable, backend)(p, p_ocp, v, q, vv; components_names=components_names)
 end
 
 function p_variable_fun!(p, p_ocp, v, q, vv; components_names=nothing)
@@ -356,7 +347,7 @@ function p_variable_exa!(p, p_ocp, v, q, vv; components_names=nothing)
     return code
 end
 
-function p_time!(p, p_ocp, t, t0, tf; log=false)
+function p_time!(p, p_ocp, t, t0, tf; log = false, backend = __default_parsing_backend())
     log && println("time: $t, initial time: $t0, final time: $tf")
     t isa Symbol || return __throw("forbidden time name: $t", p.lnum, p.line)
     p.t = t
@@ -377,7 +368,7 @@ function p_time!(p, p_ocp, t, t0, tf; log=false)
             _ => return __throw("bad time declaration: $t0, $tf", p.lnum, p.line)
         end
     end
-    return parsing(:time)(p, p_ocp, t, t0, tf)
+    return parsing(:time, backend)(p, p_ocp, t, t0, tf)
 end
 
 function p_time_fun!(p, p_ocp, t, t0, tf)
@@ -409,7 +400,7 @@ function p_time_exa!(p, p_ocp, t, t0, tf)
     return code
 end
 
-function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
+function p_state!(p, p_ocp, x, n; components_names=nothing, log = false, backend = __default_parsing_backend())
     log && println("state: $x, dim: $n")
     x isa Symbol || return __throw("forbidden state name: $x", p.lnum, p.line)
     p.aliases[Symbol(Unicode.normalize(string(x, "̇")))] = :(∂($x))
@@ -436,10 +427,10 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log=false)
             return __throw("the number of state components must be $nn", p.lnum, p.line)
         for i in 1:nn
             p.aliases[components_names.args[i]] = :($x[$i])
-            # todo: in future, add aliases for state components (scalar) derivatives, i.e. alias ẋ, ẋ₁, ẋ1 to ∂(x)
+            # todo: in future, add aliases for state components (scalar) derivatives, i.e. alias ẋ₁(t), ẋ1(t) to ∂(x[1])(t)
         end
     end
-    return parsing(:state)(p, p_ocp, x, n, xx; components_names=components_names)
+    return parsing(:state, backend)(p, p_ocp, x, n, xx; components_names=components_names)
 end
     
 function p_state_fun!(p, p_ocp, x, n, xx; components_names=nothing)
@@ -464,7 +455,7 @@ function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
     return code
 end
 
-function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
+function p_control!(p, p_ocp, u, m; components_names=nothing, log = false, backend = __default_parsing_backend())
     log && println("control: $u, dim: $m")
     u isa Symbol || return __throw("forbidden control name: $u", p.lnum, p.line)
     uu = QuoteNode(u)
@@ -492,7 +483,7 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log=false)
             p.aliases[components_names.args[i]] = :($u[$i])
         end # aliases from names given by the user
     end
-    return parsing(:control)(p, p_ocp, u, m, uu; components_names=components_names)
+    return parsing(:control, backend)(p, p_ocp, u, m, uu; components_names=components_names)
 end
     
 function p_control_fun!(p, p_ocp, u, m, uu; components_names=nothing)
@@ -513,11 +504,11 @@ function p_control_exa!(p, p_ocp, u, m, uu; components_names=nothing)
     j = __symgen(:j)
     code = :(ExaModels.variable($p_ocp, $m, 0:grid_size; lvar = [$(p.l_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:grid_size)], uvar = [$(p.u_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:grid_size)], start = init[3]))
     code = __wrap(code, p.lnum, p.line)
-    code = :($u = $code) # affectation must be done outside try ... catch )
+    code = :($u = $code) # affectation must be done outside try ... catch
     return code
 end
 
-function p_constraint!(p, p_ocp, e1, e2, e3, label = __symgen(:label); log = false)
+function p_constraint!(p, p_ocp, e1, e2, e3, label = __symgen(:label); log = false, backend = __default_parsing_backend())
     c_type = constraint_type(e2, p.t, p.t0, p.tf, p.x, p.u, p.v)
     log && println("constraint ($c_type): $e1 ≤ $e2 ≤ $e3,    ($label)")
     label isa Int && (label = Symbol(:eq, label))
@@ -525,7 +516,7 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label = __symgen(:label); log = fal
     xut = __symgen(:xut)
     ee2 = replace_call(e2, [p.x, p.u], p.t, [xut, xut])
     has(ee2, p.t) && (p.is_autonomous = false)
-    return parsing(:constraint)(p, p_ocp, e1, e2, e3, c_type, label)
+    return parsing(:constraint, backend)(p, p_ocp, e1, e2, e3, c_type, label)
 end
 
 function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
@@ -668,7 +659,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
+function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log = false, backend = __default_parsing_backend())
     log && println("dynamics: ∂($x)($t) == $e")
     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
@@ -679,7 +670,7 @@ function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log=false)
     xut = __symgen(:xut)
     ee = replace_call(e, [p.x, p.u], p.t, [xut, xut])
     has(ee, p.t) && (p.is_autonomous = false)
-    return parsing(:dynamics)(p, p_ocp, x, t, e)
+    return parsing(:dynamics, backend)(p, p_ocp, x, t, e)
 end
 
 function p_dynamics_fun!(p, p_ocp, x, t, e)
@@ -701,10 +692,10 @@ function p_dynamics_fun!(p, p_ocp, x, t, e)
 end
 
 function p_dynamics_exa!(p, p_ocp, x, t, e)
-    return __throw("dynamics must be defined coordinatewise", p.lnum, p.line) # note: scalar case is redirected before to coordinatewise case
+    return __throw("dynamics must be defined coordinatewise", p.lnum, p.line) # note: scalar case is redirected before coordinatewise case
 end
 
-function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log=false)
+function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log = false, backend = __default_parsing_backend())
     log && println("dynamics: ∂($x[$i])($t) == $e")
     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
@@ -715,7 +706,7 @@ function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log=false)
     xut = __symgen(:xut)
     ee = replace_call(e, [p.x, p.u], p.t, [xut, xut])
     has(ee, p.t) && (p.is_autonomous = false)
-    return parsing(:dynamics_coord)(p, p_ocp, x, i, t, e)
+    return parsing(:dynamics_coord, backend)(p, p_ocp, x, i, t, e)
 end
     
 function p_dynamics_coord_fun!(p, p_ocp, x, i, t, e)
@@ -766,7 +757,7 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_lagrange!(p, p_ocp, e, type; log=false)
+function p_lagrange!(p, p_ocp, e, type; log = false, backend = __default_parsing_backend())
     log && println("objective (Lagrange): ∫($e) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
@@ -774,7 +765,7 @@ function p_lagrange!(p, p_ocp, e, type; log=false)
     xut = __symgen(:xut)
     ee = replace_call(e, [p.x, p.u], p.t, [xut, xut])
     has(ee, p.t) && (p.is_autonomous = false)
-    return parsing(:lagrange)(p, p_ocp, e, type)
+    return parsing(:lagrange, backend)(p, p_ocp, e, type)
 end
     
 function p_lagrange_fun!(p, p_ocp, e, type)
@@ -818,7 +809,7 @@ function p_lagrange_exa!(p, p_ocp, e, type)
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_mayer!(p, p_ocp, e, type; log=false)
+function p_mayer!(p, p_ocp, e, type; log = false, backend = __default_parsing_backend())
     log && println("objective (Mayer): $e → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.t0) && return __throw("time not yet declared", p.lnum, p.line)
@@ -828,7 +819,7 @@ function p_mayer!(p, p_ocp, e, type; log=false)
         p.lnum,
         p.line,
     )
-    return parsing(:mayer)(p, p_ocp, e, type)
+    return parsing(:mayer, backend)(p, p_ocp, e, type)
 end
 
 function p_mayer_fun!(p, p_ocp, e, type)
@@ -862,7 +853,7 @@ function p_mayer_exa!(p, p_ocp, e, type)
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_bolza!(p, p_ocp, e1, e2, type; log=false)
+function p_bolza!(p, p_ocp, e1, e2, type; log = false, backend = __default_parsing_backend())
     log && println("objective (Bolza): $e1 + ∫($e2) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.t0) && return __throw("time not yet declared", p.lnum, p.line)
@@ -872,7 +863,7 @@ function p_bolza!(p, p_ocp, e1, e2, type; log=false)
     xut = __symgen(:xut)
     ee2 = replace_call(e2, [p.x, p.u], p.t, [xut, xut])
     has(ee2, p.t) && (p.is_autonomous = false)
-    return parsing(:bolza)(p, p_ocp, e1, e2, type)
+    return parsing(:bolza, backend)(p, p_ocp, e1, e2, type)
 end 
 
 function p_bolza_fun!(p, p_ocp, e1, e2, type)
@@ -907,7 +898,7 @@ function p_bolza_exa!(p, p_ocp, e1, e2, type)
     return concat(code1, code2)
 end
 
-# Summary of available parsing options
+# Summary of available parsing subfunctions (:fun backend)
 
 const PARSING_FUN = OrderedDict{Symbol, Function}()
 PARSING_FUN[:pragma] = p_pragma_fun!
@@ -923,6 +914,8 @@ PARSING_FUN[:lagrange] = p_lagrange_fun!
 PARSING_FUN[:mayer] = p_mayer_fun!
 PARSING_FUN[:bolza] = p_bolza_fun!
 
+# Summary of available parsing subfunctions (:fun backend)
+
 const PARSING_EXA = OrderedDict{Symbol, Function}()
 PARSING_EXA[:pragma] = p_pragma_exa!
 PARSING_EXA[:alias] = p_alias_exa!
@@ -937,11 +930,59 @@ PARSING_EXA[:lagrange] = p_lagrange_exa!
 PARSING_EXA[:mayer] = p_mayer_exa!
 PARSING_EXA[:bolza] = p_bolza_exa!
 
+const PARSING_BACKENDS = (:fun, :exa) # known parsing backends
+
 const PARSING_DIR = OrderedDict{Symbol, OrderedDict{Symbol, Function}}()
 PARSING_DIR[:fun] = PARSING_FUN
 PARSING_DIR[:exa] = PARSING_EXA
 
-parsing(s) = PARSING_DIR[parsing_backend()][s] # calls the primitive associated with symbol s (:alias, etc.) for the current backend
+const ACTIVE_PARSING_BACKENDS = OrderedDict{Symbol,Bool}()
+ACTIVE_PARSING_BACKENDS[:fun] = true
+ACTIVE_PARSING_BACKENDS[:exa] = false # default is only :fun active
+
+"""
+$(TYPEDSIGNATURES)
+
+Activate parsing backend. Possible choices: `:exa`.
+"""
+function activate_backend(backend)
+    backend ∈ PARSING_BACKENDS || throw("unknown parsing backend")
+    backend == :fun && throw("backend :fun is always active")
+    ACTIVE_PARSING_BACKENDS[backend] = true
+    return nothing 
+end 
+
+"""
+$(TYPEDSIGNATURES)
+
+Deactivate parsing backend. Possible choices: `:exa`.
+"""
+function deactivate_backend(backend)
+    backend ∈ PARSING_BACKENDS || throw("unknown parsing backend")
+    backend == :fun && throw("backend :fun is always active")
+    ACTIVE_PARSING_BACKENDS[backend] = false
+    return nothing 
+end 
+
+"""
+$(TYPEDSIGNATURES)
+
+Check whether backend is active or not.
+"""
+function is_active_backend(backend)
+    backend ∈ PARSING_BACKENDS || throw("unknown parsing backend")
+    return ACTIVE_PARSING_BACKENDS[backend]
+end 
+
+"""
+$(TYPEDSIGNATURES)
+
+Call the primitive associated with symbol s (:alias, etc.) for the associated backend.
+"""
+function parsing(s, backend)
+    backend ∈ PARSING_BACKENDS || throw("unknown parsing backend")
+    return PARSING_DIR[backend][s]
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -993,26 +1034,16 @@ end true # final boolean to show parsing log
 """
 macro def(e)
     try
-        e_pref = e_prefix()
-        code = @match parsing_backend() begin
-            :fun => def_fun(e)
-            :exa => def_exa(e)
-            _ => throw("unknown parsing backend")
-        end
+        code = def_fun(e)
         return esc(code)
     catch ex
         :(throw($ex)) # can be caught by user
     end
 end
 
-macro def(ocp, e, log=false)
+macro def(ocp, e, log=false) # old syntax with ocp name in arguments for compatibility
     try
-        e_pref = e_prefix()
-        code = @match parsing_backend() begin
-            :fun => def_fun(e, log)
-            :exa => def_exa(e, log)
-            _ => throw("unknown parsing backend") # should be prevented by parsing_backend!
-        end
+        code = def_fun(e; log = log)
         code = :($ocp = $code)
         return esc(code)
     catch ex
@@ -1020,24 +1051,53 @@ macro def(ocp, e, log=false)
     end
 end
 
-function def_fun(e, log=false)
+# only used internally to test errors that are otherwise captured by :fun before being captured by :exa parsing
+macro def_exa(e)
+    try
+        code = def_exa(e)
+        return esc(code)
+    catch ex
+        :(throw($ex)) # can be caught by user
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Core computation of `@def` macro, parsing an expression towards a CTModels.Model.
+"""
+function def_fun(e; log = false)
     pref = prefix()
     p_ocp = __symgen(:p_ocp)
-    code = :($p_ocp = $pref.PreModel())
     p = ParsingInfo()
-    code = concat(code, parse!(p, p_ocp, e; log=log))
     ee = QuoteNode(e)
-    code = concat(code, :($pref.definition!($p_ocp, $ee)))
-    code = concat(code, :($pref.time_dependence!($p_ocp; autonomous = $p.is_autonomous)))
-    code = concat(code, :($pref.build_model($p_ocp)))
+    code = parse!(p, p_ocp, e; log = log, backend = :fun)
+    code = quote
+        $p_ocp = $pref.PreModel()
+        $code
+        $pref.definition!($p_ocp, $ee)
+        $pref.time_dependence!($p_ocp; autonomous = $p.is_autonomous)
+    end
+
+    if is_active_backend(:exa)
+        build_exa = def_exa(e; log = log)
+        code = concat(code, :($pref.build($p_ocp, build_examodel = $build_exa)))
+    else
+        code = concat(code, :($pref.build($p_ocp)))
+    end
     return code
 end
 
-function def_exa(e, log=false)
+"""
+$(TYPEDSIGNATURES)
+
+Core computation used to discretise, parsing an expression towards an ExaModels.ExaModel.
+"""
+function def_exa(e; log = false)
     e_pref = e_prefix()
     p_ocp = __symgen(:p_ocp) # ExaModel name (this is the pre OCP, here)
     p = ParsingInfo()
-    code = parse!(p, p_ocp, e; log = log)
+    code = parse!(p, p_ocp, e; log = log, backend = :exa)
     dyn_check = quote
         !isempty($(p.dyn_coords)) || throw($e_pref.ParsingError("dynamics not defined"))
         sort($(p.dyn_coords)) == 1:$(p.dim_x) || throw($e_pref.ParsingError("some coordinates of dynamics undefined"))         
@@ -1058,6 +1118,5 @@ function def_exa(e, log=false)
             return ExaModels.ExaModel($p_ocp)
         end
     end
-    #println("code:\n", code)
     return code
 end
