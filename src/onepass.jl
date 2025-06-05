@@ -938,7 +938,7 @@ PARSING_DIR[:exa] = PARSING_EXA
 
 const ACTIVE_PARSING_BACKENDS = OrderedDict{Symbol,Bool}()
 ACTIVE_PARSING_BACKENDS[:fun] = true
-ACTIVE_PARSING_BACKENDS[:exa] = false # default is only :fun active
+ACTIVE_PARSING_BACKENDS[:exa] = true # default is both :fun and :exa active
 
 """
 $(TYPEDSIGNATURES)
