@@ -744,7 +744,7 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     ej2 = subs(ej2, p.t, :($(p.t0) + $j2 * $(p.dt)))
     dxij = :($(p.x)[$i, $j2]- $(p.x)[$i, $j1])
     code = quote 
-        if scheme == :trapezoidal
+        if scheme ∈ (:trapeze, :trapezoidal)
             ExaModels.constraint($p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 ∈ 0:(grid_size - 1))
         elseif scheme == :euler
             ExaModels.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 ∈ 0:(grid_size - 1))
