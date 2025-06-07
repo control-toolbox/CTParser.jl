@@ -16,7 +16,7 @@ function store!(data, e)
                 nothing
             elseif e isa Expr && e.head == :block
                 Expr(:block, map(e -> store!(data, e), e.args)...)
-                # !!! assumes that map is done sequentially for side effects on p
+                # !!! assumes that map is done sequentially for side effects on data
             else
                 push!(data[:misc], e)
             end
