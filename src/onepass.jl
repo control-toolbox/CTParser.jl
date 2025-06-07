@@ -1109,9 +1109,9 @@ function def_exa(e; log = false)
     default_base_type = __default_base_type_exa()
     code = quote
         function (; scheme = $default_scheme, grid_size = $default_grid_size, backend = $default_backend, init = $default_init, base_type = $default_base_type)
-            $(p.box_v) # lvar and uvar for variable
             $(p.box_x) # lvar and uvar for state
             $(p.box_u) # lvar and uvar for control
+            $(p.box_v) # lvar and uvar for variable (after x and u for compatibility with CTDirect)
             $p_ocp = ExaModels.ExaCore(base_type; backend = backend)
             $code
             $dyn_check
