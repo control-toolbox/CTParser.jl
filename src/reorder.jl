@@ -1,5 +1,5 @@
 function store!(data, e)
-    # we assume data is a dict with keys:
+    # assume data is a dict with keys:
     # variable, time, state, control, alias, misc, objective
     # for each key, you have a vector of Expr already initialised
     @match e begin
@@ -26,7 +26,7 @@ function store!(data, e)
 end
 
 function order(data::Dict)
-    # we assume data is a dict with keys:
+    # assume data is a dict with keys:
     # variable, time, state, control, alias, misc, objective
     # for each key, you have a vector of Expr already initialised
     code = :()
