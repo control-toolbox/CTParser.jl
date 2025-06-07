@@ -21,7 +21,6 @@ using Unicode
 
 # sources
 include("utils.jl")
-include("reorder.jl")
 include("onepass.jl")
 
 end
