@@ -32,6 +32,7 @@ F1(x) = begin
     r, v, m = x
     return [0, Tmax/m, -b*Tmax]
 end
+
 # ------------------------------------------
 e = quote
     tf ∈ R, variable
