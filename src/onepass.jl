@@ -1034,6 +1034,7 @@ end true # final boolean to show parsing log
 """
 macro def(e)
     try
+        e = order(e)
         code = def_fun(e)
         return esc(code)
     catch ex
@@ -1043,6 +1044,7 @@ end
 
 macro def(ocp, e, log=false) # old syntax with ocp name in arguments for compatibility
     try
+        e = order(e)
         code = def_fun(e; log = log)
         code = :($ocp = $code)
         return esc(code)
@@ -1054,6 +1056,7 @@ end
 # only used internally to test errors that are otherwise captured by :fun before being captured by :exa parsing
 macro def_exa(e)
     try
+        e = order(e)
         code = def_exa(e)
         return esc(code)
     catch ex
