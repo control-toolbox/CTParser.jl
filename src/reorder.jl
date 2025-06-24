@@ -1,16 +1,16 @@
 function store!(data, e)
     # assume data is a dict with keys:
-    # variable, time, state, control, alias, misc, objective
+    # variable, declaration, misc, objective
     # for each key, you have a vector of Expr already initialised
     @match e begin
-        :(PRAGMA($a)) => push!(data[:misc], e)
-        :($a = $b) => push!(data[:alias], e)
+        :(PRAGMA($a))   => push!(data[:misc], e)
+        :($a = $b)      => push!(data[:declaration], e)
         :($a, variable) => push!(data[:variable], e)
-        :($a, time) => push!(data[:time], e)
-        :($a, state) => push!(data[:state], e)
-        :($a, control) => push!(data[:control], e)
-        :($a → max) => push!(data[:objective], e)
-        :($a → min) => push!(data[:objective], e)
+        :($a, time)     => push!(data[:declaration], e)
+        :($a, state)    => push!(data[:declaration], e)
+        :($a, control)  => push!(data[:declaration], e)
+        :($a → max)     => push!(data[:objective], e)
+        :($a → min)     => push!(data[:objective], e)
         _ => begin
             if e isa LineNumberNode
                 nothing
@@ -25,30 +25,27 @@ function store!(data, e)
     return nothing
 end
 
-function order(data::Dict)
+function reorder(data::Dict)
     # assume data is a dict with keys:
-    # variable, time, state, control, alias, misc, objective
+    # variable, declaration, misc, objective
     # for each key, you have a vector of Expr already initialised
-    code = :()
-    keys = [:variable, :time, :state, :control, :alias, :misc, :objective]
+    code = Expr(:block)
+    keys = [:variable, :declaration, :misc, :objective]
     for key ∈ keys
         for e ∈ data[key]
-            code = code==:() ? e : concat(code, e)
+            code = code==Expr(:block) ? e : concat(code, e)
         end
     end
     return code
 end
 
-function order(e::Expr)
+function reorder(e::Expr)
     data = Dict(
-        :variable => Vector{Expr}(),
-        :time => Vector{Expr}(),
-        :state => Vector{Expr}(),
-        :control => Vector{Expr}(),
-        :objective => Vector{Expr}(),
-        :alias => Vector{Expr}(),
-        :misc => Vector{Expr}(),
+        :variable    => Vector{Expr}(),
+        :declaration => Vector{Expr}(),
+        :misc        => Vector{Expr}(),
+        :objective   => Vector{Expr}(),
     )
     store!(data, e)
-    return order(data)
+    return reorder(data)
 end
