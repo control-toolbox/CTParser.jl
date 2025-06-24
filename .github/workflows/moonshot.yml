@@ -12,10 +12,7 @@ on:
 
 jobs:
   test-moonshot:
-    env:
-      CUDA_VISIBLE_DEVICES: 1
-      JULIA_DEPOT_PATH: /scratch/github-actions/julia_depot_CTParser
-    runs-on: self-hosted
+    runs-on: [self-hosted, Linux, gpu, cuda]
     strategy:
       matrix:
         os: [ubuntu-24.04]
