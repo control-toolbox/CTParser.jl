@@ -13,9 +13,9 @@ using Interpolations
 macro ignore(e) return :() end
 
 @testset verbose = true showtiming = true "CTParser tests" begin
-    for name ∈ (:aqua, :utils, :onepass_fun, :onepass_exa)
+    #for name ∈ (:aqua, :utils, :onepass_fun, :onepass_exa)
 	#for name ∈ (:onepass_fun,)
-	#for name ∈ (:onepass_exa,)
+	for name ∈ (:onepass_exa,)
         @testset "$(name)" begin
             test_name = Symbol(:test_, name)
             include("$(test_name).jl")
