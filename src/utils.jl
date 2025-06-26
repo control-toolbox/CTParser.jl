@@ -85,7 +85,7 @@ function subs2(e, x, y, j)
     foo(x, y, j) = (h, args...) -> begin
         f = Expr(h, args...)
         @match f begin
-            :($xx[$i]) && if (xx == x) end => :($y[$i, $j])
+            :($xx[$i]) && if (xx == x) end => :($y[$i, $j]) # debug: for subs5 / midpoint, could be (...j... + ...j+1...) / 2
             _ => f
         end
     end
