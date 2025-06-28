@@ -1034,20 +1034,62 @@ end true # final boolean to show parsing log
 """
 macro def(e)
     try
-        code = def_fun(e)
+        code = def_fun(e; order = false)
         return esc(code)
     catch ex
-        :(throw($ex)) # can be caught by user
+        #try # I am not sure if this try is needed
+            code = def_fun(e; order = true)
+            e_ordered = QuoteNode(reorder(e))
+            code = quote
+                try 
+                    $code
+                catch ex_code_reorder
+                    printstyled("\n▫ Parsing failed for original and reordered codes, throwing exception:\n", color = :red, bold = true)
+                    printstyled("\n▫ Exception from original code:", color = :cyan, bold = true)
+                    println(" " * string($ex))
+                    printstyled("\n▫ Exception from reordered code:", color = :cyan, bold = true)
+                    println(" " * string(ex_code_reorder))
+                    printstyled("\n▫ Reordered code:", color = :cyan, bold = true)
+                    println(" " * string($e_ordered))
+                    println("")
+                    rethrow(ex_code_reorder)
+                end
+            end
+            return esc(code)
+        # catch ex_code_reorder
+        #     println("▫ Reordering failed, throwing exception:\n")
+        #     println("Exception from reordered code: \n", ex_code_reorder)
+        #     println("Exception from original code: \n", ex)
+        #     :(throw($ex)) # can be caught by user
+        # end
     end
 end
 
 macro def(ocp, e, log=false) # old syntax with ocp name in arguments for compatibility
     try
-        code = def_fun(e; log = log)
+        code = def_fun(e; log = log, order = false)
         code = :($ocp = $code)
         return esc(code)
     catch ex
-        :(throw($ex)) # can be caught by user
+        code = def_fun(e; log = log, order = true)
+        e_ordered = QuoteNode(reorder(e))
+        code = quote
+            try 
+                $code
+            catch ex_code_reorder
+                printstyled("\n▫ Parsing failed for original and reordered codes, throwing exception:\n", color = :red, bold = true)
+                printstyled("\n▫ Exception from original code:", color = :cyan, bold = true)
+                println(" " * string($ex))
+                printstyled("\n▫ Exception from reordered code:", color = :cyan, bold = true)
+                println(" " * string(ex_code_reorder))
+                printstyled("\n▫ Reordered code:", color = :cyan, bold = true)
+                println(" " * string($e_ordered))
+                println("")
+                rethrow(ex_code_reorder)
+            end
+        end
+        code = :($ocp = $code)
+        return esc(code)
     end
 end
 
@@ -1066,11 +1108,14 @@ $(TYPEDSIGNATURES)
 
 Core computation of `@def` macro, parsing an expression towards a CTModels.Model.
 """
-function def_fun(e; log = false)
+function def_fun(e; log = false, order::Bool = false)
     pref = prefix()
     p_ocp = __symgen(:p_ocp)
     p = ParsingInfo()
     ee = QuoteNode(e)
+    if order
+        e = reorder(e) # to reorder the expr before parsing
+    end
     code = parse!(p, p_ocp, e; log = log, backend = :fun)
     code = quote
         $p_ocp = $pref.PreModel()

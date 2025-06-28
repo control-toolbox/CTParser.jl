@@ -3157,4 +3157,33 @@ function test_onepass_fun()
 
     end
 
+    test_name = "wrong order"
+    @testset "$test_name" begin println(test_name)
+
+        # Parameters
+        t0 = 0      # initial time
+        r0 = 1      # initial altitude
+        v0 = 0      # initial speed
+        m0 = 1      # initial mass
+        vmax = 0.1  # maximal authorized speed
+        mf = 0.6    # final mass to target
+
+        o = @def begin
+            u ∈ R, control
+            x(t0) == [r0, v0, m0]
+            r(tf) → max
+            x = (r, v, m) ∈ R³, state
+            t ∈ [t0, tf], time
+            m(tf) == mf,         (1)
+            0 ≤ u(t) ≤ 1
+            r(t) ≥ r0
+            0 ≤ v(t) ≤ vmax
+            ẋ(t) == F0(x(t)) + u(t) * F1(x(t))
+            PRAGMA(1+1)
+            tf ∈ R, variable
+        end
+        @test o isa CTModels.Model 
+
+    end
+
 end
