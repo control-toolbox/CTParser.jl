@@ -15,8 +15,7 @@ function store!(data, e)
             if e isa LineNumberNode
                 nothing
             elseif e isa Expr && e.head == :block
-                Expr(:block, map(e -> store!(data, e), e.args)...)
-                # !!! assumes that map is done sequentially for side effects on data
+                map(e -> store!(data, e), e.args)
             else
                 push!(data[:misc], e)
             end
