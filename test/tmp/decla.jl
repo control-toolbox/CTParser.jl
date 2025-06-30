@@ -2,28 +2,166 @@ using Revise
 using Pkg
 Pkg.activate(".")
 
-#using CTParser
+using MLStyle
+using CTParser
+using CTBase
+using CTModels
 
-function standardise_declaration(e::Expr)
+__direct_throw(mess, n, line) = begin
+    info = string("\nLine ", n, ": ", line, "\n", mess)
+    throw(CTBase.ParsingError(info))
+end
+
+function standardise_declaration!(p, e; log::Bool=false)
+    log && e isa Expr && e.head == :block && println("---------------------------------------------------------")
+    log && println("standardise_declaration: expression ", e, "\n")
+
+    #
+    p.lnum = p.lnum + 1
+    p.line = string(e)
+    for a in keys(p.aliases)
+        e = CTParser.subs(e, a, p.aliases[a])
+    end
+
+    #
     @match e begin
-        :(PRAGMA($a))   => push!(data[:misc], e)
-        :($a = $b)      => push!(data[:declaration], e)
-        :($a, variable) => push!(data[:variable], e)
-        :($a, time)     => push!(data[:declaration], e)
-        :($a, state)    => push!(data[:declaration], e)
-        :($a, control)  => push!(data[:declaration], e)
-        :($a → max)     => push!(data[:objective], e)
-        :($a → min)     => push!(data[:objective], e)
+        :($a = $b) => @match b begin
+            :($c, variable) => parse_declaration(p, :($a = $c), :variable; log=log)
+            :($c, state)    => parse_declaration(p, :($a = $c), :state; log=log)
+            :($c, control)  => parse_declaration(p, :($a = $c), :control; log=log)
+        end
+        :($a, variable) => parse_declaration(p, a, :variable; log=log)
+        :($a, state)    => parse_declaration(p, a, :state; log=log)
+        :($a, control)  => parse_declaration(p, a, :control; log=log)
         _ => begin
-            if e isa LineNumberNode
-                nothing
-            elseif e isa Expr && e.head == :block
-                Expr(:block, map(e -> store!(data, e), e.args)...)
-                # !!! assumes that map is done sequentially for side effects on data
+            if e isa Expr && e.head == :block
+                Expr(:block, 
+                    map(e -> standardise_declaration!(p, e; log=log), 
+                    filter(e -> !(e isa LineNumberNode), e.args))...)
             else
-                push!(data[:misc], e)
+                e
             end
         end
     end
-    return nothing
 end
+
+function parse_declaration(p, e::Expr, type::Symbol; log::Bool=false)
+    log && println("   parse_declaration: expression ", e, "\n")
+    @match e begin
+        :($a = $b) => @match b begin
+            :(($names) ∈ $c) => begin
+                dim = parse_dimension(p, c; log=log)
+                con = parse_constraints(p, c, dim, a, type; log=log)
+                q = Expr(:block)
+                q = CTParser.concat(q, :($a = ($names) ∈ R^$dim, $type))
+                for l ∈ con
+                    q = CTParser.concat(q, l)
+                end
+                q
+            end
+        end
+        :($a ∈ $c) => begin
+            dim = parse_dimension(p, c; log=log)
+            con = parse_constraints(p, c, dim, a, type; log=log)
+            q = Expr(:block)
+            q = CTParser.concat(q, :($a ∈ R^$dim, $type))
+            for l ∈ con
+                q = CTParser.concat(q, l)
+            end
+            q
+        end
+        _ => return __direct_throw("unknown syntax", p.lnum, p.line)
+    end
+end
+
+function parse_dimension(p, e::Union{Symbol,Expr}, dim=0; log::Bool=false)
+    log && println("       parse_dimension: expression ", e, "\n")
+    @match e begin
+        :(R^$k)     => dim+k
+        :(R)        => dim+1
+        :([$a, $b]) => dim+1
+        :($a × $b)  => parse_dimension(p, a, dim; log=log) + parse_dimension(p, b, dim; log=log)
+        _ => return __direct_throw("unknown syntax", p.lnum, p.line)
+    end
+end
+
+function parse_constraints(p, e::Union{Symbol,Expr}, dim, label, type; log::Bool=false, idx=dim)
+    log && println("       parse_constraints: expression ", e, ", idx=", idx, "\n")
+    @match e begin
+        :(R^$k)     => Expr[]
+        :(R)        => Expr[]
+        :([$a, $b]) => begin 
+            if type == :variable
+                [ :( $a ≤ $label[$idx] ≤ $b ) ]
+            else
+                [ :( $a ≤ $label(t)[$idx] ≤ $b ) ] # p.t
+            end
+        end
+        :($a × $b)  => begin 
+            e1 = parse_constraints(p, a, dim, label; log=log, idx=idx-1)
+            e2 = parse_constraints(p, b, dim, label; log=log, idx=idx)
+            push!(e1, e2...)
+            e1
+        end
+        _ => return __direct_throw("unknown syntax", p.lnum, p.line)
+    end
+end
+
+#
+p = CTParser.ParsingInfo()
+standardise_declaration!(p, quote
+    tf ∈ R, variable
+    t ∈ [0, 1], time
+    x = (y, z) ∈ R^2, state 
+    u = (a, b, c, d) ∈ R × R × R^2, control
+    tf → min
+end; log=true)
+
+#
+p = CTParser.ParsingInfo()
+standardise_declaration!(p, quote
+    tf ∈ R, variable
+    t ∈ [0, 1], time
+    x = (y, z) ∈ R^2, state 
+    u = (a, b, c, d) ∈ R × [-1, 1] × R × R, control
+    tf → min
+end; log=true)
+
+#
+p = CTParser.ParsingInfo()
+q = standardise_declaration!(p, quote
+    tf ∈ [0, Inf],   variable
+    t ∈ [0, tf],     time
+    x = (q, v) ∈ [-5, 5] × [-3, 3], state
+    u ∈ [-1, 1],     control
+    q(0)  == 1
+    v(0)  == 2
+    q(tf) == 0
+    v(tf) == 0
+    ẋ(t) == [v(t), u(t)]
+    tf → min
+end; log=false)
+
+CTParser.prefix!(:CTModels) # code generated by @def is prefixed by CTModels (not by OptimalControl - the default) for tests
+CTParser.e_prefix!(:CTBase) # exceptions in code generated by @def are prefixed by CTBase (not by OptimalControl - the default) for tests
+
+q
+o = eval(CTParser.def_fun(q))
+
+q = quote
+    tf ∈ R ^ 1, variable
+    t ∈ [0, tf], time
+    x = (q, v) ∈ R ^ 2, state
+    u ∈ R ^ 1, control
+    0 ≤ tf[1] ≤ Inf
+    -5 ≤ (x(t))[1] ≤ 5
+    -3 ≤ (x(t))[2] ≤ 3
+    -1 ≤ (u(t))[1] ≤ 1
+    q(0) == 1
+    v(0) == 2
+    q(tf) == 0
+    v(tf) == 0
+    ẋ(t) == [v(t), u(t)]
+    tf → min
+end
+o = eval(CTParser.def_fun(q))
