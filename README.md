@@ -36,6 +36,20 @@ The control-toolbox ecosystem gathers Julia packages for mathematical control an
 | Release           | [![Release][release-img]][release-url]        |
 | Licence           | [![License: MIT][licence-img]][licence-url]   |
 
+## Installation
+
+To install CTParser.jl please 
+<a href="https://docs.julialang.org/en/v1/manual/getting-started/">open Julia's interactive session (known as REPL)</a> 
+and press <kbd>]</kbd> key in the REPL to use the package mode, then add the package:
+
+```julia
+julia> ]
+pkg> add CTParser
+```
+
+> [!TIP]
+> If you are new to Julia, please follow this [guidelines](https://github.com/orgs/control-toolbox/discussions/64).
+
 ## Contributing
 
 [issue-url]: https://github.com/control-toolbox/CTParser.jl/issues

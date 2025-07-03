@@ -795,7 +795,7 @@ function p_lagrange_exa!(p, p_ocp, e, type)
     ej = subs(ej, p.t, :($(p.t0) + $j * $(p.dt)))
     sg = (type == :min) ? 1 : (-1)
     code = quote 
-        if scheme == :trapezoidal
+        if scheme ∈ (:trapeze, :trapezoidal)
             ExaModels.objective($p_ocp, $sg * $(p.dt) * $ej / 2 for $j ∈ (0, grid_size))
             ExaModels.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 1:(grid_size - 1))
         elseif scheme == :euler
