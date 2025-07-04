@@ -1,6 +1,6 @@
 # onepass
 # todo:
-# - as_range / as_vector for rg / lb, ub could be done here in p_constraint when calling PREFIX.constraint!
+# - as_range / as_vector for rg / lb, ub could be done here in p_constraint when calling constraint!
 # - cannot call solve if problem not fully defined (dynamics not defined...)
 # - doc: explain projections wrt to t0, tf, t; (...x1...x2...)(t) -> ...gensym1...gensym2... (most internal first)
 # - additional checks: when generating functions (constraints, dynamics, costs), there should not be any x or u left
@@ -13,27 +13,27 @@
 # - exa: x = ExaModels.variable($p_ocp, $n / 1:$n...) ?
 # - exa: what about expressions with x(t), not indexed but used as a scalar? should be x[:, ...] in ExaModels? does it occur (sum(x(t)...))
 
-# Defaults
-
-__default_parsing_backend() = :fun
-__default_scheme_exa() = :trapezoidal
-__default_grid_size_exa() = 200
-__default_backend_exa() = nothing
-__default_init_exa() = (0.1, 0.1, 0.1) # default init for v, x, u
-__default_base_type_exa() = Float64 
-
 # Modules vars 
 
-const PREFIX = Ref(:OptimalControl) # prefix for generated code, assumed to be evaluated within OptimalControl.jl; can be CTModel for tests
+const PREFIX_FUN = Ref(__default_prefix_fun()) # prefix for generated code :fun
 
-prefix() = PREFIX[]
+prefix_fun() = PREFIX_FUN[]
 
-function prefix!(p)
-    PREFIX[] = p
+function prefix_fun!(p)
+    PREFIX_FUN[] = p
     return nothing
 end
 
-const E_PREFIX = Ref(:OptimalControl) # prefix for exceptions in generated code, assumed to be evaluated within OptimalControl.jl; can be CTBase for tests
+const PREFIX_EXA = Ref(__default_prefix_exa()) # prefix for generated code :exa
+
+prefix_exa() = PREFIX_EXA[]
+
+function prefix_exa!(p)
+    PREFIX_EXA[] = p
+    return nothing
+end
+
+const E_PREFIX = Ref(__default_e_prefix()) # prefix for exceptions in generated code
 
 e_prefix() = E_PREFIX[]
 
@@ -328,7 +328,7 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log = false, back
 end
 
 function p_variable_fun!(p, p_ocp, v, q, vv; components_names=nothing)
-    pref = prefix()
+    pref = prefix_fun()
     if isnothing(components_names)
         code = :($pref.variable!($p_ocp, $q, $vv))
     else
@@ -339,9 +339,10 @@ function p_variable_fun!(p, p_ocp, v, q, vv; components_names=nothing)
 end
 
 function p_variable_exa!(p, p_ocp, v, q, vv; components_names=nothing)
+    pref = prefix_exa()
     code_box = :($(p.l_v) = -Inf * ones($q); $(p.u_v) = Inf * ones($q))
     p.box_v = concat(p.box_v, code_box)
-    code = :(ExaModels.variable($p_ocp, $q; lvar = $(p.l_v), uvar = $(p.u_v), start = init[1]))
+    code = :($pref.variable($p_ocp, $q; lvar = $(p.l_v), uvar = $(p.u_v), start = init[1]))
     code = __wrap(code, p.lnum, p.line)
     code = :($v = $code) # affectation must be done outside try ... catch )
     return code
@@ -372,7 +373,7 @@ function p_time!(p, p_ocp, t, t0, tf; log = false, backend = __default_parsing_b
 end
 
 function p_time_fun!(p, p_ocp, t, t0, tf)
-    pref = prefix()
+    pref = prefix_fun()
     tt = QuoteNode(t)
     code = @match (has(t0, p.v), has(tf, p.v)) begin
         (false, false) => :($pref.time!($p_ocp; t0=$t0, tf=$tf, time_name=$tt))
@@ -434,7 +435,7 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log = false, backend
 end
     
 function p_state_fun!(p, p_ocp, x, n, xx; components_names=nothing)
-    pref = prefix()
+    pref = prefix_fun()
     if isnothing(components_names)
         code = :($pref.state!($p_ocp, $n, $xx))
     else
@@ -445,11 +446,12 @@ function p_state_fun!(p, p_ocp, x, n, xx; components_names=nothing)
 end
 
 function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
+    pref = prefix_exa()
     code_box = :($(p.l_x) = -Inf * ones($n); $(p.u_x) = Inf * ones($n))
     p.box_x = concat(p.box_x, code_box)
     i = __symgen(:i)
     j = __symgen(:j)
-    code = :(ExaModels.variable($p_ocp, $n, 0:grid_size; lvar = [$(p.l_x)[$i] for ($i, $j) ∈ Base.product(1:$n, 0:grid_size)], uvar = [$(p.u_x)[$i] for ($i, $j) ∈ Base.product(1:$n, 0:grid_size)], start = init[2]))
+    code = :($pref.variable($p_ocp, $n, 0:grid_size; lvar = [$(p.l_x)[$i] for ($i, $j) ∈ Base.product(1:$n, 0:grid_size)], uvar = [$(p.u_x)[$i] for ($i, $j) ∈ Base.product(1:$n, 0:grid_size)], start = init[2]))
     code = __wrap(code, p.lnum, p.line)
     code = :($x = $code) # affectation must be done outside try ... catch )
     return code
@@ -487,7 +489,7 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log = false, backe
 end
     
 function p_control_fun!(p, p_ocp, u, m, uu; components_names=nothing)
-    pref = prefix()
+    pref = prefix_fun()
     if isnothing(components_names)
         code = :($pref.control!($p_ocp, $m, $uu))
     else
@@ -498,11 +500,12 @@ function p_control_fun!(p, p_ocp, u, m, uu; components_names=nothing)
 end
 
 function p_control_exa!(p, p_ocp, u, m, uu; components_names=nothing)
+    pref = prefix_exa()
     code_box = :($(p.l_u) = -Inf * ones($m); $(p.u_u) = Inf * ones($m))
     p.box_u = concat(p.box_u, code_box) 
     i = __symgen(:i)
     j = __symgen(:j)
-    code = :(ExaModels.variable($p_ocp, $m, 0:grid_size; lvar = [$(p.l_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:grid_size)], uvar = [$(p.u_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:grid_size)], start = init[3]))
+    code = :($pref.variable($p_ocp, $m, 0:grid_size; lvar = [$(p.l_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:grid_size)], uvar = [$(p.u_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:grid_size)], start = init[3]))
     code = __wrap(code, p.lnum, p.line)
     code = :($u = $code) # affectation must be done outside try ... catch
     return code
@@ -520,7 +523,7 @@ function p_constraint!(p, p_ocp, e1, e2, e3, label = __symgen(:label); log = fal
 end
 
 function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
-    pref = prefix()
+    pref = prefix_fun()
     llabel = QuoteNode(label)
     code = @match c_type begin
         :boundary || :variable_fun || (:initial, rg) || (:final, rg) => begin # :initial and :final now treated as boundary
@@ -566,6 +569,7 @@ function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
 end
 
 function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
+    pref = prefix_exa()
     isnothing(e1) && (e1 = :(-Inf * ones(length($e3))))
     isnothing(e3) && (e3 = :( Inf * ones(length($e1))))
     code = @match c_type begin
@@ -577,7 +581,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = replace_call(e2, p.x, p.tf, xf)
             e2 = subs2(e2, x0, p.x, 0)
             e2 = subs2(e2, xf, p.x, :grid_size)
-            concat(code, :(ExaModels.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3)))
+            concat(code, :($pref.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3)))
         end
         (:initial, rg) => begin
             if isnothing(rg)
@@ -591,7 +595,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             i = __symgen(:i)
             e2 = replace_call(e2, p.x, p.t0, x0)
             e2 = subs3(e2, x0, p.x, i, 0)
-            concat(code, :(ExaModels.constraint($p_ocp, $e2 for $i ∈ $rg; lcon = $e1, ucon = $e3)))
+            concat(code, :($pref.constraint($p_ocp, $e2 for $i ∈ $rg; lcon = $e1, ucon = $e3)))
         end
         (:final, rg) => begin
             if isnothing(rg)
@@ -605,7 +609,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             i = __symgen(:i)
             e2 = replace_call(e2, p.x, p.tf, xf)
             e2 = subs3(e2, xf, p.x, i, :grid_size)
-            concat(code, :(ExaModels.constraint($p_ocp, $e2 for $i ∈ $rg; lcon = $e1, ucon = $e3)))
+            concat(code, :($pref.constraint($p_ocp, $e2 for $i ∈ $rg; lcon = $e1, ucon = $e3)))
         end
         (:variable_range, rg) => begin
             if isnothing(rg)
@@ -652,7 +656,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = subs2(e2, xt, p.x, j)
             e2 = subs2(e2, ut, p.u, j)
             e2 = subs(e2, p.t, :($(p.t0) + $j * $(p.dt)))
-            concat(code, :(ExaModels.constraint($p_ocp, $e2 for $j ∈ 0:grid_size; lcon = $e1, ucon = $e3)))
+            concat(code, :($pref.constraint($p_ocp, $e2 for $j ∈ 0:grid_size; lcon = $e1, ucon = $e3)))
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
     end
@@ -674,7 +678,7 @@ function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log = false, backend = __
 end
 
 function p_dynamics_fun!(p, p_ocp, x, t, e)
-    pref = prefix()
+    pref = prefix_fun()
     xt = __symgen(:xt)
     ut = __symgen(:ut)
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
@@ -710,7 +714,7 @@ function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log = false, bac
 end
     
 function p_dynamics_coord_fun!(p, p_ocp, x, i, t, e)
-    pref = prefix()
+    pref = prefix_fun()
     xt = __symgen(:xt)
     ut = __symgen(:ut)
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
@@ -728,6 +732,7 @@ function p_dynamics_coord_fun!(p, p_ocp, x, i, t, e)
 end
 
 function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
+    pref = prefix_exa()
     i isa Integer || return __throw("dynamics coordinate $i should be an integer", p.lnum, p.line)
     i ∈ p.dyn_coords && return __throw("dynamics coordinate $i already defined", p.lnum, p.line)
     append!(p.dyn_coords, i)
@@ -745,11 +750,11 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     dxij = :($(p.x)[$i, $j2]- $(p.x)[$i, $j1])
     code = quote 
         if scheme ∈ (:trapeze, :trapezoidal)
-            ExaModels.constraint($p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 ∈ 0:(grid_size - 1))
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 ∈ 0:(grid_size - 1))
         elseif scheme == :euler
-            ExaModels.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 ∈ 0:(grid_size - 1))
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 ∈ 0:(grid_size - 1))
         elseif scheme == :euler_b
-            ExaModels.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 ∈ 0:(grid_size - 1))
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 ∈ 0:(grid_size - 1))
         else
            throw("unknown numerical scheme: $scheme") # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
@@ -769,7 +774,7 @@ function p_lagrange!(p, p_ocp, e, type; log = false, backend = __default_parsing
 end
     
 function p_lagrange_fun!(p, p_ocp, e, type)
-    pref = prefix()
+    pref = prefix_fun()
     xt = __symgen(:xt)
     ut = __symgen(:ut)
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
@@ -786,6 +791,7 @@ function p_lagrange_fun!(p, p_ocp, e, type)
 end
 
 function p_lagrange_exa!(p, p_ocp, e, type)
+    pref = prefix_exa()
     xt = __symgen(:xt)
     ut = __symgen(:ut)
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
@@ -796,12 +802,12 @@ function p_lagrange_exa!(p, p_ocp, e, type)
     sg = (type == :min) ? 1 : (-1)
     code = quote 
         if scheme ∈ (:trapeze, :trapezoidal)
-            ExaModels.objective($p_ocp, $sg * $(p.dt) * $ej / 2 for $j ∈ (0, grid_size))
-            ExaModels.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 1:(grid_size - 1))
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej / 2 for $j ∈ (0, grid_size))
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 1:(grid_size - 1))
         elseif scheme == :euler
-            ExaModels.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 0:(grid_size - 1))
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 0:(grid_size - 1))
         elseif scheme == :euler_b
-            ExaModels.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 1:grid_size)
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 1:grid_size)
         else
            throw("unknown numerical scheme: $scheme") # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
@@ -823,7 +829,7 @@ function p_mayer!(p, p_ocp, e, type; log = false, backend = __default_parsing_ba
 end
 
 function p_mayer_fun!(p, p_ocp, e, type)
-    pref = prefix()
+    pref = prefix_fun()
     fun = __symgen(:fun)
     x0 = __symgen(:x0)
     xf = __symgen(:xf)
@@ -841,6 +847,7 @@ function p_mayer_fun!(p, p_ocp, e, type)
 end
 
 function p_mayer_exa!(p, p_ocp, e, type)
+    pref = prefix_exa()
     x0 = __symgen(:x0) 
     xf = __symgen(:xf) 
     e = replace_call(e, p.x, p.t0, x0)
@@ -849,7 +856,7 @@ function p_mayer_exa!(p, p_ocp, e, type)
     e = subs2(e, xf, p.x, :grid_size)
     # now, x[i](t0) has been replaced by x[i, 0] and x[i](tf) by x[i, grid_size]
     sg = (type == :min) ? 1 : (-1)
-    code = :(ExaModels.objective($p_ocp, $sg * $e))
+    code = :($pref.objective($p_ocp, $sg * $e))
     return __wrap(code, p.lnum, p.line)
 end
 
@@ -867,7 +874,7 @@ function p_bolza!(p, p_ocp, e1, e2, type; log = false, backend = __default_parsi
 end 
 
 function p_bolza_fun!(p, p_ocp, e1, e2, type)
-    pref = prefix()
+    pref = prefix_fun()
     fun1 = __symgen(:fun1)
     x0 = __symgen(:x0)
     xf = __symgen(:xf)
@@ -1067,7 +1074,7 @@ $(TYPEDSIGNATURES)
 Core computation of `@def` macro, parsing an expression towards a CTModels.Model.
 """
 function def_fun(e; log = false)
-    pref = prefix()
+    pref = prefix_fun()
     p_ocp = __symgen(:p_ocp)
     p = ParsingInfo()
     ee = QuoteNode(e)
