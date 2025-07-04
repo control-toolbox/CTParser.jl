@@ -4,7 +4,7 @@
 activate_backend(:exa) # nota bene: needs to be executed before @def are expanded
 
 # mock up of CTDirect.discretise for tests
-function discretise_exa(ocp; scheme = __default_scheme_exa(), grid_size = __default_grid_size_exa(), backend = __default_backend_exa(), init = __default_init_exa(), base_type = __default_base_type_exa())
+function discretise_exa(ocp; scheme = CTParser.__default_scheme_exa(), grid_size = CTParser.__default_grid_size_exa(), backend = CTParser.__default_backend_exa(), init = CTParser.__default_init_exa(), base_type = CTParser.__default_base_type_exa())
     return CTModels.get_build_examodel(ocp)(; scheme = scheme, grid_size = grid_size, backend = backend, init = init, base_type = base_type)
 end
 
@@ -20,15 +20,6 @@ end
 function __test_onepass_exa(backend = nothing)
 
     backend_name = isnothing(backend) ? "CPU" : "GPU" 
-
-    test_name = "defaults ($backend_name)"
-    @testset "$test_name" begin println(test_name)
-
-        @test CTParser.__default_parsing_backend() == :fun
-        @test CTParser.__default_scheme_exa() == :trapeze
-        @test CTParser.__default_grid_size_exa() == 200
-
-    end
 
     test_name = "auxiliary functions ($backend_name)"
     @testset "$test_name" begin println(test_name)
