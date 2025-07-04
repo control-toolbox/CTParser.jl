@@ -1101,6 +1101,7 @@ $(TYPEDSIGNATURES)
 Core computation used to discretise, parsing an expression towards an ExaModels.ExaModel.
 """
 function def_exa(e; log = false)
+    pref = prefix_exa()
     e_pref = e_prefix()
     p_ocp = __symgen(:p_ocp) # ExaModel name (this is the pre OCP, here)
     p = ParsingInfo()
@@ -1119,10 +1120,10 @@ function def_exa(e; log = false)
             $(p.box_x) # lvar and uvar for state
             $(p.box_u) # lvar and uvar for control
             $(p.box_v) # lvar and uvar for variable (after x and u for compatibility with CTDirect)
-            $p_ocp = ExaModels.ExaCore(base_type; backend = backend)
+            $p_ocp = $pref.ExaCore(base_type; backend = backend)
             $code
             $dyn_check
-            return ExaModels.ExaModel($p_ocp)
+            return $pref.ExaModel($p_ocp)
         end
     end
     return code
