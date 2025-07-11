@@ -3154,4 +3154,37 @@ function test_onepass_fun()
 
     end
 
+    test_name = "dimensions at runtime"
+    @testset "$test_name" begin println(test_name)
+
+        n = 5
+        o = @def begin
+            t ∈ [0, 1], time
+            x = (a, b, c, d) ∈ R^n, state
+            u ∈ R, control
+            ẋ(t) == x(t)
+            ∫( 0.5u(t)^2 ) → min
+        end
+
+        m = 1
+        o = @def begin
+            t ∈ [0, 1], time
+            x = (a, b, c, d) ∈ R^5, state
+            u ∈ R^m, control
+            ẋ(t) == x(t)
+            ∫( 0.5u(t)^2 ) → min
+        end
+
+        k = 2
+        o = @def begin
+            v ∈ R^k, variable
+            t ∈ [0, 1], time
+            x = (a, b, c, d) ∈ R^n, state
+            u ∈ R, control
+            ẋ(t) == x(t)
+            ∫( 0.5u(t)^2 ) → min
+        end
+
+    end
+
 end
