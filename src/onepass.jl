@@ -318,9 +318,7 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log = false, back
         p.aliases[Symbol(v, i)] = :($v[$i])
     end # make v1, v2... if the variable is named v
     if !isnothing(components_names)
-        qq == length(components_names.args) ||
-            return __throw("the number of variable components must be $qq", p.lnum, p.line)
-        for i in 1:qq
+        for i in 1:length(components_names.args)
             p.aliases[components_names.args[i]] = :($v[$i])
         end # aliases from names given by the user
     end
@@ -424,9 +422,7 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log = false, backend
         p.aliases[Symbol(x, i)] = :($x[$i])
     end # make x1, x2... if the state is named x
     if !isnothing(components_names)
-        nn == length(components_names.args) ||
-            return __throw("the number of state components must be $nn", p.lnum, p.line)
-        for i in 1:nn
+        for i in 1:length(components_names.args)
             p.aliases[components_names.args[i]] = :($x[$i])
             # todo: in future, add aliases for state components (scalar) derivatives, i.e. alias ẋ₁(t), ẋ1(t) to ∂(x[1])(t)
         end
@@ -479,9 +475,7 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log = false, backe
         p.aliases[Symbol(u, i)] = :($u[$i])
     end # make u1, u2... if the control is named u
     if !isnothing(components_names)
-        mm == length(components_names.args) ||
-            return __throw("the number of control components must be $mm", p.lnum, p.line)
-        for i in 1:mm
+        for i in 1:length(components_names.args)
             p.aliases[components_names.args[i]] = :($u[$i])
         end # aliases from names given by the user
     end
