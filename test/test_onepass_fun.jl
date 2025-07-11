@@ -3157,7 +3157,7 @@ function test_onepass_fun()
     test_name = "dimensions at runtime"
     @testset "$test_name" begin println(test_name)
 
-        n = 5
+        n = 4
         o = @def begin
             t ∈ [0, 1], time
             x = (a, b, c, d) ∈ R^n, state
@@ -3169,7 +3169,7 @@ function test_onepass_fun()
         m = 1
         o = @def begin
             t ∈ [0, 1], time
-            x = (a, b, c, d) ∈ R^5, state
+            x = (a, b, c, d) ∈ R^4, state
             u ∈ R^m, control
             ẋ(t) == x(t)
             ∫( 0.5u(t)^2 ) → min
@@ -3179,8 +3179,44 @@ function test_onepass_fun()
         o = @def begin
             v ∈ R^k, variable
             t ∈ [0, 1], time
-            x = (a, b, c, d) ∈ R^n, state
+            x = (a, b, c, d) ∈ R^4, state
             u ∈ R, control
+            ẋ(t) == x(t)
+            ∫( 0.5u(t)^2 ) → min
+        end
+
+        o = @def begin
+            v ∈ R^k, variable
+            t ∈ [0, 1], time
+            x = (a, b, c, d) ∈ R^n, state
+            u ∈ R^1, control
+            ẋ(t) == x(t)
+            ∫( 0.5u(t)^2 ) → min
+        end
+
+        o = @def begin
+            v ∈ R^k, variable
+            t ∈ [0, 1], time
+            x = (a, b, c, d) ∈ R^4, state
+            u ∈ R^m, control
+            ẋ(t) == x(t)
+            ∫( 0.5u(t)^2 ) → min
+        end
+
+        o = @def begin
+            v ∈ R^2, variable
+            t ∈ [0, 1], time
+            x = (a, b, c, d) ∈ R^n, state
+            u ∈ R^m, control
+            ẋ(t) == x(t)
+            ∫( 0.5u(t)^2 ) → min
+        end
+
+        o = @def begin
+            v ∈ R^k, variable
+            t ∈ [0, 1], time
+            x = (a, b, c, d) ∈ R^n, state
+            u ∈ R^m, control
             ẋ(t) == x(t)
             ∫( 0.5u(t)^2 ) → min
         end
