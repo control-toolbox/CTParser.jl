@@ -16,7 +16,8 @@ jobs:
           - '1.10'
           - '1.11'
         os:
-          - inria
+          - ubuntu-latest
+          - self-hosted
         arch:
           - x64
     steps:
