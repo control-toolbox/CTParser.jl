@@ -7,7 +7,7 @@ function test_prefix()
 
         @test CTParser.__default_parsing_backend() == :fun
         @test CTParser.__default_scheme_exa() == :trapeze
-        @test CTParser.__default_grid_size_exa() == 200
+        @test CTParser.__default_grid_size_exa() == 250
         @test CTParser.__default_backend_exa() == nothing
         @test CTParser.__default_init_exa() == (0.1, 0.1, 0.1) # default init for v, x, u
         @test CTParser.__default_base_type_exa() == Float64 
