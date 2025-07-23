@@ -17,7 +17,6 @@ jobs:
           - '1.11'
         os:
           - ubuntu-latest
-          - self-hosted
         arch:
           - x64
     steps:
