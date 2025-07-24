@@ -9,6 +9,11 @@ function discretise_exa(ocp; scheme = CTParser.__default_scheme_exa(), grid_size
     return build_exa(; scheme = scheme, grid_size = grid_size, backend = backend, init = init, base_type = base_type)[1]
 end
 
+function discretise_exa_full(ocp; scheme = CTParser.__default_scheme_exa(), grid_size = CTParser.__default_grid_size_exa(), backend = CTParser.__default_backend_exa(), init = CTParser.__default_init_exa(), base_type = CTParser.__default_base_type_exa())
+    build_exa = CTModels.get_build_examodel(ocp)
+    return build_exa(; scheme = scheme, grid_size = grid_size, backend = backend, init = init, base_type = base_type)
+end
+
 function test_onepass_exa()
     __test_onepass_exa()
     if CUDA.functional()
@@ -696,14 +701,14 @@ function __test_onepass_exa(backend = nothing)
             x₃(1) → min
         end
         @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
-        m = discretise_exa(o; backend = backend)
+        m, _ = discretise_exa_full(o; backend = backend)
         s = madnlp(m)
         @test s.objective ≈ 6 atol = 1e-2
         N = 1000
-        m = discretise_exa(o; backend = backend, grid_size = N)
+        m, get_x = discretise_exa_full(o; backend = backend, grid_size = N)
         s = madnlp(m)
         @test s.objective ≈ 6 atol = 1e-3
-        # debug: test dimensions of retrieved state, control (no variable here) and multipliers thanks to names returned in build_exa(o)
+        @test length(get_x(s)) == 3 * (N + 1) 
 
     end
 
@@ -720,12 +725,12 @@ function __test_onepass_exa(backend = nothing)
             ∂(x₂)(t) == u(t)
             ∫( 0.5u(t)^2 ) → min
         end
-        m = discretise_exa(o; backend = backend)
+        m, _ = discretise_exa_full(o; backend = backend)
         @test m isa ExaModels.ExaModel
         tol = 1e-7
         s = madnlp(m; tol = tol)
         @test s.objective ≈ 6 atol = 1e-2
-        m = discretise_exa(o; backend = backend, grid_size = 1000)
+        m, _ = discretise_exa_full(o; backend = backend, grid_size = 1000)
         s = madnlp(m; tol = tol)
         @test s.objective ≈ 6 atol = 1e-3
 
@@ -745,12 +750,12 @@ function __test_onepass_exa(backend = nothing)
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) + ∫( 0.5u(t)^2 ) → min
         end
-        m = discretise_exa(o; backend = backend)
+        m, _ = discretise_exa_full(o; backend = backend)
         @test m isa ExaModels.ExaModel
         tol = 1e-7
         s = madnlp(m; tol = tol)
         @test s.objective ≈ 2* 6 atol = 1e-2
-        m = discretise_exa(o; backend = backend, grid_size = 1000)
+        m, _ = discretise_exa_full(o; backend = backend, grid_size = 1000)
         s = madnlp(m; tol = tol)
         @test s.objective ≈ 2 * 6 atol = 1e-3
 
@@ -805,7 +810,7 @@ function __test_onepass_exa(backend = nothing)
         xs = _xs.(t); xs = stack(xs[:])
         us = _us.(t); us = stack(us[:])
         tol = 1e-7
-        m = discretise_exa(o; backend = backend, grid_size = N, init = (tfs, xs, us))
+        m, _ = discretise_exa_full(o; backend = backend, grid_size = N, init = (tfs, xs, us))
         s = madnlp(m; tol = tol)
         @test s.objective ≈ -1.0125736217178989e+00 atol = 1e-5 # note: difference of 1e-5 with CUDA
 
@@ -849,11 +854,11 @@ function __test_onepass_exa(backend = nothing)
         end
         
         N = 100
-        m = discretise_exa(o; grid_size = N, scheme = :euler, backend = backend)
+        m, _ = discretise_exa_full(o; grid_size = N, scheme = :euler, backend = backend)
         @test m isa ExaModels.ExaModel
         sol = madnlp(m)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
-        m = discretise_exa(o; grid_size = N, scheme = :euler_b, backend = backend)
+        m, _ = discretise_exa_full(o; grid_size = N, scheme = :euler_b, backend = backend)
         @test m isa ExaModels.ExaModel
         sol = madnlp(m)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
