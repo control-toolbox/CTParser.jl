@@ -5,7 +5,8 @@ activate_backend(:exa) # nota bene: needs to be executed before @def are expande
 
 # mock up of CTDirect.discretise for tests
 function discretise_exa(ocp; scheme = CTParser.__default_scheme_exa(), grid_size = CTParser.__default_grid_size_exa(), backend = CTParser.__default_backend_exa(), init = CTParser.__default_init_exa(), base_type = CTParser.__default_base_type_exa())
-    return CTModels.get_build_examodel(ocp)(; scheme = scheme, grid_size = grid_size, backend = backend, init = init, base_type = base_type)
+    build_exa = CTModels.get_build_examodel(ocp)
+    return build_exa(; scheme = scheme, grid_size = grid_size, backend = backend, init = init, base_type = base_type)[1]
 end
 
 function test_onepass_exa()
@@ -698,9 +699,11 @@ function __test_onepass_exa(backend = nothing)
         m = discretise_exa(o; backend = backend)
         s = madnlp(m)
         @test s.objective ≈ 6 atol = 1e-2
-        m = discretise_exa(o; backend = backend, grid_size = 1000)
+        N = 1000
+        m = discretise_exa(o; backend = backend, grid_size = N)
         s = madnlp(m)
         @test s.objective ≈ 6 atol = 1e-3
+        # debug: test dimensions of retrieved state, control (no variable here) and multipliers thanks to names returned in build_exa(o)
 
     end
 

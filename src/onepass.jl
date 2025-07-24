@@ -342,7 +342,7 @@ function p_variable_exa!(p, p_ocp, v, q, vv; components_names=nothing)
     p.box_v = concat(p.box_v, code_box)
     code = :($pref.variable($p_ocp, $q; lvar = $(p.l_v), uvar = $(p.u_v), start = init[1]))
     code = __wrap(code, p.lnum, p.line)
-    code = :($v = $code) # affectation must be done outside try ... catch )
+    code = :($v = $code) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
     return code
 end
 
@@ -395,7 +395,7 @@ end
 function p_time_exa!(p, p_ocp, t, t0, tf)
     code = :(($tf - $t0) / grid_size)
     code = __wrap(code, p.lnum, p.line)
-    code = :($(p.dt) = $code) # affectation must be done outside try ... catch 
+    code = :($(p.dt) = $code) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
     return code
 end
 
@@ -449,7 +449,7 @@ function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
     j = __symgen(:j)
     code = :($pref.variable($p_ocp, $n, 0:grid_size; lvar = [$(p.l_x)[$i] for ($i, $j) ∈ Base.product(1:$n, 0:grid_size)], uvar = [$(p.u_x)[$i] for ($i, $j) ∈ Base.product(1:$n, 0:grid_size)], start = init[2]))
     code = __wrap(code, p.lnum, p.line)
-    code = :($x = $code) # affectation must be done outside try ... catch )
+    code = :($x = $code) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
     return code
 end
 
@@ -501,7 +501,7 @@ function p_control_exa!(p, p_ocp, u, m, uu; components_names=nothing)
     j = __symgen(:j)
     code = :($pref.variable($p_ocp, $m, 0:grid_size; lvar = [$(p.l_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:grid_size)], uvar = [$(p.u_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:grid_size)], start = init[3]))
     code = __wrap(code, p.lnum, p.line)
-    code = :($u = $code) # affectation must be done outside try ... catch
+    code = :($u = $code) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
     return code
 end
 
@@ -753,7 +753,10 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
            throw("unknown numerical scheme: $scheme") # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
     end
-    return __wrap(code, p.lnum, p.line)
+    px = Symbol(:p, p.x) # named constraint to allow retrieval of the dynamics multiplier that approximates the adjoint state
+    code = __wrap(code, p.lnum, p.line)
+    code = :($px = $code) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
+    return code
 end
 
 function p_lagrange!(p, p_ocp, e, type; log = false, backend = __default_parsing_backend())
@@ -1082,7 +1085,7 @@ function def_fun(e; log = false)
 
     if is_active_backend(:exa)
         build_exa = def_exa(e; log = log)
-        code = concat(code, :($pref.build($p_ocp, build_examodel = $build_exa)))
+        code = concat(code, :($pref.build($p_ocp; build_examodel = $build_exa)))
     else
         code = concat(code, :($pref.build($p_ocp)))
     end
@@ -1109,6 +1112,7 @@ function def_exa(e; log = false)
     default_backend = __default_backend_exa()
     default_init = __default_init_exa()
     default_base_type = __default_base_type_exa()
+    px = Symbol(:p, p.x)
     code = quote
         function (; scheme = $default_scheme, grid_size = $default_grid_size, backend = $default_backend, init = $default_init, base_type = $default_base_type)
             $(p.box_x) # lvar and uvar for state
@@ -1117,7 +1121,8 @@ function def_exa(e; log = false)
             $p_ocp = $pref.ExaCore(base_type; backend = backend)
             $code
             $dyn_check
-            return $pref.ExaModel($p_ocp)
+            return $pref.ExaModel($p_ocp), # model
+                   sol -> $pref.solution(sol, $(p.x)) # getter for state in ExaModel solution
         end
     end
     return code
