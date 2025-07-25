@@ -685,7 +685,7 @@ function __test_onepass_exa(backend = nothing)
         @test_throws String o(; backend = backend)
 
     end
- 
+
     test_name = "use case no. 1: simple example (mayer) ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
@@ -708,7 +708,7 @@ function __test_onepass_exa(backend = nothing)
         m, get_x = discretise_exa_full(o; backend = backend, grid_size = N)
         s = madnlp(m)
         @test s.objective ≈ 6 atol = 1e-3
-        @test length(get_x(s)) == 3 * (N + 1) 
+        @test size(get_x(s)) == (3, N + 1) 
 
     end
 

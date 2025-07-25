@@ -1122,7 +1122,7 @@ function def_exa(e; log = false)
             $code
             $dyn_check
             return $pref.ExaModel($p_ocp), # model
-                   sol -> $pref.solution(sol, $(p.x)) # getter for state in ExaModel solution
+                   sol -> $pref.solution(sol, $(p.x)) # getter for state from ExaModel solution
         end
     end
     return code
