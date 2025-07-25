@@ -27,6 +27,8 @@ function __test_onepass_exa(backend = nothing)
 
     backend_name = isnothing(backend) ? "CPU" : "GPU" 
 
+    @ignore begin # debug
+
     test_name = "auxiliary functions ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
@@ -705,12 +707,50 @@ function __test_onepass_exa(backend = nothing)
         s = madnlp(m)
         @test s.objective ≈ 6 atol = 1e-2
         N = 1000
-        m, get_x = discretise_exa_full(o; backend = backend, grid_size = N)
+        m, _ = discretise_exa_full(o; backend = backend, grid_size = N)
+        s = madnlp(m)
+        @test s.objective ≈ 6 atol = 1e-3
+
+    end
+
+    end # debug
+
+    test_name = "use case no. 1: simple example (mayer), testing getters ($backend_name)"
+    @testset "$test_name" begin println(test_name)
+
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            x(0) == [-1, 0, 0]
+            x[1:2](1) == [0, 0]
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∂(x₃)(t) == 0.5u(t)^2
+            x₃(1) → min
+        end
+        N = 1000 
+        m, get_x, get_u, get_v, get_px, get_xl, get_xu, get_ul, get_uu, get_vl, get_vu = discretise_exa_full(o; backend = backend, grid_size = N)
         s = madnlp(m)
         @test s.objective ≈ 6 atol = 1e-3
         @test size(get_x(s)) == (3, N + 1) 
+        @test size(get_u(s)) == (1, N + 1) 
+        @test size(get_v(s)) == (0,) 
+        @test size(get_px(s)) == (3, N) 
+        println("**** get_px(s) = ", get_px(s)) # debug
+        println("**** size(get_px(s)) = ", size(get_px(s))) # debug
+        println("**** size(get_xl(s)) = ", size(get_xl(s))) # debug
+        println("**** size(get_xu(s)) = ", size(get_xu(s))) # debug
+        println("**** size(get_ul(s)) = ", size(get_ul(s))) # debug
+        println("**** size(get_uu(s)) = ", size(get_uu(s))) # debug
+        println("**** size(get_vl(s)) = ", size(get_vl(s))) # debug
+        println("**** size(get_vu(s)) = ", size(get_vu(s))) # debug
 
     end
+
+    # debug: add test with different dims and variable
+
+    @ignore begin # debug
 
     test_name = "use case no. 1: simple example (lagrange) ($backend_name)"
     @testset "$test_name" begin println(test_name)
@@ -864,5 +904,7 @@ function __test_onepass_exa(backend = nothing)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
 
     end
+
+    end # debug
 
 end

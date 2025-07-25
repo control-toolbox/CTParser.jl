@@ -449,7 +449,8 @@ function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
     j = __symgen(:j)
     code = :($pref.variable($p_ocp, $n, 0:grid_size; lvar = [$(p.l_x)[$i] for ($i, $j) ∈ Base.product(1:$n, 0:grid_size)], uvar = [$(p.u_x)[$i] for ($i, $j) ∈ Base.product(1:$n, 0:grid_size)], start = init[2]))
     code = __wrap(code, p.lnum, p.line)
-    code = :($x = $code) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
+    dyn_con = Symbol(:dyn_con, x) # name for the constraints associated with the dynamics
+    code = :($x = $code; $dyn_con = Vector{$pref.Constraint}(undef, $n)) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
     return code
 end
 
@@ -753,9 +754,9 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
            throw("unknown numerical scheme: $scheme") # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
     end
-    px = Symbol(:p, p.x) # named constraint to allow retrieval of the dynamics multiplier that approximates the adjoint state
+    dyn_con = Symbol(:dyn_con, p.x) # named constraint to allow retrieval of the dynamics multiplier that approximates the adjoint state
     code = __wrap(code, p.lnum, p.line)
-    code = :($px = $code) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
+    code = :($dyn_con[$i] = $code) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
     return code
 end
 
@@ -1112,7 +1113,26 @@ function def_exa(e; log = false)
     default_backend = __default_backend_exa()
     default_init = __default_init_exa()
     default_base_type = __default_base_type_exa()
-    px = Symbol(:p, p.x)
+    # note: conversion to Arrat for GPU
+    get_state = :(sol -> Array($pref.solution(sol, $(p.x)))) # getter for state from ExaModel solution
+    get_control = :(sol -> Array($pref.solution(sol, $(p.u)))) # getter for control from ExaModel solution
+    get_variable = :(sol -> isnothing($(p.dim_v)) ? base_type[] : Array($pref.solution(sol, $(p.v)))) # getter for variable from ExaModel solution
+    dyn_con = Symbol(:dyn_con, p.x)
+    get_costate = quote # getter for costate from ExaModel solution (needs to be constructed for each state/dynamics dimension)
+        sol -> begin
+            px = zeros(base_type, $(p.dim_x), grid_size)
+            for i ∈ 1:$(p.dim_x)
+                px[i, :] = Array($pref.multipliers(sol, $dyn_con[i]))
+            end
+        return px
+        end
+    end
+    get_state_ml = :(sol -> Array($pref.multipliers_L(sol, $(p.x)))) # getter for lower state box multiplier from ExaModel solution
+    get_state_mu = :(sol -> Array($pref.multipliers_U(sol, $(p.x)))) # getter for upper state box multiplier from ExaModel solution
+    get_control_ml = :(sol -> Array($pref.multipliers_L(sol, $(p.u)))) # getter for lower control box multiplier from ExaModel solution
+    get_control_mu = :(sol -> Array($pref.multipliers_U(sol, $(p.u)))) # getter for upper control box multiplier from ExaModel solution
+    get_variable_ml = :(sol -> isnothing($(p.dim_v)) ? base_type[] : Array($pref.multipliers_L(sol, $(p.v)))) # getter for lower variable box multiplier from ExaModel solution
+    get_variable_mu = :(sol -> isnothing($(p.dim_v)) ? base_type[] : Array($pref.multipliers_U(sol, $(p.v)))) # getter for upper variable box multiplier from ExaModel solution
     code = quote
         function (; scheme = $default_scheme, grid_size = $default_grid_size, backend = $default_backend, init = $default_init, base_type = $default_base_type)
             $(p.box_x) # lvar and uvar for state
@@ -1121,8 +1141,19 @@ function def_exa(e; log = false)
             $p_ocp = $pref.ExaCore(base_type; backend = backend)
             $code
             $dyn_check
-            return $pref.ExaModel($p_ocp), # model
-                   sol -> $pref.solution(sol, $(p.x)) # getter for state from ExaModel solution
+            return (
+                   $pref.ExaModel($p_ocp), # model
+                   $get_state,
+                   $get_control,
+                   $get_variable,
+                   $get_costate,
+                   $get_state_ml,
+                   $get_state_mu,
+                   $get_control_ml,
+                   $get_control_mu,
+                   $get_variable_ml,
+                   $get_variable_mu,
+                   )
         end
     end
     return code
