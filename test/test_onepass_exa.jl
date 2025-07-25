@@ -5,7 +5,13 @@ activate_backend(:exa) # nota bene: needs to be executed before @def are expande
 
 # mock up of CTDirect.discretise for tests
 function discretise_exa(ocp; scheme = CTParser.__default_scheme_exa(), grid_size = CTParser.__default_grid_size_exa(), backend = CTParser.__default_backend_exa(), init = CTParser.__default_init_exa(), base_type = CTParser.__default_base_type_exa())
-    return CTModels.get_build_examodel(ocp)(; scheme = scheme, grid_size = grid_size, backend = backend, init = init, base_type = base_type)
+    build_exa = CTModels.get_build_examodel(ocp)
+    return build_exa(; scheme = scheme, grid_size = grid_size, backend = backend, init = init, base_type = base_type)[1]
+end
+
+function discretise_exa_full(ocp; scheme = CTParser.__default_scheme_exa(), grid_size = CTParser.__default_grid_size_exa(), backend = CTParser.__default_backend_exa(), init = CTParser.__default_init_exa(), base_type = CTParser.__default_base_type_exa())
+    build_exa = CTModels.get_build_examodel(ocp)
+    return build_exa(; scheme = scheme, grid_size = grid_size, backend = backend, init = init, base_type = base_type)
 end
 
 function test_onepass_exa()
@@ -20,6 +26,8 @@ end
 function __test_onepass_exa(backend = nothing)
 
     backend_name = isnothing(backend) ? "CPU" : "GPU" 
+
+    #@ignore begin # debug
 
     test_name = "auxiliary functions ($backend_name)"
     @testset "$test_name" begin println(test_name)
@@ -679,7 +687,7 @@ function __test_onepass_exa(backend = nothing)
         @test_throws String o(; backend = backend)
 
     end
- 
+
     test_name = "use case no. 1: simple example (mayer) ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
@@ -695,14 +703,83 @@ function __test_onepass_exa(backend = nothing)
             x₃(1) → min
         end
         @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
-        m = discretise_exa(o; backend = backend)
+        m, _ = discretise_exa_full(o; backend = backend)
         s = madnlp(m)
         @test s.objective ≈ 6 atol = 1e-2
-        m = discretise_exa(o; backend = backend, grid_size = 1000)
+        N = 1000
+        m, _ = discretise_exa_full(o; backend = backend, grid_size = N)
         s = madnlp(m)
         @test s.objective ≈ 6 atol = 1e-3
 
     end
+
+    #end # debug
+
+    test_name = "use case no. 1: simple example (mayer), testing getters (1/2) ($backend_name)"
+    @testset "$test_name" begin println(test_name)
+
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            x(0) == [-1, 0, 0]
+            x[1:2](1) == [0, 0]
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∂(x₃)(t) == 0.5u(t)^2
+            x₃(1) → min
+        end
+        N = 1000
+        m, get_x, get_u, get_v, get_px, get_xl, get_xu, get_ul, get_uu, get_vl, get_vu = discretise_exa_full(o; backend = backend, grid_size = N)
+        s = madnlp(m)
+        @test s.objective ≈ 6 atol = 1e-3
+        @test size(get_x(s)) == (3, N + 1) 
+        @test size(get_u(s)) == (1, N + 1) 
+        @test size(get_v(s)) == (0,) 
+        @test size(get_px(s)) == (3, N) 
+        @test size(get_xl(s)) == (3, N + 1) 
+        @test size(get_xu(s)) == (3, N + 1) 
+        @test size(get_ul(s)) == (1, N + 1) 
+        @test size(get_uu(s)) == (1, N + 1) 
+        @test size(get_vl(s)) == (0,) 
+        @test size(get_vu(s)) == (0,) 
+
+    end
+
+    test_name = "use case no. 1: simple example (mayer), testing getters (2/2) ($backend_name)"
+    @testset "$test_name" begin println(test_name)
+
+        o = @def begin
+            v ∈ R⁴, variable
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            v == [1, 2, 3, 4]
+            x(0) == [-1, 0, 0]
+            x[1:2](1) == [0, 0]
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u₁(t)
+            ∂(x₃)(t) == 0.5(u₁(t)^2 + u₂(t)^2)
+            x₃(1) → min
+        end
+        N = 1000
+        m, get_x, get_u, get_v, get_px, get_xl, get_xu, get_ul, get_uu, get_vl, get_vu = discretise_exa_full(o; backend = backend, grid_size = N)
+        s = madnlp(m)
+        @test s.objective ≈ 6 atol = 1e-3
+        @test size(get_x(s)) == (3, N + 1) 
+        @test size(get_u(s)) == (2, N + 1) 
+        @test size(get_v(s)) == (4,) 
+        @test size(get_px(s)) == (3, N) 
+        @test size(get_xl(s)) == (3, N + 1) 
+        @test size(get_xu(s)) == (3, N + 1) 
+        @test size(get_ul(s)) == (2, N + 1) 
+        @test size(get_uu(s)) == (2, N + 1) 
+        @test size(get_vl(s)) == (4,) 
+        @test size(get_vu(s)) == (4,) 
+
+    end
+
+    #@ignore begin # debug
 
     test_name = "use case no. 1: simple example (lagrange) ($backend_name)"
     @testset "$test_name" begin println(test_name)
@@ -717,12 +794,12 @@ function __test_onepass_exa(backend = nothing)
             ∂(x₂)(t) == u(t)
             ∫( 0.5u(t)^2 ) → min
         end
-        m = discretise_exa(o; backend = backend)
+        m, _ = discretise_exa_full(o; backend = backend)
         @test m isa ExaModels.ExaModel
         tol = 1e-7
         s = madnlp(m; tol = tol)
         @test s.objective ≈ 6 atol = 1e-2
-        m = discretise_exa(o; backend = backend, grid_size = 1000)
+        m, _ = discretise_exa_full(o; backend = backend, grid_size = 1000)
         s = madnlp(m; tol = tol)
         @test s.objective ≈ 6 atol = 1e-3
 
@@ -742,12 +819,12 @@ function __test_onepass_exa(backend = nothing)
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) + ∫( 0.5u(t)^2 ) → min
         end
-        m = discretise_exa(o; backend = backend)
+        m, _ = discretise_exa_full(o; backend = backend)
         @test m isa ExaModels.ExaModel
         tol = 1e-7
         s = madnlp(m; tol = tol)
         @test s.objective ≈ 2* 6 atol = 1e-2
-        m = discretise_exa(o; backend = backend, grid_size = 1000)
+        m, _ = discretise_exa_full(o; backend = backend, grid_size = 1000)
         s = madnlp(m; tol = tol)
         @test s.objective ≈ 2 * 6 atol = 1e-3
 
@@ -802,7 +879,7 @@ function __test_onepass_exa(backend = nothing)
         xs = _xs.(t); xs = stack(xs[:])
         us = _us.(t); us = stack(us[:])
         tol = 1e-7
-        m = discretise_exa(o; backend = backend, grid_size = N, init = (tfs, xs, us))
+        m, _ = discretise_exa_full(o; backend = backend, grid_size = N, init = (tfs, xs, us))
         s = madnlp(m; tol = tol)
         @test s.objective ≈ -1.0125736217178989e+00 atol = 1e-5 # note: difference of 1e-5 with CUDA
 
@@ -846,15 +923,17 @@ function __test_onepass_exa(backend = nothing)
         end
         
         N = 100
-        m = discretise_exa(o; grid_size = N, scheme = :euler, backend = backend)
+        m, _ = discretise_exa_full(o; grid_size = N, scheme = :euler, backend = backend)
         @test m isa ExaModels.ExaModel
         sol = madnlp(m)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
-        m = discretise_exa(o; grid_size = N, scheme = :euler_b, backend = backend)
+        m, _ = discretise_exa_full(o; grid_size = N, scheme = :euler_b, backend = backend)
         @test m isa ExaModels.ExaModel
         sol = madnlp(m)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
 
     end
+
+    #end # debug
 
 end
