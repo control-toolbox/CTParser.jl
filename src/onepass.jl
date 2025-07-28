@@ -1113,26 +1113,41 @@ function def_exa(e; log = false)
     default_backend = __default_backend_exa()
     default_init = __default_init_exa()
     default_base_type = __default_base_type_exa()
-    # note: conversion to Arrat for GPU
-    get_state = :(sol -> Array($pref.solution(sol, $(p.x)))) # getter for state from ExaModel solution
-    get_control = :(sol -> Array($pref.solution(sol, $(p.u)))) # getter for control from ExaModel solution
-    get_variable = :(sol -> isnothing($(p.dim_v)) ? base_type[] : Array($pref.solution(sol, $(p.v)))) # getter for variable from ExaModel solution
     dyn_con = Symbol(:dyn_con, p.x)
-    get_costate = quote # getter for costate from ExaModel solution (needs to be constructed for each state/dynamics dimension)
-        sol -> begin
-            px = zeros(base_type, $(p.dim_x), grid_size)
-            for i ∈ 1:$(p.dim_x)
-                px[i, :] = Array($pref.multipliers(sol, $dyn_con[i]))
+
+    getter = quote
+        function (sol; val)
+            res = if val == :state # if as @match is not exported from CTParser or OptimalControl
+                $pref.solution(sol, $(p.x))
+            elseif val == :control
+                $pref.solution(sol, $(p.u))
+            elseif val == :variable
+                isnothing($(p.dim_v)) ? base_type[] : $pref.solution(sol, $(p.v))
+            elseif val == :costate 
+                px = zeros(base_type, $(p.dim_x), grid_size)
+                for i ∈ 1:$(p.dim_x)
+                    px[i, :] = Array($pref.multipliers(sol, $dyn_con[i])) # Array to copy from GPU
+                end
+                px
+            elseif val == :state_l
+                $pref.multipliers_L(sol, $(p.x))
+            elseif val == :state_u
+                $pref.multipliers_U(sol, $(p.x))
+            elseif val == :control_l
+                $pref.multipliers_L(sol, $(p.u))
+            elseif val == :control_u
+                $pref.multipliers_U(sol, $(p.u))
+            elseif val == :variable_l
+                isnothing($(p.dim_v)) ? base_type[] : $pref.multipliers_L(sol, $(p.v))
+            elseif val == :variable_u
+                isnothing($(p.dim_v)) ? base_type[] : $pref.multipliers_U(sol, $(p.v))
+            else
+                throw("unknown value $val for kwarg val")
             end
-        return px
+            return Array(res) # conversion to Array for GPU
         end
     end
-    get_state_ml = :(sol -> Array($pref.multipliers_L(sol, $(p.x)))) # getter for lower state box multiplier from ExaModel solution
-    get_state_mu = :(sol -> Array($pref.multipliers_U(sol, $(p.x)))) # getter for upper state box multiplier from ExaModel solution
-    get_control_ml = :(sol -> Array($pref.multipliers_L(sol, $(p.u)))) # getter for lower control box multiplier from ExaModel solution
-    get_control_mu = :(sol -> Array($pref.multipliers_U(sol, $(p.u)))) # getter for upper control box multiplier from ExaModel solution
-    get_variable_ml = :(sol -> isnothing($(p.dim_v)) ? base_type[] : Array($pref.multipliers_L(sol, $(p.v)))) # getter for lower variable box multiplier from ExaModel solution
-    get_variable_mu = :(sol -> isnothing($(p.dim_v)) ? base_type[] : Array($pref.multipliers_U(sol, $(p.v)))) # getter for upper variable box multiplier from ExaModel solution
+
     code = quote
         function (; scheme = $default_scheme, grid_size = $default_grid_size, backend = $default_backend, init = $default_init, base_type = $default_base_type)
             $(p.box_x) # lvar and uvar for state
@@ -1141,19 +1156,7 @@ function def_exa(e; log = false)
             $p_ocp = $pref.ExaCore(base_type; backend = backend)
             $code
             $dyn_check
-            return (
-                   $pref.ExaModel($p_ocp), # model
-                   $get_state,
-                   $get_control,
-                   $get_variable,
-                   $get_costate,
-                   $get_state_ml,
-                   $get_state_mu,
-                   $get_control_ml,
-                   $get_control_mu,
-                   $get_variable_ml,
-                   $get_variable_mu,
-                   )
+            return $pref.ExaModel($p_ocp), $getter 
         end
     end
     return code

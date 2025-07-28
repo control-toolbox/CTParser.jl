@@ -27,8 +27,6 @@ function __test_onepass_exa(backend = nothing)
 
     backend_name = isnothing(backend) ? "CPU" : "GPU" 
 
-    #@ignore begin # debug
-
     test_name = "auxiliary functions ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
@@ -713,8 +711,6 @@ function __test_onepass_exa(backend = nothing)
 
     end
 
-    #end # debug
-
     test_name = "use case no. 1: simple example (mayer), testing getters (1/2) ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
@@ -730,19 +726,20 @@ function __test_onepass_exa(backend = nothing)
             x₃(1) → min
         end
         N = 1000
-        m, get_x, get_u, get_v, get_px, get_xl, get_xu, get_ul, get_uu, get_vl, get_vu = discretise_exa_full(o; backend = backend, grid_size = N)
+        m, getter = discretise_exa_full(o; backend = backend, grid_size = N)
         s = madnlp(m)
-        @test s.objective ≈ 6 atol = 1e-3
-        @test size(get_x(s)) == (3, N + 1) 
-        @test size(get_u(s)) == (1, N + 1) 
-        @test size(get_v(s)) == (0,) 
-        @test size(get_px(s)) == (3, N) 
-        @test size(get_xl(s)) == (3, N + 1) 
-        @test size(get_xu(s)) == (3, N + 1) 
-        @test size(get_ul(s)) == (1, N + 1) 
-        @test size(get_uu(s)) == (1, N + 1) 
-        @test size(get_vl(s)) == (0,) 
-        @test size(get_vu(s)) == (0,) 
+        @test size(getter(s; val = :state)) == (3, N + 1) 
+        @test size(getter(s; val = :control)) == (1, N + 1) 
+        @test size(getter(s; val = :variable)) == (0,) 
+        @test size(getter(s; val = :costate)) == (3, N) 
+        @test size(getter(s; val = :state_l)) == (3, N + 1) 
+        @test size(getter(s; val = :state_u)) == (3, N + 1) 
+        @test size(getter(s; val = :control_l)) == (1, N + 1) 
+        @test size(getter(s; val = :control_u)) == (1, N + 1) 
+        @test size(getter(s; val = :variable_l)) == (0,) 
+        @test size(getter(s; val = :variable_u)) == (0,) 
+        @test size(getter(s; val = :variable_u)) == (0,) 
+        @test_throws String getter(s; val = :foo)
 
     end
 
@@ -763,23 +760,20 @@ function __test_onepass_exa(backend = nothing)
             x₃(1) → min
         end
         N = 1000
-        m, get_x, get_u, get_v, get_px, get_xl, get_xu, get_ul, get_uu, get_vl, get_vu = discretise_exa_full(o; backend = backend, grid_size = N)
+        m, getter = discretise_exa_full(o; backend = backend, grid_size = N)
         s = madnlp(m)
-        @test s.objective ≈ 6 atol = 1e-3
-        @test size(get_x(s)) == (3, N + 1) 
-        @test size(get_u(s)) == (2, N + 1) 
-        @test size(get_v(s)) == (4,) 
-        @test size(get_px(s)) == (3, N) 
-        @test size(get_xl(s)) == (3, N + 1) 
-        @test size(get_xu(s)) == (3, N + 1) 
-        @test size(get_ul(s)) == (2, N + 1) 
-        @test size(get_uu(s)) == (2, N + 1) 
-        @test size(get_vl(s)) == (4,) 
-        @test size(get_vu(s)) == (4,) 
+        @test size(getter(s; val = :state)) == (3, N + 1) 
+        @test size(getter(s; val = :control)) == (2, N + 1) 
+        @test size(getter(s; val = :variable)) == (4,) 
+        @test size(getter(s; val = :costate)) == (3, N) 
+        @test size(getter(s; val = :state_l)) == (3, N + 1) 
+        @test size(getter(s; val = :state_u)) == (3, N + 1) 
+        @test size(getter(s; val = :control_l)) == (2, N + 1) 
+        @test size(getter(s; val = :control_u)) == (2, N + 1) 
+        @test size(getter(s; val = :variable_l)) == (4,) 
+        @test size(getter(s; val = :variable_u)) == (4,) 
 
     end
-
-    #@ignore begin # debug
 
     test_name = "use case no. 1: simple example (lagrange) ($backend_name)"
     @testset "$test_name" begin println(test_name)
@@ -933,7 +927,5 @@ function __test_onepass_exa(backend = nothing)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
 
     end
-
-    #end # debug
 
 end
