@@ -15,7 +15,6 @@ module CTParser
 import CTBase # indices utilities and ParsingError
 using DocStringExtensions
 using MLStyle
-#export @match # @match is used in generated code
 using OrderedCollections
 using Parameters # @with_kw: to have default values in struct
 using Unicode
