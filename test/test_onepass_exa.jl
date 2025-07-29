@@ -738,7 +738,6 @@ function __test_onepass_exa(backend = nothing)
         @test size(getter(s; val = :control_u)) == (1, N + 1) 
         @test size(getter(s; val = :variable_l)) == (0,) 
         @test size(getter(s; val = :variable_u)) == (0,) 
-        @test size(getter(s; val = :variable_u)) == (0,) 
         @test_throws String getter(s; val = :foo)
 
     end
