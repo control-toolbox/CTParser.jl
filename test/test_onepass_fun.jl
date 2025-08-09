@@ -1,6 +1,6 @@
 # test onepass, functional parsing (aka CTModels primitives)
 # todo:
- 
+
 function to_out_of_place(f!, n; T=Float64)
     function f(args...; kwargs...)
         r = zeros(T, n)
@@ -12,7 +12,7 @@ function to_out_of_place(f!, n; T=Float64)
 end
 
 function __constraint(ocp, label)
-    type_, fun_, lb_, ub_ = constraint(ocp,label)
+    type_, fun_, lb_, ub_ = constraint(ocp, label)
     function fun(args...)
         r = fun_(args...)
         if length(r) == 1 # f returns a scalar if length(r) == 1
@@ -42,7 +42,7 @@ function test_onepass_fun()
             x ∈ R, state
             u ∈ R, control
             ẋ(t) == u(t)
-            tf → min 
+            tf → min
         end
         @test initial_time(oo) == 0
         @test final_time(oo, [0, 1]) == 1
@@ -71,12 +71,12 @@ function test_onepass_fun()
 
         @test __constraint(o, :eq3)[2](0, x, u, nothing) == x
         @test __constraint(o, :eq4)[2](0, x, u, nothing) == x[1:1]
-        @test __constraint(o, :eq5)[2](0, x, u, nothing) == u 
+        @test __constraint(o, :eq5)[2](0, x, u, nothing) == u
 
         @test __dynamics(o)(0, x, u, nothing) == [x[2], (x[1] + 2x[2])^2]
         @test lagrange(o)(0, x, u, nothing) == u[1]^2 + x[1]
         @test criterion(o) == :min
-    
+
         @def oo begin
             λ ∈ R^2, variable
             tf = λ₂
@@ -363,12 +363,12 @@ function test_onepass_fun()
             t0 ∈ R², variable
             t ∈ [t0, 1], time
         end
- 
+
         @test_throws ParsingError @def o begin
             tf ∈ R², variable
             t ∈ [0, tf], time
         end
- 
+
         @test_throws ParsingError @def o begin
             v, variable
             t ∈ [0, tf[v]], time
@@ -812,9 +812,9 @@ function test_onepass_fun()
             t ∈ [0, 1], time
             x ∈ R^3, state
             u ∈ R^2, control
-            ∂(x₁)(t) == x[1](t) + 2u[2](t) 
+            ∂(x₁)(t) == x[1](t) + 2u[2](t)
             ∂(x₂)(t) == 2x[3](t)
-            ∂(x₃)(t) == x[1](t) + u[2](t) 
+            ∂(x₃)(t) == x[1](t) + u[2](t)
             0 => min # generic (untested)
         end
         @test state_dimension(o) == 3
@@ -923,8 +923,8 @@ function test_onepass_fun()
         z = [5, 6]
         y = [1, 2, 3, 4, 5, 6, 7, 8]
         w = [9]
-        @test __dynamics(o)(0, y, w, z) == [y[1], y[3]^2 + w[1] + z[1], 0, y[1], y[2], 3, 4, 5, 6]
-
+        @test __dynamics(o)(0, y, w, z) ==
+            [y[1], y[3]^2 + w[1] + z[1], 0, y[1], y[2], 3, 4, 5, 6]
     end
 
     # ---------------------------------------------------------------
@@ -1930,7 +1930,7 @@ function test_onepass_fun()
             0 1
             0 0
         ]
-        B = [ 0 1 ]'
+        B = [0 1]'
         @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
@@ -1955,7 +1955,7 @@ function test_onepass_fun()
             0 1
             0 0
         ]
-        B = [ 0 1 ]'
+        B = [0 1]'
         @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == -0.5u[1]^2
@@ -1980,7 +1980,7 @@ function test_onepass_fun()
             0 1
             0 0
         ]
-        B = [ 0 1 ]'
+        B = [0 1]'
         @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
@@ -2005,7 +2005,7 @@ function test_onepass_fun()
             0 1
             0 0
         ]
-        B = [ 0 1 ]'
+        B = [0 1]'
         @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
@@ -2030,7 +2030,7 @@ function test_onepass_fun()
             0 1
             0 0
         ]
-        B = [ 0 1 ]'
+        B = [0 1]'
         @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == -0.5u[1]^2
@@ -2055,7 +2055,7 @@ function test_onepass_fun()
             0 1
             0 0
         ]
-        B = [ 0 1 ]'
+        B = [0 1]'
         @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == (-0.5 + tf) * u[1]^2
@@ -2106,7 +2106,7 @@ function test_onepass_fun()
             0 1
             0 0
         ]
-        B = [ 0 1 ]'
+        B = [0 1]'
         @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
@@ -2131,7 +2131,7 @@ function test_onepass_fun()
             0 1
             0 0
         ]
-        B = [ 0 1 ]'
+        B = [0 1]'
         @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == -0.5u[1]^2
@@ -2156,7 +2156,7 @@ function test_onepass_fun()
             0 1
             0 0
         ]
-        B = [ 0 1 ]'
+        B = [0 1]'
         @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
@@ -2181,7 +2181,7 @@ function test_onepass_fun()
             0 1
             0 0
         ]
-        B = [ 0 1 ]'
+        B = [0 1]'
         @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
@@ -2206,7 +2206,7 @@ function test_onepass_fun()
             0 1
             0 0
         ]
-        B = [ 0 1 ]'
+        B = [0 1]'
         @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == -0.5u[1]^2
@@ -2834,7 +2834,7 @@ function test_onepass_fun()
             0 1
             0 0
         ]
-        B = [ 0 1 ]'
+        B = [0 1]'
         @test __constraint(o, :eq1)[2](x0, xf, nothing) == x0
         @test __dynamics(o)(0, x, u, nothing) == A * x + B * u
         @test lagrange(o)(0, x, u, nothing) == 0.5u[1]^2
@@ -2921,7 +2921,7 @@ function test_onepass_fun()
         @test __dynamics(o)(0, x, u, z) == [x[2], x[1]^2 + z[1]]
         @test lagrange(o)(0, x, u, z) == u[1]^2 + z[1] * x[1]
     end
-    
+
     # ---------------------------------------------------------------
     # ---------------------------------------------------------------
     @testset "scalar variable, state, constraint" begin
@@ -2934,13 +2934,13 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R², control
             derivative(x)(t) == t * v * x(t) + u(t)
-            1 → min 
+            1 → min
         end
 
-        t = 7.
-        v = [2.]
-        x = [3., 4.]
-        u = [10., 20.]
+        t = 7.0
+        v = [2.0]
+        x = [3.0, 4.0]
+        u = [10.0, 20.0]
         r = similar(x)
         @test final_time(o, v) == v[1]
         dynamics(o)(r, t, x, u, v)
@@ -2952,7 +2952,7 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R², control
             derivative(x)(t) == t * v₁ * x(t) + u(t)
-            1 → min 
+            1 → min
         end
 
         @test final_time(o, v) == v[1]
@@ -2965,9 +2965,9 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R², control
             derivative(x)(t) == t * v1 * x(t) + u(t)
-            1 → min 
+            1 → min
         end
-        
+
         @test final_time(o, v) == v[1]
         dynamics(o)(r, t, x, u, v)
         @test r == t * v[1] * x + u
@@ -2978,7 +2978,7 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R², control
             derivative(x)(t) == t * v[1] * x(t) + u(t)
-            1 → min 
+            1 → min
         end
 
         @test final_time(o, v) == v[1]
@@ -2991,13 +2991,13 @@ function test_onepass_fun()
             x ∈ R, state
             u ∈ R², control
             derivative(x)(t) == t * x(t) + u₁(t)
-            1 → min 
+            1 → min
         end
 
         v = nothing
-        t = 7.
-        x = [3.]
-        u = [10., 20.]
+        t = 7.0
+        x = [3.0]
+        u = [10.0, 20.0]
         r = similar(x)
         dynamics(o)(r, t, x, u, v)
         @test r == [t * x[1] + u[1]]
@@ -3007,13 +3007,13 @@ function test_onepass_fun()
             x ∈ R, state
             u ∈ R², control
             derivative(x[1])(t) == t * x(t) + u₁(t) # should also parse and be OK
-            1 → min 
+            1 → min
         end
 
         v = nothing
-        t = 7.
-        x = [3.]
-        u = [10., 20.]
+        t = 7.0
+        x = [3.0]
+        u = [10.0, 20.0]
         r = similar(x)
         dynamics(o)(r, t, x, u, v)
         @test r == [t * x[1] + u[1]]
@@ -3023,7 +3023,7 @@ function test_onepass_fun()
             x ∈ R, state
             u ∈ R², control
             derivative(x[2])(t) == t * x(t) + u₁(t) # out of range
-            1 → min 
+            1 → min
         end
 
         @test_throws UnauthorizedCall @def begin
@@ -3031,7 +3031,7 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R², control
             derivative(x[1])(t) == t * x[1](t) + u₁(t) # incomplete
-            1 → min 
+            1 → min
         end
 
         @test_throws UnauthorizedCall @def begin
@@ -3039,7 +3039,7 @@ function test_onepass_fun()
             x ∈ R³, state
             u ∈ R², control
             derivative(x[1:2])(t) == t * x[1](t) + u₁(t) # incomplete 
-            1 → min 
+            1 → min
         end
 
         o = @def begin
@@ -3057,7 +3057,7 @@ function test_onepass_fun()
             x ∈ R, state
             u ∈ R², control
             derivative(x)(t) == t * x1(t) + u₁(t)
-            1 → min 
+            1 → min
         end
 
         @test r == [t * x[1] + u[1]]
@@ -3067,7 +3067,7 @@ function test_onepass_fun()
             x ∈ R, state
             u ∈ R², control
             derivative(x)(t) == t * x[1](t) + u₁(t)
-            1 → min 
+            1 → min
         end
 
         @test r == [t * x[1] + u[1]]
@@ -3078,13 +3078,13 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R, control
             derivative(x)(t) == t * u(t) * x(t)
-            1 → min 
+            1 → min
         end
 
         v = nothing
-        t = 7.
-        x = [3., 4.]
-        u = [10.]
+        t = 7.0
+        x = [3.0, 4.0]
+        u = [10.0]
         r = similar(x)
         dynamics(o)(r, t, x, u, v)
         @test r == t * u[1] * x
@@ -3094,7 +3094,7 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R, control
             derivative(x)(t) == t * u₁(t) * x(t)
-            1 → min 
+            1 → min
         end
 
         dynamics(o)(r, t, x, u, v)
@@ -3105,7 +3105,7 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R, control
             derivative(x)(t) == t * u1(t) * x(t)
-            1 → min 
+            1 → min
         end
 
         dynamics(o)(r, t, x, u, v)
@@ -3116,16 +3116,16 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R, control
             derivative(x)(t) == t * u[1](t) * x(t)
-            1 → min 
+            1 → min
         end
 
         dynamics(o)(r, t, x, u, v)
         @test r == t * u[1] * x
-
     end
 
     test_name = "pragma"
-    @testset "$test_name" begin println(test_name)
+    @testset "$test_name" begin
+        println(test_name)
 
         o = @def begin
             PRAGMA(println("foo"))
@@ -3133,29 +3133,29 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R, control
             derivative(x)(t) == t * u[1](t) * x(t)
-            1 → min 
+            1 → min
         end
-        @test o isa CTModels.Model 
-
+        @test o isa CTModels.Model
     end
 
     test_name = "parsing_backends"
-    @testset "$test_name" begin println(test_name)
+    @testset "$test_name" begin
+        println(test_name)
 
         @test is_active_backend(:fun)
         activate_backend(:exa)
         @test is_active_backend(:exa)
         deactivate_backend(:exa)
         @test !is_active_backend(:exa)
-        @test_throws String activate_backend(:fun) 
+        @test_throws String activate_backend(:fun)
         @test_throws String deactivate_backend(:fun)
-        @test_throws String activate_backend(:foo) 
-        @test_throws String deactivate_backend(:foo) 
-
+        @test_throws String activate_backend(:foo)
+        @test_throws String deactivate_backend(:foo)
     end
 
     test_name = "dimensions at runtime"
-    @testset "$test_name" begin println(test_name)
+    @testset "$test_name" begin
+        println(test_name)
 
         n = 4
         o = @def begin
@@ -3163,7 +3163,7 @@ function test_onepass_fun()
             x = (a, b, c, d) ∈ R^n, state
             u ∈ R, control
             ẋ(t) == x(t)
-            ∫( 0.5u(t)^2 ) → min
+            ∫(0.5u(t)^2) → min
         end
 
         m = 1
@@ -3172,7 +3172,7 @@ function test_onepass_fun()
             x = (a, b, c, d) ∈ R^4, state
             u ∈ R^m, control
             ẋ(t) == x(t)
-            ∫( 0.5u(t)^2 ) → min
+            ∫(0.5u(t)^2) → min
         end
 
         k = 2
@@ -3182,7 +3182,7 @@ function test_onepass_fun()
             x = (a, b, c, d) ∈ R^4, state
             u ∈ R, control
             ẋ(t) == x(t)
-            ∫( 0.5u(t)^2 ) → min
+            ∫(0.5u(t)^2) → min
         end
 
         o = @def begin
@@ -3191,7 +3191,7 @@ function test_onepass_fun()
             x = (a, b, c, d) ∈ R^n, state
             u ∈ R^1, control
             ẋ(t) == x(t)
-            ∫( 0.5u(t)^2 ) → min
+            ∫(0.5u(t)^2) → min
         end
 
         o = @def begin
@@ -3200,7 +3200,7 @@ function test_onepass_fun()
             x = (a, b, c, d) ∈ R^4, state
             u ∈ R^m, control
             ẋ(t) == x(t)
-            ∫( 0.5u(t)^2 ) → min
+            ∫(0.5u(t)^2) → min
         end
 
         o = @def begin
@@ -3209,7 +3209,7 @@ function test_onepass_fun()
             x = (a, b, c, d) ∈ R^n, state
             u ∈ R^m, control
             ẋ(t) == x(t)
-            ∫( 0.5u(t)^2 ) → min
+            ∫(0.5u(t)^2) → min
         end
 
         o = @def begin
@@ -3218,9 +3218,7 @@ function test_onepass_fun()
             x = (a, b, c, d) ∈ R^n, state
             u ∈ R^m, control
             ẋ(t) == x(t)
-            ∫( 0.5u(t)^2 ) → min
+            ∫(0.5u(t)^2) → min
         end
-
     end
-
 end
