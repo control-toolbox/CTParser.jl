@@ -702,11 +702,11 @@ function __test_onepass_exa(backend = nothing)
         end
         @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
         m, _ = discretise_exa_full(o; backend = backend)
-        s = madnlp(m, cudss_ir=1)
+        s = madnlp(m, cudss_ir=2)
         @test s.objective ≈ 6 atol = 1e-2
         N = 1000
         m, _ = discretise_exa_full(o; backend = backend, grid_size = N)
-        s = madnlp(m, cudss_ir=1)
+        s = madnlp(m, cudss_ir=2)
         @test s.objective ≈ 6 atol = 1e-3
 
     end
@@ -727,7 +727,7 @@ function __test_onepass_exa(backend = nothing)
         end
         N = 1000
         m, getter = discretise_exa_full(o; backend = backend, grid_size = N)
-        s = madnlp(m, cudss_ir=1)
+        s = madnlp(m, cudss_ir=2)
         @test size(getter(s; val = :state)) == (3, N + 1) 
         @test size(getter(s; val = :control)) == (1, N + 1) 
         @test size(getter(s; val = :variable)) == (0,) 
@@ -760,7 +760,7 @@ function __test_onepass_exa(backend = nothing)
         end
         N = 1000
         m, getter = discretise_exa_full(o; backend = backend, grid_size = N)
-        s = madnlp(m, cudss_ir=1)
+        s = madnlp(m, cudss_ir=2)
         @test size(getter(s; val = :state)) == (3, N + 1) 
         @test size(getter(s; val = :control)) == (2, N + 1) 
         @test size(getter(s; val = :variable)) == (4,) 
@@ -790,10 +790,10 @@ function __test_onepass_exa(backend = nothing)
         m, _ = discretise_exa_full(o; backend = backend)
         @test m isa ExaModels.ExaModel
         tol = 1e-7
-        s = madnlp(m; tol = tol, cudss_ir=1)
+        s = madnlp(m; tol = tol, cudss_ir=2)
         @test s.objective ≈ 6 atol = 1e-2
         m, _ = discretise_exa_full(o; backend = backend, grid_size = 1000)
-        s = madnlp(m; tol = tol, cudss_ir=1)
+        s = madnlp(m; tol = tol, cudss_ir=2)
         @test s.objective ≈ 6 atol = 1e-3
 
     end
@@ -815,10 +815,10 @@ function __test_onepass_exa(backend = nothing)
         m, _ = discretise_exa_full(o; backend = backend)
         @test m isa ExaModels.ExaModel
         tol = 1e-7
-        s = madnlp(m; tol = tol, cudss_ir=1)
+        s = madnlp(m; tol = tol, cudss_ir=2)
         @test s.objective ≈ 2* 6 atol = 1e-2
         m, _ = discretise_exa_full(o; backend = backend, grid_size = 1000)
-        s = madnlp(m; tol = tol, cudss_ir=1)
+        s = madnlp(m; tol = tol, cudss_ir=2)
         @test s.objective ≈ 2 * 6 atol = 1e-3
 
     end
@@ -873,7 +873,7 @@ function __test_onepass_exa(backend = nothing)
         us = _us.(t); us = stack(us[:])
         tol = 1e-7
         m, _ = discretise_exa_full(o; backend = backend, grid_size = N, init = (tfs, xs, us))
-        s = madnlp(m; tol = tol, cudss_ir=1)
+        s = madnlp(m; tol = tol, cudss_ir=2)
         @test s.objective ≈ -1.0125736217178989e+00 atol = 1e-5 # note: difference of 1e-5 with CUDA
 
     end
@@ -918,11 +918,11 @@ function __test_onepass_exa(backend = nothing)
         N = 100
         m, _ = discretise_exa_full(o; grid_size = N, scheme = :euler, backend = backend)
         @test m isa ExaModels.ExaModel
-        sol = madnlp(m, cudss_ir=1)
+        sol = madnlp(m, cudss_ir=2)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
         m, _ = discretise_exa_full(o; grid_size = N, scheme = :euler_b, backend = backend)
         @test m isa ExaModels.ExaModel
-        sol = madnlp(m, cudss_ir=1)
+        sol = madnlp(m, cudss_ir=2)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
 
     end
