@@ -85,12 +85,13 @@ function subs2(e, x, y, j)
     foo(x, y, j) = (h, args...) -> begin
         f = Expr(h, args...)
         @match f begin
-            :($xx[$i]) && if (xx == x) end => :($y[$i, $j])
+            :($xx[$i]) && if (xx == x)
+            end => :($y[$i, $j])
             _ => f
         end
     end
     expr_it(e, foo(x, y, j), x -> x)
-end    
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -113,12 +114,13 @@ function subs3(e, x, y, i, j)
     foo(x, y, i, j) = (h, args...) -> begin
         f = Expr(h, args...)
         @match f begin
-            :($xx[$rg]) && if (xx == x) end => :($y[$i, $j])
+            :($xx[$rg]) && if (xx == x)
+            end => :($y[$i, $j])
             _ => f
         end
     end
     expr_it(e, foo(x, y, i, j), x -> x)
-end    
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -141,12 +143,13 @@ function subs4(e, x, y, i) # currently unused
     foo(x, y, i) = (h, args...) -> begin
         f = Expr(h, args...)
         @match f begin
-            :($xx[$rg]) && if (xx == x) end => :($y[$i])
+            :($xx[$rg]) && if (xx == x)
+            end => :($y[$i])
             _ => f
         end
     end
     expr_it(e, foo(x, y, i), x -> x)
-end    
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -199,7 +202,7 @@ julia> e = :( ((x^2)(t0) + u[1])(t) ); replace_call(e, [ x, u ], t , [ :xx, :uu 
 :((xx ^ 2)(t0) + uu[1])
 ```
 """
-replace_call(e, x::Vector{Symbol}, t, y) = begin
+function replace_call(e, x::Vector{Symbol}, t, y)
     @assert length(x) == length(y)
     foo(x, t, y) =
         (h, args...) -> begin
@@ -291,7 +294,7 @@ julia> has(e, :u, :t)
 true
 ```
 """
-has(e, x, t) = begin
+function has(e, x, t)
     foo(x, t) =
         (h, args...) -> begin
             ee = Expr(h, args...)
@@ -344,11 +347,11 @@ end
 ```
 """
 concat(e1, e2) = @match (e1.head, e2.head) begin
-        (:block, :block) => Expr(:block, e1.args..., e2.args...)
-        (:block, _     ) => Expr(:block, e1.args..., e2        )
-        (_     , :block) => Expr(:block, e1        , e2.args...)
-        _                => Expr(:block, e1        , e2        )
-    end
+    (:block, :block) => Expr(:block, e1.args..., e2.args...)
+    (:block, _) => Expr(:block, e1.args..., e2)
+    (_, :block) => Expr(:block, e1, e2.args...)
+    _ => Expr(:block, e1, e2)
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -468,7 +471,7 @@ julia> constraint_type(:( v[2]^2 + 1 ), t, t0, tf, x, u, v)
 :variable_fun
 ```
 """
-constraint_type(e, t, t0, tf, x, u, v) = begin
+function constraint_type(e, t, t0, tf, x, u, v)
     @match [
         has(e, x, t0),
         has(e, x, tf),
