@@ -500,7 +500,7 @@ function p_control_exa!(p, p_ocp, u, m, uu; components_names=nothing)
     p.box_u = concat(p.box_u, code_box) 
     i = __symgen(:i)
     j = __symgen(:j)
-    code = :($pref.variable($p_ocp, $m, 0:grid_size; lvar = [$(p.l_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:grid_size)], uvar = [$(p.u_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:grid_size)], start = init[3]))
+    code = :($pref.variable($p_ocp, $m, 0:u_grid_size; lvar = [$(p.l_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:u_grid_size)], uvar = [$(p.u_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:u_grid_size)], start = init[3]))
     code = __wrap(code, p.lnum, p.line)
     code = :($u = $code) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
     return code
@@ -651,7 +651,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = subs2(e2, xt, p.x, j)
             e2 = subs2(e2, ut, p.u, j)
             e2 = subs(e2, p.t, :($(p.t0) + $j * $(p.dt)))
-            concat(code, :($pref.constraint($p_ocp, $e2 for $j ∈ 0:grid_size; lcon = $e1, ucon = $e3)))
+            concat(code, :($pref.constraint($p_ocp, $e2 for $j ∈ 0:u_grid_size; lcon = $e1, ucon = $e3)))
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
     end
@@ -736,12 +736,16 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
     j1 = __symgen(:j)
     j2 = :($j1 + 1)
+    j12 = :($j1 + 0.5)
     ej1 = subs2(e, xt, p.x, j1)
     ej1 = subs2(ej1, ut, p.u, j1)
     ej1 = subs(ej1, p.t, :($(p.t0) + $j1 * $(p.dt)))
     ej2 = subs2(e, xt, p.x, j2)
     ej2 = subs2(ej2, ut, p.u, j2)
     ej2 = subs(ej2, p.t, :($(p.t0) + $j2 * $(p.dt)))
+    ej12 = subs5(e, xt, p.x, j1) # debug: code subs5 to replace x[k](t) by (x[k, j] + x[k, j + 1]) / 2
+    ej12 = subs2(ej12, ut, p.u, j1)
+    ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
     dxij = :($(p.x)[$i, $j2]- $(p.x)[$i, $j1])
     code = quote 
         if scheme ∈ (:trapeze, :trapezoidal)
@@ -749,7 +753,9 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
         elseif scheme == :euler
             $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 ∈ 0:(grid_size - 1))
         elseif scheme == :euler_b
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 ∈ 0:(grid_size - 1))
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 ∈ 0:(grid_size - 1)) # debug: only OK with N + 1 control values
+        elseif scheme == :midpoint
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 ∈ 0:(grid_size - 1))
         else
            throw("unknown numerical scheme: $scheme") # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
@@ -793,19 +799,26 @@ function p_lagrange_exa!(p, p_ocp, e, type)
     xt = __symgen(:xt)
     ut = __symgen(:ut)
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
-    j = __symgen(:j)
-    ej = subs2(e, xt, p.x, j)
-    ej = subs2(ej, ut, p.u, j)
-    ej = subs(ej, p.t, :($(p.t0) + $j * $(p.dt)))
-    sg = (type == :min) ? 1 : (-1)
-    code = quote 
+    j1 = __symgen(:j)
+    j2 = :($j1 + 1)
+    j12 = :($j + 0.5)
+    ej1 = subs2(e, xt, p.x, j1)
+    ej1 = subs2(ej1, ut, p.u, j1)
+    ej1 = subs(ej1, p.t, :($(p.t0) + $j1 * $(p.dt)))
+    ej12 = subs5(e, xt, p.x, j1)
+    ej12 = subs2(ej12, ut, p.u, j1)
+    ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
+    sg = (type == :min) ? 1 : (-1) # with exa, max changed to min
+    code = quote
         if scheme ∈ (:trapeze, :trapezoidal)
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej / 2 for $j ∈ (0, grid_size))
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 1:(grid_size - 1))
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 / 2 for $j1 ∈ (0, grid_size))
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 for $j1 ∈ 1:(grid_size - 1))
         elseif scheme == :euler
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 0:(grid_size - 1))
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 for $j1 ∈ 0:(grid_size - 1))
         elseif scheme == :euler_b
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 1:grid_size)
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 for $j1 ∈ 1:grid_size)
+        elseif scheme == :midpoint
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej12 for $j1 ∈ 0:(grid_size - 1))
         else
            throw("unknown numerical scheme: $scheme") # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
@@ -1149,7 +1162,8 @@ function def_exa(e; log = false)
     end
 
     code = quote
-        function (; scheme = $default_scheme, grid_size = $default_grid_size, backend = $default_backend, init = $default_init, base_type = $default_base_type)
+        function (; scheme=$default_scheme, grid_size=$default_grid_size, backend=$default_backend, init=$default_init, base_type=$default_base_type)
+            u_grid_size = (scheme == :midpoint) ? (grid_size - 1) : grid_size # debug: update to trapeze only for grid_size
             $(p.box_x) # lvar and uvar for state
             $(p.box_u) # lvar and uvar for control
             $(p.box_v) # lvar and uvar for variable (after x and u for compatibility with CTDirect)

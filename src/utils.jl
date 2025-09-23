@@ -64,7 +64,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Substitute x[i] by y[i, j], whatever i, in e.
+Substitute x[i] by y[i, j], whatever i, in e. See also: subs5.
 
 # Examples
 ```@example
@@ -85,7 +85,7 @@ function subs2(e, x, y, j)
     foo(x, y, j) = (h, args...) -> begin
         f = Expr(h, args...)
         @match f begin
-            :($xx[$i]) && if (xx == x) end => :($y[$i, $j]) # debug: for subs5 / midpoint, could be (...j... + ...j+1...) / 2
+            :($xx[$i]) && if (xx == x) end => :($y[$i, $j])
             _ => f
         end
     end
@@ -146,6 +146,37 @@ function subs4(e, x, y, i) # currently unused
         end
     end
     expr_it(e, foo(x, y, i), x -> x)
+end    
+
+"""
+$(TYPEDSIGNATURES)
+
+Substitute x[i] by (y[i, j] + y[i, j + 1]) / 2, whatever i, in e. See also: subs2.
+
+# Examples
+```@example
+julia> e = :(x0[1] * 2xf[3] - cos(xf[2]) * 2x0[2])
+:(x0[1] * (2 * xf[3]) - cos(xf[2]) * (2 * x0[2]))
+
+julia> subs5(subs5(e, :x0, :x, 0), :xf, :x, :N)
+:(((x[1, 0] + x[1, 0 + 1]) / 2) * (2 * ((x[3, N] + x[3, N + 1]) / 2)) - cos((x[2, N] + x[2, N + 1]) / 2) * (2 * ((x[2, 0] + x[2, 0 + 1]) / 2)))
+
+julia> e = :(x0 * 2xf[3] - cos(xf) * 2x0[2])
+:(x0 * (2 * xf[3]) - cos(xf) * (2 * x0[2]))
+
+julia> subs5(subs5(e, :x0, :x, 0), :xf, :x, :N)
+:(x0 * (2 * ((x[3, N] + x[3, N + 1]) / 2)) - cos(xf) * (2 * ((x[2, 0] + x[2, 0 + 1]) / 2)))
+```
+"""
+function subs5(e, x, y, j)
+    foo(x, y, j) = (h, args...) -> begin
+        f = Expr(h, args...)
+        @match f begin
+            :($xx[$i]) && if (xx == x) end => :(($y[$i, $j] + $y[$i, $j + 1]) / 2)
+            _ => f
+        end
+    end
+    expr_it(e, foo(x, y, j), x -> x)
 end    
 
 """
