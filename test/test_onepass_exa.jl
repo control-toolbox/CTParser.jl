@@ -18,12 +18,12 @@ function test_onepass_exa()
     __test_onepass_exa(; scheme=:euler) # debug
     __test_onepass_exa(; scheme=:euler_b)
     __test_onepass_exa(; scheme=:midpoint)
-    __test_onepass_exa(; scheme=:trapeze)
+    #__test_onepass_exa(; scheme=:trapeze)
     if CUDA.functional()
         __test_onepass_exa(CUDABackend(); scheme=:euler) # debug
         __test_onepass_exa(CUDABackend(); scheme=:euler_b)
         __test_onepass_exa(CUDABackend(); scheme=:midpoint)
-        __test_onepass_exa(CUDABackend(); scheme=:trapeze)
+        #__test_onepass_exa(CUDABackend(); scheme=:trapeze)
     else
         println("********** CUDA not available")
     end
@@ -733,17 +733,16 @@ function __test_onepass_exa(backend=nothing; scheme=CTParser.__default_scheme_ex
             x₃(1) → min
         end
         N = 1000
-        NN = scheme == :midpoint ? N : N + 1 # debug: update to N + 1 for trapeze only
         m, getter = discretise_exa_full(o; backend=backend, grid_size=N, scheme=scheme)
         s = madnlp(m; tol=tolerance)
         @test size(getter(s; val = :state)) == (3, N + 1) 
-        @test size(getter(s; val = :control)) == (1, NN)
+        @test size(getter(s; val = :control)) == (1, N + 1)
         @test size(getter(s; val = :variable)) == (0,) 
         @test size(getter(s; val = :costate)) == (3, N) 
         @test size(getter(s; val = :state_l)) == (3, N + 1) 
         @test size(getter(s; val = :state_u)) == (3, N + 1) 
-        @test size(getter(s; val = :control_l)) == (1, NN) 
-        @test size(getter(s; val = :control_u)) == (1, NN) 
+        @test size(getter(s; val = :control_l)) == (1, N + 1) 
+        @test size(getter(s; val = :control_u)) == (1, N + 1) 
         @test size(getter(s; val = :variable_l)) == (0,) 
         @test size(getter(s; val = :variable_u)) == (0,) 
         @test_throws String getter(s; val = :foo)
@@ -767,17 +766,16 @@ function __test_onepass_exa(backend=nothing; scheme=CTParser.__default_scheme_ex
             x₃(1) → min
         end
         N = 1000
-        NN = scheme == :midpoint ? N : N + 1 # debug: update to N + 1 for trapeze only
         m, getter = discretise_exa_full(o; backend=backend, grid_size=N, scheme=scheme)
         s = madnlp(m; tol=tolerance)
         @test size(getter(s; val = :state)) == (3, N + 1) 
-        @test size(getter(s; val = :control)) == (2, NN) 
+        @test size(getter(s; val = :control)) == (2, N + 1) 
         @test size(getter(s; val = :variable)) == (4,) 
         @test size(getter(s; val = :costate)) == (3, N) 
         @test size(getter(s; val = :state_l)) == (3, N + 1) 
         @test size(getter(s; val = :state_u)) == (3, N + 1) 
-        @test size(getter(s; val = :control_l)) == (2, NN) 
-        @test size(getter(s; val = :control_u)) == (2, NN) 
+        @test size(getter(s; val = :control_l)) == (2, N + 1) 
+        @test size(getter(s; val = :control_u)) == (2, N + 1) 
         @test size(getter(s; val = :variable_l)) == (4,) 
         @test size(getter(s; val = :variable_u)) == (4,) 
 

@@ -1,7 +1,7 @@
 # Defaults
 
 __default_parsing_backend() = :fun
-__default_scheme_exa() = :trapeze
+__default_scheme_exa() = :midpoint
 __default_grid_size_exa() = 250
 __default_backend_exa() = nothing
 __default_init_exa() = (0.1, 0.1, 0.1) # default init for v, x, u
