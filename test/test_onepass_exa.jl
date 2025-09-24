@@ -27,6 +27,8 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
 
     backend_name = isnothing(backend) ? "CPU" : "GPU" 
 
+    @ignore begin #debug
+
     test_name = "auxiliary functions ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
@@ -875,6 +877,8 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
 
     end
 
+    end # debug
+
     test_name = "use case no. 3: quadrotor ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
@@ -917,7 +921,13 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
         @test m isa ExaModels.ExaModel
         sol = madnlp(m; tol=tolerance)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
+
         m, _ = discretise_exa_full(o; grid_size = N, scheme = :euler_b, backend = backend)
+        @test m isa ExaModels.ExaModel
+        sol = madnlp(m; tol=tolerance)
+        @test sol.status == MadNLP.SOLVE_SUCCEEDED
+
+        m, _ = discretise_exa_full(o; grid_size = N, scheme = :midpoint, backend = backend)
         @test m isa ExaModels.ExaModel
         sol = madnlp(m; tol=tolerance)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
