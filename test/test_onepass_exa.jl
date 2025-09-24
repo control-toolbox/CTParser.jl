@@ -15,19 +15,25 @@ function discretise_exa_full(ocp; scheme = CTParser.__default_scheme_exa(), grid
 end
 
 function test_onepass_exa()
-    __test_onepass_exa()
+    __test_onepass_exa(; scheme=:euler)
+    __test_onepass_exa(; scheme=:euler_b)
+    __test_onepass_exa(; scheme=:midpoint)
+    __test_onepass_exa(; scheme=:trapeze)
     if CUDA.functional()
-        __test_onepass_exa(CUDABackend())
+        __test_onepass_exa(CUDABackend(); scheme=:euler)
+        __test_onepass_exa(CUDABackend(); scheme=:euler_b)
+        __test_onepass_exa(CUDABackend(); scheme=:midpoint)
+        __test_onepass_exa(CUDABackend(); scheme=:trapeze)
     else
         println("********** CUDA not available")
     end
 end
 
-function __test_onepass_exa(backend = nothing; tolerance=1e-8)
+function __test_onepass_exa(backend=nothing; scheme=CTParser.__default_scheme_exa(), tolerance=1e-8)
 
     backend_name = isnothing(backend) ? "CPU" : "GPU" 
 
-    test_name = "auxiliary functions ($backend_name)"
+    test_name = "auxiliary functions ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
         @test CTParser.is_range(1) == false 
@@ -41,7 +47,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
 
     end
 
-    test_name = "pragma ($backend_name)"
+    test_name = "pragma ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -57,11 +63,11 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 c = v₁ + b + x₁(0) + 2cos(x₃(1))
                 c → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
 
     end
 
-    test_name = "alias ($backend_name)"
+    test_name = "alias ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -75,11 +81,11 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 c = v₁ + b + x₁(0) + 2cos(x₃(1))
                 c → min
         end
-        @test discretise_exa(o) isa ExaModels.ExaModel 
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
-        @test discretise_exa(o; grid_size = 100) isa ExaModels.ExaModel
-        @test discretise_exa(o; init = (1., 2., 3., 4., 5.)) isa ExaModels.ExaModel
-        @test discretise_exa(o; base_type = Float32) isa ExaModels.ExaModel
+        @test discretise_exa(o; scheme=scheme) isa ExaModels.ExaModel 
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
+        @test discretise_exa(o; grid_size=100, scheme=scheme) isa ExaModels.ExaModel
+        @test discretise_exa(o; init=(1., 2., 3., 4., 5.), scheme=scheme) isa ExaModels.ExaModel
+        @test discretise_exa(o; base_type=Float32, scheme=scheme) isa ExaModels.ExaModel
 
         o = @def begin
                 v = (a, b) ∈ R², variable
@@ -90,11 +96,11 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 c = v₁ + b + x(0) + 2cos(x(1))
                 c → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
 
     end
 
-    test_name = "time ($backend_name)"
+    test_name = "time ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
        o = @def_exa begin
@@ -128,7 +134,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 c = v₁ + b + x(a) + 2cos(x(1))
                 c → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
 
         o = @def begin
                 v = (a, b) ∈ R², variable
@@ -139,7 +145,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 c = v₁ + b + x(0) + 2cos(x(b))
                 c → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
 
         o = @def begin
                 v = (a, b) ∈ R², variable
@@ -150,7 +156,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 c = v₁ + b + x(a) + 2cos(x(b))
                 c → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
 
         o = @def begin
                 tf ∈ R, variable
@@ -161,7 +167,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 c = tf + x(0) + 2cos(x(tf))
                 c → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
 
         t0 = 0.0
         o = @def begin
@@ -182,11 +188,11 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 ∂(x₂)(t) == x₁(t)
                 x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
 
     end
 
-    test_name = "constraint ($backend_name)"
+    test_name = "constraint ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -208,7 +214,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 x₁(t) + u(t) == 1
                 x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
 
         o = @def_exa begin
                 tf ∈ R, variable
@@ -285,7 +291,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 x(0) == [1, 2, 3, 4]
                 x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
 
         o = @def begin
                 tf ∈ R, variable
@@ -302,7 +308,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 ∂(x₄)(t) == x₁(t)
                 x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
 
         o = @def begin
                 v ∈ R⁴, variable
@@ -319,7 +325,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 ∂(x₄)(t) == x₁(t)
                 x₁(0) + 2cos(x₂(1)) → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
     
         o = @def begin
                 t ∈ [0, 1], time
@@ -335,7 +341,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 ∂(x₄)(t) == x₁(t)
                 x₁(0) + 2cos(x₂(1)) → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
     
         o = @def begin
                 t ∈ [0, 1], time
@@ -351,7 +357,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 ∂(x₄)(t) == x₁(t)
                 x₁(0) + 2cos(x₂(1)) → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
 
         o = @def begin
                 v ∈ R³, variable
@@ -370,11 +376,11 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 ∂(x₄)(t) == x₁(t)
                 x₁(0) + 2cos(x₂(1)) → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
 
     end
         
-    test_name = "variable range ($backend_name)"
+    test_name = "variable range ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -391,11 +397,11 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 ∂(x₃)(t) == x₁(t)
                 x₁ → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
 
     end
 
-    test_name = "state range ($backend_name)"
+    test_name = "state range ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -414,11 +420,11 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 ∂(x₅)(t) == x₁(t)
                 x₁ → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
 
     end
 
-    test_name = "control range ($backend_name)"
+    test_name = "control range ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -436,11 +442,11 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 ∂(x₄)(t) == x₁(t)
                 x₁ → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
 
     end
 
-    test_name = "dynamics ($backend_name)"
+    test_name = "dynamics ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
         o = @def_exa begin
@@ -509,12 +515,12 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
                 ẋ(t) == t + u₁(t)
                 x(0) + 2cos(x(1)) → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
-        @test_throws String discretise_exa(o; scheme = :foo)
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
+        @test_throws String discretise_exa(o; scheme=:foo)
 
     end
 
-    test_name = "lagrange cost ($backend_name)"
+    test_name = "lagrange cost ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -527,7 +533,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
             ∂(x₂)(t) == u(t)
             ∫( 0.5u(t)^2 ) → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
 
     end
     
@@ -686,7 +692,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
 
     end
 
-    test_name = "use case no. 1: simple example (mayer) ($backend_name)"
+    test_name = "use case no. 1: simple example (mayer) ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -701,27 +707,18 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
             x₃(1) → min
         end
 
-        @test discretise_exa(o; backend = backend, scheme = :trapeze) isa ExaModels.ExaModel
-        m, _ = discretise_exa_full(o; backend = backend, scheme = :trapeze)
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
+        m, _ = discretise_exa_full(o; backend=backend, scheme=scheme)
         s = madnlp(m; tol=tolerance)
         @test s.objective ≈ 6 atol = 1e-2
         N = 1000
-        m, _ = discretise_exa_full(o; backend = backend, grid_size = N, scheme = :trapeze)
-        s = madnlp(m; tol=tolerance)
-        @test s.objective ≈ 6 atol = 1e-3
-
-        @test discretise_exa(o; backend = backend, scheme = :midpoint) isa ExaModels.ExaModel
-        m, _ = discretise_exa_full(o; backend = backend, scheme = :midpoint)
-        s = madnlp(m; tol=tolerance)
-        @test s.objective ≈ 6 atol = 1e-2
-        N = 1000
-        m, _ = discretise_exa_full(o; backend = backend, grid_size = N, scheme = :midpoint)
+        m, _ = discretise_exa_full(o; backend=backend, grid_size=N, scheme=scheme)
         s = madnlp(m; tol=tolerance)
         @test s.objective ≈ 6 atol = 1e-3
 
     end
 
-    test_name = "use case no. 1: simple example (mayer, trapeze), testing getters (1/2) ($backend_name)"
+    test_name = "use case no. 1: simple example (mayer), testing getters (1/2) ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -736,23 +733,24 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
             x₃(1) → min
         end
         N = 1000
-        m, getter = discretise_exa_full(o; backend = backend, grid_size = N, scheme = :trapeze)
+        NN = scheme == :midpoint ? N : N + 1 # debug: update to N + 1 for trapeze only
+        m, getter = discretise_exa_full(o; backend=backend, grid_size=N, scheme=scheme)
         s = madnlp(m; tol=tolerance)
         @test size(getter(s; val = :state)) == (3, N + 1) 
-        @test size(getter(s; val = :control)) == (1, N + 1) 
+        @test size(getter(s; val = :control)) == (1, NN)
         @test size(getter(s; val = :variable)) == (0,) 
         @test size(getter(s; val = :costate)) == (3, N) 
         @test size(getter(s; val = :state_l)) == (3, N + 1) 
         @test size(getter(s; val = :state_u)) == (3, N + 1) 
-        @test size(getter(s; val = :control_l)) == (1, N + 1) 
-        @test size(getter(s; val = :control_u)) == (1, N + 1) 
+        @test size(getter(s; val = :control_l)) == (1, NN) 
+        @test size(getter(s; val = :control_u)) == (1, NN) 
         @test size(getter(s; val = :variable_l)) == (0,) 
         @test size(getter(s; val = :variable_u)) == (0,) 
         @test_throws String getter(s; val = :foo)
 
     end
 
-    test_name = "use case no. 1: simple example (mayer, trapeze), testing getters (2/2) ($backend_name)"
+    test_name = "use case no. 1: simple example (mayer), testing getters (2/2) ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -769,85 +767,23 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
             x₃(1) → min
         end
         N = 1000
-        m, getter = discretise_exa_full(o; backend = backend, grid_size = N, scheme = :trapeze)
+        NN = scheme == :midpoint ? N : N + 1 # debug: update to N + 1 for trapeze only
+        m, getter = discretise_exa_full(o; backend=backend, grid_size=N, scheme=scheme)
         s = madnlp(m; tol=tolerance)
         @test size(getter(s; val = :state)) == (3, N + 1) 
-        @test size(getter(s; val = :control)) == (2, N + 1) 
+        @test size(getter(s; val = :control)) == (2, NN) 
         @test size(getter(s; val = :variable)) == (4,) 
         @test size(getter(s; val = :costate)) == (3, N) 
         @test size(getter(s; val = :state_l)) == (3, N + 1) 
         @test size(getter(s; val = :state_u)) == (3, N + 1) 
-        @test size(getter(s; val = :control_l)) == (2, N + 1) 
-        @test size(getter(s; val = :control_u)) == (2, N + 1) 
+        @test size(getter(s; val = :control_l)) == (2, NN) 
+        @test size(getter(s; val = :control_u)) == (2, NN) 
         @test size(getter(s; val = :variable_l)) == (4,) 
         @test size(getter(s; val = :variable_u)) == (4,) 
 
     end
 
-    test_name = "use case no. 1: simple example (mayer, midpoint), testing getters (1/2) ($backend_name)"
-    @testset "$test_name" begin println(test_name)
-
-        o = @def begin
-            t ∈ [0, 1], time
-            x ∈ R³, state
-            u ∈ R, control
-            x(0) == [-1, 0, 0]
-            x[1:2](1) == [0, 0]
-            ∂(x₁)(t) == x₂(t)
-            ∂(x₂)(t) == u(t)
-            ∂(x₃)(t) == 0.5u(t)^2
-            x₃(1) → min
-        end
-        N = 1000
-        m, getter = discretise_exa_full(o; backend = backend, grid_size = N, scheme = :midpoint)
-        s = madnlp(m; tol=tolerance)
-        @test size(getter(s; val = :state)) == (3, N + 1) 
-        @test size(getter(s; val = :control)) == (1, N) 
-        @test size(getter(s; val = :variable)) == (0,) 
-        @test size(getter(s; val = :costate)) == (3, N) 
-        @test size(getter(s; val = :state_l)) == (3, N + 1) 
-        @test size(getter(s; val = :state_u)) == (3, N + 1) 
-        @test size(getter(s; val = :control_l)) == (1, N) 
-        @test size(getter(s; val = :control_u)) == (1, N) 
-        @test size(getter(s; val = :variable_l)) == (0,) 
-        @test size(getter(s; val = :variable_u)) == (0,) 
-        @test_throws String getter(s; val = :foo)
-
-    end
-
-    test_name = "use case no. 1: simple example (mayer, midpoint), testing getters (2/2) ($backend_name)"
-    @testset "$test_name" begin println(test_name)
-
-        o = @def begin
-            v ∈ R⁴, variable
-            t ∈ [0, 1], time
-            x ∈ R³, state
-            u ∈ R², control
-            v == [1, 2, 3, 4]
-            x(0) == [-1, 0, 0]
-            x[1:2](1) == [0, 0]
-            ∂(x₁)(t) == x₂(t)
-            ∂(x₂)(t) == u₁(t)
-            ∂(x₃)(t) == 0.5(u₁(t)^2 + u₂(t)^2)
-            x₃(1) → min
-        end
-        N = 1000
-        m, getter = discretise_exa_full(o; backend = backend, grid_size = N, scheme = :midpoint)
-        s = madnlp(m; tol=tolerance)
-        @test size(getter(s; val = :state)) == (3, N + 1) 
-        @test size(getter(s; val = :control)) == (2, N) 
-        @test size(getter(s; val = :variable)) == (4,) 
-        @test size(getter(s; val = :costate)) == (3, N) 
-        @test size(getter(s; val = :state_l)) == (3, N + 1) 
-        @test size(getter(s; val = :state_u)) == (3, N + 1) 
-        @test size(getter(s; val = :control_l)) == (2, N) 
-        @test size(getter(s; val = :control_u)) == (2, N) 
-        @test size(getter(s; val = :variable_l)) == (4,) 
-        @test size(getter(s; val = :variable_u)) == (4,) 
-
-    end
-
-    test_name = "use case no. 1: simple example (lagrange) ($backend_name)"
+    test_name = "use case no. 1: simple example (lagrange) ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -861,25 +797,17 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
             ∫( 0.5u(t)^2 ) → min
         end
 
-        m, _ = discretise_exa_full(o; backend = backend, scheme = :trapeze)
+        m, _ = discretise_exa_full(o; backend=backend, scheme=scheme)
         @test m isa ExaModels.ExaModel
         s = madnlp(m; tol=tolerance)
         @test s.objective ≈ 6 atol = 1e-2
-        m, _ = discretise_exa_full(o; backend = backend, grid_size = 1000, scheme = :trapeze)
-        s = madnlp(m; tol=tolerance)
-        @test s.objective ≈ 6 atol = 1e-3
-
-        m, _ = discretise_exa_full(o; backend = backend, scheme = :midpoint)
-        @test m isa ExaModels.ExaModel
-        s = madnlp(m; tol=tolerance)
-        @test s.objective ≈ 6 atol = 1e-2
-        m, _ = discretise_exa_full(o; backend = backend, grid_size = 1000, scheme = :midpoint)
+        m, _ = discretise_exa_full(o; backend=backend, grid_size=1000, scheme=scheme)
         s = madnlp(m; tol=tolerance)
         @test s.objective ≈ 6 atol = 1e-3
 
     end
 
-    test_name = "use case no. 1: simple example (bolza) ($backend_name)"
+    test_name = "use case no. 1: simple example (bolza) ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -894,25 +822,17 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
             x₃(1) + ∫( 0.5u(t)^2 ) → min
         end
 
-        m, _ = discretise_exa_full(o; backend = backend, scheme = :trapeze)
+        m, _ = discretise_exa_full(o; backend=backend, scheme=scheme)
         @test m isa ExaModels.ExaModel
         s = madnlp(m; tol=tolerance)
         @test s.objective ≈ 2* 6 atol = 1e-2
-        m, _ = discretise_exa_full(o; backend = backend, grid_size = 1000, scheme = :trapeze)
-        s = madnlp(m; tol=tolerance)
-        @test s.objective ≈ 2 * 6 atol = 1e-3
-
-        m, _ = discretise_exa_full(o; backend = backend, scheme = :midpoint)
-        @test m isa ExaModels.ExaModel
-        s = madnlp(m; tol=tolerance)
-        @test s.objective ≈ 2* 6 atol = 1e-2
-        m, _ = discretise_exa_full(o; backend = backend, grid_size = 1000, scheme = :midpoint)
+        m, _ = discretise_exa_full(o; backend=backend, grid_size=1000, scheme=scheme)
         s = madnlp(m; tol=tolerance)
         @test s.objective ≈ 2 * 6 atol = 1e-3
 
     end
-    
-    test_name = "use case no. 2: Goddard ($backend_name)"
+
+    test_name = "use case no. 2: Goddard ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
         r0 = 1.0     
@@ -961,17 +881,13 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
         xs = _xs.(t); xs = stack(xs[:])
         us = _us.(t); us = stack(us[:])
 
-        m, _ = discretise_exa_full(o; backend = backend, grid_size = N, init = (tfs, xs, us), scheme = :trapeze)
+        m, _ = discretise_exa_full(o; backend=backend, grid_size=N, init=(tfs, xs, us), scheme=scheme)
         s = madnlp(m; tol=tolerance)
         @test s.objective ≈ -1.0125736217178989e+00 atol = 1e-5 # note: difference of 1e-5 with CUDA
 
-        m, _ = discretise_exa_full(o; backend = backend, grid_size = N, init = (tfs, xs, us), scheme = :midpoint)
-        s = madnlp(m; tol=tolerance)
-        @test s.objective ≈ -1.0125736217178989e+00 atol = 1e-5
-
     end
 
-    test_name = "use case no. 3: quadrotor ($backend_name)"
+    test_name = "use case no. 3: quadrotor ($backend_name, $scheme)"
     @testset "$test_name" begin println(test_name)
 
         T = 1
@@ -1009,22 +925,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
         end
         
         N = 100
-        m, _ = discretise_exa_full(o; grid_size = N, scheme = :euler, backend = backend)
-        @test m isa ExaModels.ExaModel
-        sol = madnlp(m; tol=tolerance)
-        @test sol.status == MadNLP.SOLVE_SUCCEEDED
-
-        m, _ = discretise_exa_full(o; grid_size = N, scheme = :euler_b, backend = backend)
-        @test m isa ExaModels.ExaModel
-        sol = madnlp(m; tol=tolerance)
-        @test sol.status == MadNLP.SOLVE_SUCCEEDED
-
-        m, _ = discretise_exa_full(o; grid_size = N, scheme = :trapeze, backend = backend)
-        @test m isa ExaModels.ExaModel
-        sol = madnlp(m; tol=tolerance)
-        @test sol.status == MadNLP.SOLVE_SUCCEEDED
-
-        m, _ = discretise_exa_full(o; grid_size = N, scheme = :midpoint, backend = backend)
+        m, _ = discretise_exa_full(o; grid_size=N, backend=backend, scheme=scheme)
         @test m isa ExaModels.ExaModel
         sol = madnlp(m; tol=tolerance)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
