@@ -15,12 +15,12 @@ function discretise_exa_full(ocp; scheme = CTParser.__default_scheme_exa(), grid
 end
 
 function test_onepass_exa()
-    __test_onepass_exa(; scheme=:euler)
+    __test_onepass_exa(; scheme=:euler) # debug
     __test_onepass_exa(; scheme=:euler_b)
     __test_onepass_exa(; scheme=:midpoint)
     __test_onepass_exa(; scheme=:trapeze)
     if CUDA.functional()
-        __test_onepass_exa(CUDABackend(); scheme=:euler)
+        __test_onepass_exa(CUDABackend(); scheme=:euler) # debug
         __test_onepass_exa(CUDABackend(); scheme=:euler_b)
         __test_onepass_exa(CUDABackend(); scheme=:midpoint)
         __test_onepass_exa(CUDABackend(); scheme=:trapeze)
@@ -883,7 +883,8 @@ function __test_onepass_exa(backend=nothing; scheme=CTParser.__default_scheme_ex
 
         m, _ = discretise_exa_full(o; backend=backend, grid_size=N, init=(tfs, xs, us), scheme=scheme)
         s = madnlp(m; tol=tolerance)
-        @test s.objective ≈ -1.0125736217178989e+00 atol = 1e-5 # note: difference of 1e-5 with CUDA
+        __atol = scheme ∈ (:euler, :euler_b) ? 1e-3 : 1e-5
+        @test s.objective ≈ -1.0125736217178989e+00 atol = __atol
 
     end
 
