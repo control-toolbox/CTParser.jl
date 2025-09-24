@@ -736,22 +736,28 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
     j1 = __symgen(:j)
     j2 = :($j1 + 1)
+    j12 = :($j1 + 0.5)
     ej1 = subs2(e, xt, p.x, j1)
     ej1 = subs2(ej1, ut, p.u, j1)
     ej1 = subs(ej1, p.t, :($(p.t0) + $j1 * $(p.dt)))
     ej2 = subs2(e, xt, p.x, j2)
     ej2 = subs2(ej2, ut, p.u, j2)
     ej2 = subs(ej2, p.t, :($(p.t0) + $j2 * $(p.dt)))
+    ej12 = subs5(e, xt, p.x, j1)
+    ej12 = subs2(ej12, ut, p.u, j1)
+    ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
     dxij = :($(p.x)[$i, $j2]- $(p.x)[$i, $j1])
     code = quote 
-        if scheme ∈ (:trapeze, :trapezoidal)
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 ∈ 0:(grid_size - 1))
-        elseif scheme == :euler
+        if scheme == :euler
             $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 ∈ 0:(grid_size - 1))
         elseif scheme == :euler_b
             $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 ∈ 0:(grid_size - 1))
+        elseif scheme == :midpoint
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 ∈ 0:(grid_size - 1))
+        elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 ∈ 0:(grid_size - 1))
         else
-           throw("unknown numerical scheme: $scheme") # (vs. __throw) since raised at runtime (and __wrap-ped)
+           throw("unknown numerical scheme: $scheme (possible choices are :euler, :euler_b, :midpoint, :trapeze)") # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
     end
     dyn_con = Symbol(:dyn_con, p.x) # named constraint to allow retrieval of the dynamics multiplier that approximates the adjoint state
@@ -793,21 +799,28 @@ function p_lagrange_exa!(p, p_ocp, e, type)
     xt = __symgen(:xt)
     ut = __symgen(:ut)
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
-    j = __symgen(:j)
-    ej = subs2(e, xt, p.x, j)
-    ej = subs2(ej, ut, p.u, j)
-    ej = subs(ej, p.t, :($(p.t0) + $j * $(p.dt)))
-    sg = (type == :min) ? 1 : (-1)
-    code = quote 
-        if scheme ∈ (:trapeze, :trapezoidal)
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej / 2 for $j ∈ (0, grid_size))
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 1:(grid_size - 1))
-        elseif scheme == :euler
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 0:(grid_size - 1))
+    j1 = __symgen(:j)
+    j2 = :($j1 + 1)
+    j12 = :($j1 + 0.5)
+    ej1 = subs2(e, xt, p.x, j1)
+    ej1 = subs2(ej1, ut, p.u, j1)
+    ej1 = subs(ej1, p.t, :($(p.t0) + $j1 * $(p.dt)))
+    ej12 = subs5(e, xt, p.x, j1)
+    ej12 = subs2(ej12, ut, p.u, j1)
+    ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
+    sg = (type == :min) ? 1 : (-1) # with exa, max changed to min
+    code = quote
+        if scheme == :euler
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 for $j1 ∈ 0:(grid_size - 1))
         elseif scheme == :euler_b
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej for $j ∈ 1:grid_size)
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 for $j1 ∈ 1:grid_size)
+        elseif scheme == :midpoint
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej12 for $j1 ∈ 0:(grid_size - 1))
+        elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 / 2 for $j1 ∈ (0, grid_size))
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 for $j1 ∈ 1:(grid_size - 1))
         else
-           throw("unknown numerical scheme: $scheme") # (vs. __throw) since raised at runtime (and __wrap-ped)
+           throw("unknown numerical scheme: $scheme (possible choices are :euler, :euler_b, :midpoint, :trapeze)") # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
     end
     return __wrap(code, p.lnum, p.line)
@@ -1149,7 +1162,7 @@ function def_exa(e; log = false)
     end
 
     code = quote
-        function (; scheme = $default_scheme, grid_size = $default_grid_size, backend = $default_backend, init = $default_init, base_type = $default_base_type)
+        function (; scheme=$default_scheme, grid_size=$default_grid_size, backend=$default_backend, init=$default_init, base_type=$default_base_type)
             $(p.box_x) # lvar and uvar for state
             $(p.box_u) # lvar and uvar for control
             $(p.box_v) # lvar and uvar for variable (after x and u for compatibility with CTDirect)

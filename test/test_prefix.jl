@@ -6,7 +6,7 @@ function test_prefix()
     @testset "$test_name" begin println(test_name)
 
         @test CTParser.__default_parsing_backend() == :fun
-        @test CTParser.__default_scheme_exa() == :trapeze
+        @test CTParser.__default_scheme_exa() == :midpoint
         @test CTParser.__default_grid_size_exa() == 250
         @test CTParser.__default_backend_exa() == nothing
         @test CTParser.__default_init_exa() == (0.1, 0.1, 0.1) # default init for v, x, u

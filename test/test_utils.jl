@@ -50,6 +50,16 @@ function test_utils()
         @test subs4(e, :xf, :xf, 1) == :(v[1:2:d] * (2 * xf[1]))
 
     end
+
+    @testset "subs5" begin println("subs5")
+
+        e = :(x0[1] * 2xf[3] - cos(xf[2]) * 2x0[2])
+        @test subs5(subs5(e, :x0, :x, 0), :xf, :x, :N) == :(((x[1, 0] + x[1, 0 + 1]) / 2) * (2 * ((x[3, N] + x[3, N + 1]) / 2)) - cos((x[2, N] + x[2, N + 1]) / 2) * (2 * ((x[2, 0] + x[2, 0 + 1]) / 2)))
+
+        e = :(x0 * 2xf[3] - cos(xf) * 2x0[2])
+        @test subs5(subs5(e, :x0, :x, 0), :xf, :x, :N) == :(x0 * (2 * ((x[3, N] + x[3, N + 1]) / 2)) - cos(xf) * (2 * ((x[2, 0] + x[2, 0 + 1]) / 2)))
+
+    end
     
     @testset "replace_call" begin println("replace_call")
     
