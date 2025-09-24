@@ -686,7 +686,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
 
     end
 
-    test_name = "use case no. 1: simple example (mayer, trapeze) ($backend_name)"
+    test_name = "use case no. 1: simple example (mayer) ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -710,22 +710,6 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
         s = madnlp(m; tol=tolerance)
         @test s.objective ≈ 6 atol = 1e-3
 
-    end
-
-    test_name = "use case no. 1: simple example (mayer, midpoint) ($backend_name)"
-    @testset "$test_name" begin println(test_name)
-
-        o = @def begin
-            t ∈ [0, 1], time
-            x ∈ R³, state
-            u ∈ R, control
-            x(0) == [-1, 0, 0]
-            x[1:2](1) == [0, 0]
-            ∂(x₁)(t) == x₂(t)
-            ∂(x₂)(t) == u(t)
-            ∂(x₃)(t) == 0.5u(t)^2
-            x₃(1) → min
-        end
         @test discretise_exa(o; backend = backend, scheme = :midpoint) isa ExaModels.ExaModel
         m, _ = discretise_exa_full(o; backend = backend, scheme = :midpoint)
         s = madnlp(m; tol=tolerance)
@@ -876,11 +860,20 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
             ∂(x₂)(t) == u(t)
             ∫( 0.5u(t)^2 ) → min
         end
-        m, _ = discretise_exa_full(o; backend = backend)
+
+        m, _ = discretise_exa_full(o; backend = backend, scheme = :trapeze)
         @test m isa ExaModels.ExaModel
         s = madnlp(m; tol=tolerance)
         @test s.objective ≈ 6 atol = 1e-2
-        m, _ = discretise_exa_full(o; backend = backend, grid_size = 1000)
+        m, _ = discretise_exa_full(o; backend = backend, grid_size = 1000, scheme = :trapeze)
+        s = madnlp(m; tol=tolerance)
+        @test s.objective ≈ 6 atol = 1e-3
+
+        m, _ = discretise_exa_full(o; backend = backend, scheme = :midpoint)
+        @test m isa ExaModels.ExaModel
+        s = madnlp(m; tol=tolerance)
+        @test s.objective ≈ 6 atol = 1e-2
+        m, _ = discretise_exa_full(o; backend = backend, grid_size = 1000, scheme = :midpoint)
         s = madnlp(m; tol=tolerance)
         @test s.objective ≈ 6 atol = 1e-3
 
@@ -900,11 +893,20 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) + ∫( 0.5u(t)^2 ) → min
         end
-        m, _ = discretise_exa_full(o; backend = backend)
+
+        m, _ = discretise_exa_full(o; backend = backend, scheme = :trapeze)
         @test m isa ExaModels.ExaModel
         s = madnlp(m; tol=tolerance)
         @test s.objective ≈ 2* 6 atol = 1e-2
-        m, _ = discretise_exa_full(o; backend = backend, grid_size = 1000)
+        m, _ = discretise_exa_full(o; backend = backend, grid_size = 1000, scheme = :trapeze)
+        s = madnlp(m; tol=tolerance)
+        @test s.objective ≈ 2 * 6 atol = 1e-3
+
+        m, _ = discretise_exa_full(o; backend = backend, scheme = :midpoint)
+        @test m isa ExaModels.ExaModel
+        s = madnlp(m; tol=tolerance)
+        @test s.objective ≈ 2* 6 atol = 1e-2
+        m, _ = discretise_exa_full(o; backend = backend, grid_size = 1000, scheme = :midpoint)
         s = madnlp(m; tol=tolerance)
         @test s.objective ≈ 2 * 6 atol = 1e-3
 
@@ -958,9 +960,14 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
         t = tfs * 0:N
         xs = _xs.(t); xs = stack(xs[:])
         us = _us.(t); us = stack(us[:])
-        m, _ = discretise_exa_full(o; backend = backend, grid_size = N, init = (tfs, xs, us))
+
+        m, _ = discretise_exa_full(o; backend = backend, grid_size = N, init = (tfs, xs, us), scheme = :trapeze)
         s = madnlp(m; tol=tolerance)
         @test s.objective ≈ -1.0125736217178989e+00 atol = 1e-5 # note: difference of 1e-5 with CUDA
+
+        m, _ = discretise_exa_full(o; backend = backend, grid_size = N, init = (tfs, xs, us), scheme = :midpoint)
+        s = madnlp(m; tol=tolerance)
+        @test s.objective ≈ -1.0125736217178989e+00 atol = 1e-5
 
     end
 
@@ -1008,6 +1015,11 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
 
         m, _ = discretise_exa_full(o; grid_size = N, scheme = :euler_b, backend = backend)
+        @test m isa ExaModels.ExaModel
+        sol = madnlp(m; tol=tolerance)
+        @test sol.status == MadNLP.SOLVE_SUCCEEDED
+
+        m, _ = discretise_exa_full(o; grid_size = N, scheme = :trapeze, backend = backend)
         @test m isa ExaModels.ExaModel
         sol = madnlp(m; tol=tolerance)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
