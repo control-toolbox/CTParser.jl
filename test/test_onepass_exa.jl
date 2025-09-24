@@ -27,8 +27,6 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
 
     backend_name = isnothing(backend) ? "CPU" : "GPU" 
 
-    @ignore begin #debug
-
     test_name = "auxiliary functions ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
@@ -688,7 +686,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
 
     end
 
-    test_name = "use case no. 1: simple example (mayer) ($backend_name)"
+    test_name = "use case no. 1: simple example (mayer, trapeze) ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -702,18 +700,44 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test discretise_exa(o; backend = backend) isa ExaModels.ExaModel
-        m, _ = discretise_exa_full(o; backend = backend)
+
+        @test discretise_exa(o; backend = backend, scheme = :trapeze) isa ExaModels.ExaModel
+        m, _ = discretise_exa_full(o; backend = backend, scheme = :trapeze)
         s = madnlp(m; tol=tolerance)
         @test s.objective ≈ 6 atol = 1e-2
         N = 1000
-        m, _ = discretise_exa_full(o; backend = backend, grid_size = N)
+        m, _ = discretise_exa_full(o; backend = backend, grid_size = N, scheme = :trapeze)
         s = madnlp(m; tol=tolerance)
         @test s.objective ≈ 6 atol = 1e-3
 
     end
 
-    test_name = "use case no. 1: simple example (mayer), testing getters (1/2) ($backend_name)"
+    test_name = "use case no. 1: simple example (mayer, midpoint) ($backend_name)"
+    @testset "$test_name" begin println(test_name)
+
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            x(0) == [-1, 0, 0]
+            x[1:2](1) == [0, 0]
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∂(x₃)(t) == 0.5u(t)^2
+            x₃(1) → min
+        end
+        @test discretise_exa(o; backend = backend, scheme = :midpoint) isa ExaModels.ExaModel
+        m, _ = discretise_exa_full(o; backend = backend, scheme = :midpoint)
+        s = madnlp(m; tol=tolerance)
+        @test s.objective ≈ 6 atol = 1e-2
+        N = 1000
+        m, _ = discretise_exa_full(o; backend = backend, grid_size = N, scheme = :midpoint)
+        s = madnlp(m; tol=tolerance)
+        @test s.objective ≈ 6 atol = 1e-3
+
+    end
+
+    test_name = "use case no. 1: simple example (mayer, trapeze), testing getters (1/2) ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -728,7 +752,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
             x₃(1) → min
         end
         N = 1000
-        m, getter = discretise_exa_full(o; backend = backend, grid_size = N)
+        m, getter = discretise_exa_full(o; backend = backend, grid_size = N, scheme = :trapeze)
         s = madnlp(m; tol=tolerance)
         @test size(getter(s; val = :state)) == (3, N + 1) 
         @test size(getter(s; val = :control)) == (1, N + 1) 
@@ -744,7 +768,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
 
     end
 
-    test_name = "use case no. 1: simple example (mayer), testing getters (2/2) ($backend_name)"
+    test_name = "use case no. 1: simple example (mayer, trapeze), testing getters (2/2) ($backend_name)"
     @testset "$test_name" begin println(test_name)
 
         o = @def begin
@@ -761,7 +785,7 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
             x₃(1) → min
         end
         N = 1000
-        m, getter = discretise_exa_full(o; backend = backend, grid_size = N)
+        m, getter = discretise_exa_full(o; backend = backend, grid_size = N, scheme = :trapeze)
         s = madnlp(m; tol=tolerance)
         @test size(getter(s; val = :state)) == (3, N + 1) 
         @test size(getter(s; val = :control)) == (2, N + 1) 
@@ -771,6 +795,69 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
         @test size(getter(s; val = :state_u)) == (3, N + 1) 
         @test size(getter(s; val = :control_l)) == (2, N + 1) 
         @test size(getter(s; val = :control_u)) == (2, N + 1) 
+        @test size(getter(s; val = :variable_l)) == (4,) 
+        @test size(getter(s; val = :variable_u)) == (4,) 
+
+    end
+
+    test_name = "use case no. 1: simple example (mayer, midpoint), testing getters (1/2) ($backend_name)"
+    @testset "$test_name" begin println(test_name)
+
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            x(0) == [-1, 0, 0]
+            x[1:2](1) == [0, 0]
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∂(x₃)(t) == 0.5u(t)^2
+            x₃(1) → min
+        end
+        N = 1000
+        m, getter = discretise_exa_full(o; backend = backend, grid_size = N, scheme = :midpoint)
+        s = madnlp(m; tol=tolerance)
+        @test size(getter(s; val = :state)) == (3, N + 1) 
+        @test size(getter(s; val = :control)) == (1, N) 
+        @test size(getter(s; val = :variable)) == (0,) 
+        @test size(getter(s; val = :costate)) == (3, N) 
+        @test size(getter(s; val = :state_l)) == (3, N + 1) 
+        @test size(getter(s; val = :state_u)) == (3, N + 1) 
+        @test size(getter(s; val = :control_l)) == (1, N) 
+        @test size(getter(s; val = :control_u)) == (1, N) 
+        @test size(getter(s; val = :variable_l)) == (0,) 
+        @test size(getter(s; val = :variable_u)) == (0,) 
+        @test_throws String getter(s; val = :foo)
+
+    end
+
+    test_name = "use case no. 1: simple example (mayer, midpoint), testing getters (2/2) ($backend_name)"
+    @testset "$test_name" begin println(test_name)
+
+        o = @def begin
+            v ∈ R⁴, variable
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            v == [1, 2, 3, 4]
+            x(0) == [-1, 0, 0]
+            x[1:2](1) == [0, 0]
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u₁(t)
+            ∂(x₃)(t) == 0.5(u₁(t)^2 + u₂(t)^2)
+            x₃(1) → min
+        end
+        N = 1000
+        m, getter = discretise_exa_full(o; backend = backend, grid_size = N, scheme = :midpoint)
+        s = madnlp(m; tol=tolerance)
+        @test size(getter(s; val = :state)) == (3, N + 1) 
+        @test size(getter(s; val = :control)) == (2, N) 
+        @test size(getter(s; val = :variable)) == (4,) 
+        @test size(getter(s; val = :costate)) == (3, N) 
+        @test size(getter(s; val = :state_l)) == (3, N + 1) 
+        @test size(getter(s; val = :state_u)) == (3, N + 1) 
+        @test size(getter(s; val = :control_l)) == (2, N) 
+        @test size(getter(s; val = :control_u)) == (2, N) 
         @test size(getter(s; val = :variable_l)) == (4,) 
         @test size(getter(s; val = :variable_u)) == (4,) 
 
@@ -876,8 +963,6 @@ function __test_onepass_exa(backend = nothing; tolerance=1e-8)
         @test s.objective ≈ -1.0125736217178989e+00 atol = 1e-5 # note: difference of 1e-5 with CUDA
 
     end
-
-    end # debug
 
     test_name = "use case no. 3: quadrotor ($backend_name)"
     @testset "$test_name" begin println(test_name)
