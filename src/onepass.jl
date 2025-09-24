@@ -743,7 +743,7 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     ej2 = subs2(e, xt, p.x, j2)
     ej2 = subs2(ej2, ut, p.u, j2)
     ej2 = subs(ej2, p.t, :($(p.t0) + $j2 * $(p.dt)))
-    ej12 = subs5(e, xt, p.x, j1) # debug: code subs5 to replace x[k](t) by (x[k, j] + x[k, j + 1]) / 2
+    ej12 = subs5(e, xt, p.x, j1)
     ej12 = subs2(ej12, ut, p.u, j1)
     ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
     dxij = :($(p.x)[$i, $j2]- $(p.x)[$i, $j1])
