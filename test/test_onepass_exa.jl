@@ -15,15 +15,15 @@ function discretise_exa_full(ocp; scheme = CTParser.__default_scheme_exa(), grid
 end
 
 function test_onepass_exa()
-    __test_onepass_exa(; scheme=:euler) # debug
+    __test_onepass_exa(; scheme=:euler)
     __test_onepass_exa(; scheme=:euler_b)
     __test_onepass_exa(; scheme=:midpoint)
-    #__test_onepass_exa(; scheme=:trapeze)
+    __test_onepass_exa(; scheme=:trapeze)
     if CUDA.functional()
-        __test_onepass_exa(CUDABackend(); scheme=:euler) # debug
+        __test_onepass_exa(CUDABackend(); scheme=:euler)
         __test_onepass_exa(CUDABackend(); scheme=:euler_b)
         __test_onepass_exa(CUDABackend(); scheme=:midpoint)
-        #__test_onepass_exa(CUDABackend(); scheme=:trapeze)
+        __test_onepass_exa(CUDABackend(); scheme=:trapeze)
     else
         println("********** CUDA not available")
     end
