@@ -1,18 +1,18 @@
 # test_utils
 
 function test_utils()
-
-    @testset "subs" begin println("subs")
+    @testset "subs" begin
+        println("subs")
 
         e = :(∫(r(t)^2 + 2u₁(t)) → min)
         @test subs(e, :r, :(x[1])) == :(∫((x[1])(t)^2 + 2 * u₁(t)) → min)
-    
+
         e = :(∫(u₁(t)^2 + 2u₂(t)) → min)
         for i in 1:2
             e = subs(e, Symbol(:u, Char(8320 + i)), :(u[$i]))
         end
         @test e == :(∫((u[1])(t)^2 + 2 * (u[2])(t)) → min)
-    
+
         t = :t
         t0 = 0
         tf = :tf
@@ -22,47 +22,55 @@ function test_utils()
         x0 = Symbol(x, 0)
         @test subs(e, :($x[1]($(t0))), :($x0[1])) ==
             :(x0[1] * (2 * x(tf)) - (x[2])(tf) * (2 * x(0)))
-    
     end
-    
-    @testset "subs2" begin println("subs2")
+
+    @testset "subs2" begin
+        println("subs2")
 
         e = :(x0[1] * 2xf[3] - cos(xf[2]) * 2x0[2])
-        @test subs2(subs2(e, :x0, :x, 0), :xf, :x, :N) == :(x[1, 0] * (2 * x[3, N]) - cos(x[2, N]) * (2 * x[2, 0]))
+        @test subs2(subs2(e, :x0, :x, 0), :xf, :x, :N) ==
+            :(x[1, 0] * (2 * x[3, N]) - cos(x[2, N]) * (2 * x[2, 0]))
 
         e = :(x0 * 2xf[3] - cos(xf) * 2x0[2])
-        @test subs2(subs2(e, :x0, :x, 0), :xf, :x, :N) == :(x0 * (2 * x[3, N]) - cos(xf) * (2 * x[2, 0]))
-    
+        @test subs2(subs2(e, :x0, :x, 0), :xf, :x, :N) ==
+            :(x0 * (2 * x[3, N]) - cos(xf) * (2 * x[2, 0]))
     end
 
-    @testset "subs3" begin println("subs3")
+    @testset "subs3" begin
+        println("subs3")
 
         e = :(x0[1:2:d] * 2xf[1:3])
         @test subs3(e, :x0, :x, :i, 0) == :(x[i, 0] * (2 * xf[1:3]))
         @test subs3(e, :xf, :x, 1, :N) == :(x0[1:2:d] * (2 * x[1, N]))
-
     end
-    
-    @testset "subs4" begin println("subs4")
+
+    @testset "subs4" begin
+        println("subs4")
 
         e = :(v[1:2:d] * 2xf[1:3])
         @test subs4(e, :v, :v, :i) == :(v[i] * (2 * xf[1:3]))
         @test subs4(e, :xf, :xf, 1) == :(v[1:2:d] * (2 * xf[1]))
-
     end
 
-    @testset "subs5" begin println("subs5")
+    @testset "subs5" begin
+        println("subs5")
 
         e = :(x0[1] * 2xf[3] - cos(xf[2]) * 2x0[2])
-        @test subs5(subs5(e, :x0, :x, 0), :xf, :x, :N) == :(((x[1, 0] + x[1, 0 + 1]) / 2) * (2 * ((x[3, N] + x[3, N + 1]) / 2)) - cos((x[2, N] + x[2, N + 1]) / 2) * (2 * ((x[2, 0] + x[2, 0 + 1]) / 2)))
+        @test subs5(subs5(e, :x0, :x, 0), :xf, :x, :N) == :(
+            ((x[1, 0] + x[1, 0 + 1]) / 2) * (2 * ((x[3, N] + x[3, N + 1]) / 2)) -
+            cos((x[2, N] + x[2, N + 1]) / 2) * (2 * ((x[2, 0] + x[2, 0 + 1]) / 2))
+        )
 
         e = :(x0 * 2xf[3] - cos(xf) * 2x0[2])
-        @test subs5(subs5(e, :x0, :x, 0), :xf, :x, :N) == :(x0 * (2 * ((x[3, N] + x[3, N + 1]) / 2)) - cos(xf) * (2 * ((x[2, 0] + x[2, 0 + 1]) / 2)))
-
+        @test subs5(subs5(e, :x0, :x, 0), :xf, :x, :N) == :(
+            x0 * (2 * ((x[3, N] + x[3, N + 1]) / 2)) -
+            cos(xf) * (2 * ((x[2, 0] + x[2, 0 + 1]) / 2))
+        )
     end
-    
-    @testset "replace_call" begin println("replace_call")
-    
+
+    @testset "replace_call" begin
+        println("replace_call")
+
         t = :t
         t0 = 0
         tf = :tf
@@ -74,16 +82,16 @@ function test_utils()
         e = replace_call(e, x, t0, x0)
         @test replace_call(e, x, tf, xf) ==
             :(var"x#0"[1] * (2var"x#f") - var"x#f"[2] * (2var"x#0"))
-    
+
         e = :(A * x(t) + B * u(t))
         @test replace_call(replace_call(e, x, t, x), u, t, u) == :(A * x + B * u)
-    
+
         e = :(F0(x(t)) + u(t) * F1(x(t)))
         @test replace_call(replace_call(e, x, t, x), u, t, u) == :(F0(x) + u * F1(x))
-    
+
         e = :(0.5u(t)^2)
         @test replace_call(e, u, t, u) == :(0.5 * u^2)
-    
+
         t = :t
         t0 = 0
         tf = :tf
@@ -91,17 +99,17 @@ function test_utils()
         u = :u
         e = :((x^2 + u[1])(t))
         @test replace_call(e, [x, u], t, [:xx, :uu]) == :(xx^2 + uu[1])
-    
+
         e = :(((x^2)(t) + u[1])(t))
         @test replace_call(e, [x, u], t, [:xx, :uu]) == :(xx^2 + uu[1])
-    
+
         e = :(((x^2)(t0) + u[1])(t))
         @test replace_call(e, [x, u], t, [:xx, :uu]) == :((xx^2)(t0) + uu[1])
-    
     end
-    
-    @testset "has" begin println("has")
-    
+
+    @testset "has" begin
+        println("has")
+
         e = :(∫(x[1](t)^2 + 2 * u(t)) → min)
         @test has(e, :x, :t)
         @test has(e, :u, :t)
@@ -116,10 +124,10 @@ function test_utils()
         @test has(:x, :x)
         @test !has(:x, 2)
         @test !has(:x, :y)
-    
     end
-    
-    @testset "concat" begin println("concat")
+
+    @testset "concat" begin
+        println("concat")
 
         e1 = :(x = 1; y = 2)
         e2 = :(z = 3)
@@ -133,16 +141,16 @@ function test_utils()
 
         e1 = :(z = 3)
         e = concat(e1, e1)
-        @test length(e.args) == 2 
+        @test length(e.args) == 2
 
         e1 = :(x = 1; y = 2)
         e = concat(e1, e1)
         @test length(e.args) == 2 * length(e1.args)
-
     end
 
-    @testset "constraint_type" begin println("constraint_type")
-    
+    @testset "constraint_type" begin
+        println("constraint_type")
+
         t = :t
         t0 = 0
         tf = :tf
@@ -186,7 +194,5 @@ function test_utils()
         @test constraint_type(:(v), t, t0, tf, x, u, v) == (:variable_range, nothing)
         @test constraint_type(:(v^2 + 1), t, t0, tf, x, u, v) == :variable_fun
         @test constraint_type(:(v[2]^2 + 1), t, t0, tf, x, u, v) == :variable_fun
-        
     end
-
 end
