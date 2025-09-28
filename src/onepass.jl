@@ -59,9 +59,9 @@ $(TYPEDEF)
     tf::Union{Real,Symbol,Expr,Nothing} = nothing
     x::Union{Symbol,Nothing} = nothing
     u::Union{Symbol,Nothing} = nothing
-    dim_v::Union{Integer, Symbol, Expr, Nothing} = nothing
-    dim_x::Union{Integer, Symbol, Expr, Nothing} = nothing
-    dim_u::Union{Integer, Symbol, Expr, Nothing} = nothing
+    dim_v::Union{Integer,Symbol,Expr,Nothing} = nothing
+    dim_x::Union{Integer,Symbol,Expr,Nothing} = nothing
+    dim_u::Union{Integer,Symbol,Expr,Nothing} = nothing
     is_autonomous::Bool = true
     aliases::OrderedDict{Union{Symbol,Expr},Union{Real,Symbol,Expr}} = __init_aliases() # Dict ordered by Symbols *and Expr* just for scalar variable / state / control
     lnum::Int = 0
@@ -97,7 +97,7 @@ end
 __throw(mess, n, line) = begin
     e_pref = e_prefix()
     info = string("\nLine ", n, ": ", line, "\n", mess)
-    return :(throw($e_pref.ParsingError($info))) 
+    return :(throw($e_pref.ParsingError($info)))
 end
 
 __wrap(e, n, line) = quote
@@ -110,10 +110,10 @@ __wrap(e, n, line) = quote
     end
 end
 
-is_range(x) = false 
-is_range(x::T) where {T <: AbstractRange} = true 
+is_range(x) = false
+is_range(x::T) where {T<:AbstractRange} = true
 is_range(x::Expr) = (x.head == :call) && (x.args[1] == :(:))
-as_range(x) = is_range(x) ? x : [x] 
+as_range(x) = is_range(x) ? x : [x]
 
 # Main code
 
@@ -127,7 +127,7 @@ Parse the expression `e` and update the `ParsingInfo` structure `p`.
 parse!(p, :p_ocp, :(v ∈ R, variable))
 ```
 """
-parse!(p, p_ocp, e; log = false, backend = __default_parsing_backend()) = begin
+function parse!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
     #
     p.lnum = p.lnum + 1
     p.line = string(e)
@@ -167,25 +167,30 @@ parse!(p, p_ocp, e; log = false, backend = __default_parsing_backend()) = begin
         :($u ∈ R, control) => p_control!(p, p_ocp, u, 1; log, backend)
         # dynamics                    
         :(∂($x[$i])($t) == $e1) => p_dynamics_coord!(p, p_ocp, x, i, t, e1; log, backend) # must be filtered before ∂($x)($t) pattern
-        :(∂($x[$i])($t) == $e1, $label) => p_dynamics_coord!(p, p_ocp, x, i, t, e1, label; log, backend)
+        :(∂($x[$i])($t) == $e1, $label) =>
+            p_dynamics_coord!(p, p_ocp, x, i, t, e1, label; log, backend)
         :(∂($x)($t) == $e1) => p_dynamics!(p, p_ocp, x, t, e1; log, backend)
         :(∂($x)($t) == $e1, $label) => p_dynamics!(p, p_ocp, x, t, e1, label; log, backend)
         # constraints                 
         :($e1 == $e2) => p_constraint!(p, p_ocp, e2, e1, e2; log, backend)
         :($e1 == $e2, $label) => p_constraint!(p, p_ocp, e2, e1, e2, label; log, backend)
         :($e1 ≤ $e2 ≤ $e3) => p_constraint!(p, p_ocp, e1, e2, e3; log, backend)
-        :($e1 ≤ $e2 ≤ $e3, $label) => p_constraint!(p, p_ocp, e1, e2, e3, label; log, backend)
+        :($e1 ≤ $e2 ≤ $e3, $label) =>
+            p_constraint!(p, p_ocp, e1, e2, e3, label; log, backend)
         :($e2 ≤ $e3) => p_constraint!(p, p_ocp, nothing, e2, e3; log, backend)
-        :($e2 ≤ $e3, $label) => p_constraint!(p, p_ocp, nothing, e2, e3, label; log, backend)
+        :($e2 ≤ $e3, $label) =>
+            p_constraint!(p, p_ocp, nothing, e2, e3, label; log, backend)
         :($e3 ≥ $e2 ≥ $e1) => p_constraint!(p, p_ocp, e1, e2, e3; log, backend)
-        :($e3 ≥ $e2 ≥ $e1, $label) => p_constraint!(p, p_ocp, e1, e2, e3, label; log, backend)
+        :($e3 ≥ $e2 ≥ $e1, $label) =>
+            p_constraint!(p, p_ocp, e1, e2, e3, label; log, backend)
         :($e2 ≥ $e1) => p_constraint!(p, p_ocp, e1, e2, nothing; log, backend)
-        :($e2 ≥ $e1, $label) => p_constraint!(p, p_ocp, e1, e2, nothing, label; log, backend)
+        :($e2 ≥ $e1, $label) =>
+            p_constraint!(p, p_ocp, e1, e2, nothing, label; log, backend)
         # lagrange cost
         :(∫($e1) → min) => p_lagrange!(p, p_ocp, e1, :min; log, backend)
         :(-∫($e1) → min) => p_lagrange!(p, p_ocp, :(-$e1), :min; log, backend)
         :($e1 * ∫($e2) → min) => if has(e1, p.t) # this test (and those similar below) is here to allow reduction to p_lagrange! standard call
-            (return __throw("time $(p.t) must not appear in $e1", p.lnum, p.line)) 
+            (return __throw("time $(p.t) must not appear in $e1", p.lnum, p.line))
         else
             p_lagrange!(p, p_ocp, :($e1 * $e2), :min; log, backend)
         end
@@ -264,7 +269,7 @@ parse!(p, p_ocp, e; log = false, backend = __default_parsing_backend()) = begin
     end
 end
 
-function p_pragma!(p, p_ocp, e; log = false, backend = __default_parsing_backend())
+function p_pragma!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
     log && println("PRAGMA: $e")
     return parsing(:pragma, backend)(p, p_ocp, e)
 end
@@ -280,13 +285,13 @@ function p_pragma_exa!(p, p_ocp, e)
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_alias!(p, p_ocp, a, e; log = false, backend = __default_parsing_backend())
+function p_alias!(p, p_ocp, a, e; log=false, backend=__default_parsing_backend())
     log && println("alias: $a = $e")
     a isa Symbol || return __throw("forbidden alias name: $a", p.lnum, p.line)
     p.aliases[a] = e
     return parsing(:alias, backend)(p, p_ocp, a, e)
 end
-    
+
 function p_alias_fun!(p, p_ocp, a, e)
     aa = QuoteNode(a)
     ee = QuoteNode(e)
@@ -296,7 +301,9 @@ end
 
 p_alias_exa! = p_alias_fun!
 
-function p_variable!(p, p_ocp, v, q; components_names=nothing, log = false, backend = __default_parsing_backend())
+function p_variable!(
+    p, p_ocp, v, q; components_names=nothing, log=false, backend=__default_parsing_backend()
+)
     log && println("variable: $v, dim: $q")
     v isa Symbol || return __throw("forbidden variable name: $v", p.lnum, p.line)
     vv = QuoteNode(v)
@@ -306,7 +313,7 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log = false, back
         p.aliases[v] = :($vg[1])
         p.aliases[Symbol(v, CTBase.ctindices(1))] = :($vg[1])
         p.aliases[Symbol(v, 1)] = :($vg[1])
-        v = vg 
+        v = vg
     end
     p.v = v
     p.dim_v = q
@@ -322,7 +329,9 @@ function p_variable!(p, p_ocp, v, q; components_names=nothing, log = false, back
             p.aliases[components_names.args[i]] = :($v[$i])
         end # aliases from names given by the user
     end
-    return parsing(:variable, backend)(p, p_ocp, v, q, vv; components_names=components_names)
+    return parsing(:variable, backend)(
+        p, p_ocp, v, q, vv; components_names=components_names
+    )
 end
 
 function p_variable_fun!(p, p_ocp, v, q, vv; components_names=nothing)
@@ -340,13 +349,13 @@ function p_variable_exa!(p, p_ocp, v, q, vv; components_names=nothing)
     pref = prefix_exa()
     code_box = :($(p.l_v) = -Inf * ones($q); $(p.u_v) = Inf * ones($q))
     p.box_v = concat(p.box_v, code_box)
-    code = :($pref.variable($p_ocp, $q; lvar = $(p.l_v), uvar = $(p.u_v), start = init[1]))
+    code = :($pref.variable($p_ocp, $q; lvar=($(p.l_v)), uvar=($(p.u_v)), start=init[1]))
     code = __wrap(code, p.lnum, p.line)
     code = :($v = $code) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
     return code
 end
 
-function p_time!(p, p_ocp, t, t0, tf; log = false, backend = __default_parsing_backend())
+function p_time!(p, p_ocp, t, t0, tf; log=false, backend=__default_parsing_backend())
     log && println("time: $t, initial time: $t0, final time: $tf")
     t isa Symbol || return __throw("forbidden time name: $t", p.lnum, p.line)
     p.t = t
@@ -355,15 +364,18 @@ function p_time!(p, p_ocp, t, t0, tf; log = false, backend = __default_parsing_b
     @match (has(t0, p.v), has(tf, p.v)) begin
         (false, false) => nothing
         (true, false) => @match t0 begin
-            :($v1[$i]) && if (v1 == p.v) end => nothing 
+            :($v1[$i]) && if (v1 == p.v)
+            end => nothing
             _ => return __throw("bad time declaration: $t0", p.lnum, p.line)
         end
         (false, true) => @match tf begin
-            :($v1[$i]) && if (v1 == p.v) end => nothing
+            :($v1[$i]) && if (v1 == p.v)
+            end => nothing
             _ => return __throw("bad time declaration: $tf", p.lnum, p.line)
         end
         _ => @match (t0, tf) begin
-            (:($v1[$i]), :($v2[$j])) && if (v1 == v2 == p.v) end => nothing
+            (:($v1[$i]), :($v2[$j])) && if (v1 == v2 == p.v)
+            end => nothing
             _ => return __throw("bad time declaration: $t0, $tf", p.lnum, p.line)
         end
     end
@@ -374,18 +386,20 @@ function p_time_fun!(p, p_ocp, t, t0, tf)
     pref = prefix_fun()
     tt = QuoteNode(t)
     code = @match (has(t0, p.v), has(tf, p.v)) begin
-        (false, false) => :($pref.time!($p_ocp; t0=$t0, tf=$tf, time_name=$tt))
+        (false, false) => :($pref.time!($p_ocp; t0=($t0), tf=($tf), time_name=($tt)))
         (true, false) => @match t0 begin
-            :($v1[$i]) && if (v1 == p.v) end => :($pref.time!($p_ocp; ind0=$i, tf=$tf, time_name=$tt))
+            :($v1[$i]) && if (v1 == p.v)
+            end => :($pref.time!($p_ocp; ind0=($i), tf=($tf), time_name=($tt)))
             _ => return __throw("p_time: internal error", p.lnum, p.line) # todo: should not happen, check and remove
         end
         (false, true) => @match tf begin
-            :($v1[$i]) && if (v1 == p.v) end => :($pref.time!($p_ocp; t0=$t0, indf=$i, time_name=$tt))
+            :($v1[$i]) && if (v1 == p.v)
+            end => :($pref.time!($p_ocp; t0=($t0), indf=($i), time_name=($tt)))
             _ => return __throw("p_time: internal error", p.lnum, p.line) # todo: should not happen, check and remove
         end
         _ => @match (t0, tf) begin
             (:($v1[$i]), :($v2[$j])) && if (v1 == v2 == p.v)
-            end => :($pref.time!($p_ocp; ind0=$i, indf=$j, time_name=$tt))
+            end => :($pref.time!($p_ocp; ind0=($i), indf=($j), time_name=($tt)))
             _ => return __throw("p_time: internal error", p.lnum, p.line) # todo: should not happen, check and remove
         end
     end
@@ -399,7 +413,9 @@ function p_time_exa!(p, p_ocp, t, t0, tf)
     return code
 end
 
-function p_state!(p, p_ocp, x, n; components_names=nothing, log = false, backend = __default_parsing_backend())
+function p_state!(
+    p, p_ocp, x, n; components_names=nothing, log=false, backend=__default_parsing_backend()
+)
     log && println("state: $x, dim: $n")
     x isa Symbol || return __throw("forbidden state name: $x", p.lnum, p.line)
     p.aliases[Symbol(Unicode.normalize(string(x, "̇")))] = :(∂($x))
@@ -410,7 +426,7 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log = false, backend
         p.aliases[x] = :($xg[1])
         p.aliases[Symbol(x, CTBase.ctindices(1))] = :($xg[1])
         p.aliases[Symbol(x, 1)] = :($xg[1])
-        x = xg 
+        x = xg
     end
     p.x = x
     p.dim_x = n
@@ -429,7 +445,7 @@ function p_state!(p, p_ocp, x, n; components_names=nothing, log = false, backend
     end
     return parsing(:state, backend)(p, p_ocp, x, n, xx; components_names=components_names)
 end
-    
+
 function p_state_fun!(p, p_ocp, x, n, xx; components_names=nothing)
     pref = prefix_fun()
     if isnothing(components_names)
@@ -447,14 +463,23 @@ function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
     p.box_x = concat(p.box_x, code_box)
     i = __symgen(:i)
     j = __symgen(:j)
-    code = :($pref.variable($p_ocp, $n, 0:grid_size; lvar = [$(p.l_x)[$i] for ($i, $j) ∈ Base.product(1:$n, 0:grid_size)], uvar = [$(p.u_x)[$i] for ($i, $j) ∈ Base.product(1:$n, 0:grid_size)], start = init[2]))
+    code = :($pref.variable(
+        $p_ocp,
+        $n,
+        0:grid_size;
+        lvar=[$(p.l_x)[$i] for ($i, $j) in Base.product(1:($n), 0:grid_size)],
+        uvar=[$(p.u_x)[$i] for ($i, $j) in Base.product(1:($n), 0:grid_size)],
+        start=init[2],
+    ))
     code = __wrap(code, p.lnum, p.line)
     dyn_con = Symbol(:dyn_con, x) # name for the constraints associated with the dynamics
     code = :($x = $code; $dyn_con = Vector{$pref.Constraint}(undef, $n)) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
     return code
 end
 
-function p_control!(p, p_ocp, u, m; components_names=nothing, log = false, backend = __default_parsing_backend())
+function p_control!(
+    p, p_ocp, u, m; components_names=nothing, log=false, backend=__default_parsing_backend()
+)
     log && println("control: $u, dim: $m")
     u isa Symbol || return __throw("forbidden control name: $u", p.lnum, p.line)
     uu = QuoteNode(u)
@@ -464,7 +489,7 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log = false, backe
         p.aliases[u] = :($ug[1])
         p.aliases[Symbol(u, CTBase.ctindices(1))] = :($ug[1])
         p.aliases[Symbol(u, 1)] = :($ug[1])
-        u = ug 
+        u = ug
     end
     p.u = u
     p.dim_u = m
@@ -482,7 +507,7 @@ function p_control!(p, p_ocp, u, m; components_names=nothing, log = false, backe
     end
     return parsing(:control, backend)(p, p_ocp, u, m, uu; components_names=components_names)
 end
-    
+
 function p_control_fun!(p, p_ocp, u, m, uu; components_names=nothing)
     pref = prefix_fun()
     if isnothing(components_names)
@@ -497,16 +522,32 @@ end
 function p_control_exa!(p, p_ocp, u, m, uu; components_names=nothing)
     pref = prefix_exa()
     code_box = :($(p.l_u) = -Inf * ones($m); $(p.u_u) = Inf * ones($m))
-    p.box_u = concat(p.box_u, code_box) 
+    p.box_u = concat(p.box_u, code_box)
     i = __symgen(:i)
     j = __symgen(:j)
-    code = :($pref.variable($p_ocp, $m, 0:grid_size; lvar = [$(p.l_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:grid_size)], uvar = [$(p.u_u)[$i] for ($i, $j) ∈ Base.product(1:$m, 0:grid_size)], start = init[3]))
+    code = :($pref.variable(
+        $p_ocp,
+        $m,
+        0:grid_size;
+        lvar=[$(p.l_u)[$i] for ($i, $j) in Base.product(1:($m), 0:grid_size)],
+        uvar=[$(p.u_u)[$i] for ($i, $j) in Base.product(1:($m), 0:grid_size)],
+        start=init[3],
+    ))
     code = __wrap(code, p.lnum, p.line)
     code = :($u = $code) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
     return code
 end
 
-function p_constraint!(p, p_ocp, e1, e2, e3, label = __symgen(:label); log = false, backend = __default_parsing_backend())
+function p_constraint!(
+    p,
+    p_ocp,
+    e1,
+    e2,
+    e3,
+    label=__symgen(:label);
+    log=false,
+    backend=__default_parsing_backend(),
+)
     c_type = constraint_type(e2, p.t, p.t0, p.tf, p.x, p.u, p.v)
     log && println("constraint ($c_type): $e1 ≤ $e2 ≤ $e3,    ($label)")
     label isa Int && (label = Symbol(:eq, label))
@@ -534,15 +575,20 @@ function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
                     @views $r[:] .= $ee2
                     return nothing
                 end
-                $pref.constraint!($p_ocp, :boundary; f=$fun, lb=$e1, ub=$e3, label=$llabel)
+                $pref.constraint!(
+                    $p_ocp, :boundary; f=($fun), lb=($e1), ub=($e3), label=($llabel)
+                )
             end
         end
-        (:control_range, rg) =>
-            :($pref.constraint!($p_ocp, :control; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
-        (:state_range, rg) =>
-            :($pref.constraint!($p_ocp, :state; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
-        (:variable_range, rg) =>
-            :($pref.constraint!($p_ocp, :variable; rg=$rg, lb=$e1, ub=$e3, label=$llabel))
+        (:control_range, rg) => :($pref.constraint!(
+            $p_ocp, :control; rg=($rg), lb=($e1), ub=($e3), label=($llabel)
+        ))
+        (:state_range, rg) => :($pref.constraint!(
+            $p_ocp, :state; rg=($rg), lb=($e1), ub=($e3), label=($llabel)
+        ))
+        (:variable_range, rg) => :($pref.constraint!(
+            $p_ocp, :variable; rg=($rg), lb=($e1), ub=($e3), label=($llabel)
+        ))
         :state_fun || control_fun || :mixed => begin # now all treated as path
             fun = __symgen(:fun)
             xt = __symgen(:xt)
@@ -555,7 +601,9 @@ function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
                     @views $r[:] .= $ee2
                     return nothing
                 end
-                $pref.constraint!($p_ocp, :path; f=$fun, lb=$e1, ub=$e3, label=$llabel)
+                $pref.constraint!(
+                    $p_ocp, :path; f=($fun), lb=($e1), ub=($e3), label=($llabel)
+                )
             end
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
@@ -566,7 +614,7 @@ end
 function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
     pref = prefix_exa()
     isnothing(e1) && (e1 = :(-Inf * ones(length($e3))))
-    isnothing(e3) && (e3 = :( Inf * ones(length($e1))))
+    isnothing(e3) && (e3 = :(Inf * ones(length($e1))))
     code = @match c_type begin
         :boundary || :variable_fun => begin
             code = :(length($e1) == length($e3) == 1 || throw("this constraint must be scalar")) # (vs. __throw) since raised at runtime
@@ -576,69 +624,97 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = replace_call(e2, p.x, p.tf, xf)
             e2 = subs2(e2, x0, p.x, 0)
             e2 = subs2(e2, xf, p.x, :grid_size)
-            concat(code, :($pref.constraint($p_ocp, $e2; lcon = $e1, ucon = $e3)))
+            concat(code, :($pref.constraint($p_ocp, $e2; lcon=($e1), ucon=($e3))))
         end
         (:initial, rg) => begin
             if isnothing(rg)
-                rg = :(1:$(p.dim_x)) # x(t0) implies rg == nothing but means x[1:p.dim_x](t0)
+                rg = :(1:($(p.dim_x))) # x(t0) implies rg == nothing but means x[1:p.dim_x](t0)
                 e2 = subs(e2, p.x, :($(p.x)[$rg]))
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
-            code = :(length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")) # (vs. __throw) since raised at runtime
+            code = :(
+                length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
+            ) # (vs. __throw) since raised at runtime
             x0 = __symgen(:x0)
             i = __symgen(:i)
             e2 = replace_call(e2, p.x, p.t0, x0)
             e2 = subs3(e2, x0, p.x, i, 0)
-            concat(code, :($pref.constraint($p_ocp, $e2 for $i ∈ $rg; lcon = $e1, ucon = $e3)))
+            concat(
+                code,
+                :($pref.constraint($p_ocp, $e2 for $i in $rg; lcon=($e1), ucon=($e3))),
+            )
         end
         (:final, rg) => begin
             if isnothing(rg)
-                rg = :(1:$(p.dim_x))
+                rg = :(1:($(p.dim_x)))
                 e2 = subs(e2, p.x, :($(p.x)[$rg]))
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
-            code = :(length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")) # (vs. __throw) since raised at runtime
+            code = :(
+                length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
+            ) # (vs. __throw) since raised at runtime
             xf = __symgen(:xf)
             i = __symgen(:i)
             e2 = replace_call(e2, p.x, p.tf, xf)
             e2 = subs3(e2, xf, p.x, i, :grid_size)
-            concat(code, :($pref.constraint($p_ocp, $e2 for $i ∈ $rg; lcon = $e1, ucon = $e3)))
+            concat(
+                code,
+                :($pref.constraint($p_ocp, $e2 for $i in $rg; lcon=($e1), ucon=($e3))),
+            )
         end
         (:variable_range, rg) => begin
             if isnothing(rg)
-                rg = :(1:$(p.dim_v))
+                rg = :(1:($(p.dim_v)))
                 e2 = subs(e2, p.v, :($(p.v)[$rg]))
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
-            code_box = :(length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")) # (vs. __throw) since raised at runtime
-            code_box = __wrap(concat(code_box, :($(p.l_v)[$rg] .= $e1; $(p.u_v)[$rg] .= $e3)), p.lnum, p.line)
+            code_box = :(
+                length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
+            ) # (vs. __throw) since raised at runtime
+            code_box = __wrap(
+                concat(code_box, :($(p.l_v)[$rg] .= $e1; $(p.u_v)[$rg] .= $e3)),
+                p.lnum,
+                p.line,
+            )
             p.box_v = concat(p.box_v, code_box) # not __wrapped since contains definition of l_v/u_v
             :()
         end
         (:state_range, rg) => begin
             if isnothing(rg)
-                rg = :(1:$(p.dim_x))
+                rg = :(1:($(p.dim_x)))
                 e2 = subs(e2, p.x, :($(p.x)[$rg]))
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
-            code_box = :(length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")) # (vs. __throw) since raised at runtime
-            code_box = __wrap(concat(code_box, :($(p.l_x)[$rg] .= $e1; $(p.u_x)[$rg] .= $e3)), p.lnum, p.line)
+            code_box = :(
+                length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
+            ) # (vs. __throw) since raised at runtime
+            code_box = __wrap(
+                concat(code_box, :($(p.l_x)[$rg] .= $e1; $(p.u_x)[$rg] .= $e3)),
+                p.lnum,
+                p.line,
+            )
             p.box_x = concat(p.box_x, code_box) # not __wrapped since contains definition of l_x/u_x
             :()
         end
         (:control_range, rg) => begin
             if isnothing(rg)
-                rg = :(1:$(p.dim_u))
+                rg = :(1:($(p.dim_u)))
                 e2 = subs(e2, p.u, :($(p.u)[$rg]))
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
-            code_box = :(length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")) # (vs. __throw) since raised at runtime
-            code_box = __wrap(concat(code_box, :($(p.l_u)[$rg] .= $e1; $(p.u_u)[$rg] .= $e3)), p.lnum, p.line)
+            code_box = :(
+                length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
+            ) # (vs. __throw) since raised at runtime
+            code_box = __wrap(
+                concat(code_box, :($(p.l_u)[$rg] .= $e1; $(p.u_u)[$rg] .= $e3)),
+                p.lnum,
+                p.line,
+            )
             p.box_u = concat(p.box_u, code_box) # not __wrapped since contains definition of l_u/u_u
             :()
         end
@@ -651,14 +727,21 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = subs2(e2, xt, p.x, j)
             e2 = subs2(e2, ut, p.u, j)
             e2 = subs(e2, p.t, :($(p.t0) + $j * $(p.dt)))
-            concat(code, :($pref.constraint($p_ocp, $e2 for $j ∈ 0:grid_size; lcon = $e1, ucon = $e3)))
+            concat(
+                code,
+                :($pref.constraint(
+                    $p_ocp, $e2 for $j in 0:grid_size; lcon=($e1), ucon=($e3)
+                )),
+            )
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
     end
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_dynamics!(p, p_ocp, x, t, e, label=nothing; log = false, backend = __default_parsing_backend())
+function p_dynamics!(
+    p, p_ocp, x, t, e, label=nothing; log=false, backend=__default_parsing_backend()
+)
     log && println("dynamics: ∂($x)($t) == $e")
     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
@@ -694,7 +777,9 @@ function p_dynamics_exa!(p, p_ocp, x, t, e)
     return __throw("dynamics must be defined coordinatewise", p.lnum, p.line) # note: scalar case is redirected before coordinatewise case
 end
 
-function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log = false, backend = __default_parsing_backend())
+function p_dynamics_coord!(
+    p, p_ocp, x, i, t, e, label=nothing; log=false, backend=__default_parsing_backend()
+)
     log && println("dynamics: ∂($x[$i])($t) == $e")
     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
@@ -707,7 +792,7 @@ function p_dynamics_coord!(p, p_ocp, x, i, t, e, label=nothing; log = false, bac
     has(ee, p.t) && (p.is_autonomous = false)
     return parsing(:dynamics_coord, backend)(p, p_ocp, x, i, t, e)
 end
-    
+
 function p_dynamics_coord_fun!(p, p_ocp, x, i, t, e)
     pref = prefix_fun()
     xt = __symgen(:xt)
@@ -728,8 +813,10 @@ end
 
 function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     pref = prefix_exa()
-    i isa Integer || return __throw("dynamics coordinate $i should be an integer", p.lnum, p.line)
-    i ∈ p.dyn_coords && return __throw("dynamics coordinate $i already defined", p.lnum, p.line)
+    i isa Integer ||
+        return __throw("dynamics coordinate $i should be an integer", p.lnum, p.line)
+    i ∈ p.dyn_coords &&
+        return __throw("dynamics coordinate $i already defined", p.lnum, p.line)
     append!(p.dyn_coords, i)
     xt = __symgen(:xt)
     ut = __symgen(:ut)
@@ -746,18 +833,22 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     ej12 = subs5(e, xt, p.x, j1)
     ej12 = subs2(ej12, ut, p.u, j1)
     ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
-    dxij = :($(p.x)[$i, $j2]- $(p.x)[$i, $j1])
-    code = quote 
+    dxij = :($(p.x)[$i, $j2] - $(p.x)[$i, $j1])
+    code = quote
         if scheme == :euler
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 ∈ 0:(grid_size - 1))
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1))
         elseif scheme == :euler_b
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 ∈ 0:(grid_size - 1))
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 in 0:(grid_size - 1))
         elseif scheme == :midpoint
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 ∈ 0:(grid_size - 1))
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1))
         elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 ∈ 0:(grid_size - 1))
+            $pref.constraint(
+                $p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 in 0:(grid_size - 1)
+            )
         else
-           throw("unknown numerical scheme: $scheme (possible choices are :euler, :euler_b, :midpoint, :trapeze)") # (vs. __throw) since raised at runtime (and __wrap-ped)
+            throw(
+                "unknown numerical scheme: $scheme (possible choices are :euler, :euler_b, :midpoint, :trapeze)",
+            ) # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
     end
     dyn_con = Symbol(:dyn_con, p.x) # named constraint to allow retrieval of the dynamics multiplier that approximates the adjoint state
@@ -766,7 +857,7 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     return code
 end
 
-function p_lagrange!(p, p_ocp, e, type; log = false, backend = __default_parsing_backend())
+function p_lagrange!(p, p_ocp, e, type; log=false, backend=__default_parsing_backend())
     log && println("objective (Lagrange): ∫($e) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
@@ -776,7 +867,7 @@ function p_lagrange!(p, p_ocp, e, type; log = false, backend = __default_parsing
     has(ee, p.t) && (p.is_autonomous = false)
     return parsing(:lagrange, backend)(p, p_ocp, e, type)
 end
-    
+
 function p_lagrange_fun!(p, p_ocp, e, type)
     pref = prefix_fun()
     xt = __symgen(:xt)
@@ -789,7 +880,7 @@ function p_lagrange_fun!(p, p_ocp, e, type)
         function $fun($(args...))
             return @views $e
         end
-        $pref.objective!($p_ocp, $ttype; lagrange=$fun)
+        $pref.objective!($p_ocp, $ttype; lagrange=($fun))
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -811,22 +902,24 @@ function p_lagrange_exa!(p, p_ocp, e, type)
     sg = (type == :min) ? 1 : (-1) # with exa, max changed to min
     code = quote
         if scheme == :euler
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 for $j1 ∈ 0:(grid_size - 1))
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1))
         elseif scheme == :euler_b
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 for $j1 ∈ 1:grid_size)
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 for $j1 in 1:grid_size)
         elseif scheme == :midpoint
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej12 for $j1 ∈ 0:(grid_size - 1))
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1))
         elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 / 2 for $j1 ∈ (0, grid_size))
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 for $j1 ∈ 1:(grid_size - 1))
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 / 2 for $j1 in (0, grid_size))
+            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 for $j1 in 1:(grid_size - 1))
         else
-           throw("unknown numerical scheme: $scheme (possible choices are :euler, :euler_b, :midpoint, :trapeze)") # (vs. __throw) since raised at runtime (and __wrap-ped)
+            throw(
+                "unknown numerical scheme: $scheme (possible choices are :euler, :euler_b, :midpoint, :trapeze)",
+            ) # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
     end
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_mayer!(p, p_ocp, e, type; log = false, backend = __default_parsing_backend())
+function p_mayer!(p, p_ocp, e, type; log=false, backend=__default_parsing_backend())
     log && println("objective (Mayer): $e → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.t0) && return __throw("time not yet declared", p.lnum, p.line)
@@ -852,15 +945,15 @@ function p_mayer_fun!(p, p_ocp, e, type)
         function $fun($(args...))
             return @views $e
         end
-        $pref.objective!($p_ocp, $ttype; mayer=$fun)
+        $pref.objective!($p_ocp, $ttype; mayer=($fun))
     end
     return __wrap(code, p.lnum, p.line)
 end
 
 function p_mayer_exa!(p, p_ocp, e, type)
     pref = prefix_exa()
-    x0 = __symgen(:x0) 
-    xf = __symgen(:xf) 
+    x0 = __symgen(:x0)
+    xf = __symgen(:xf)
     e = replace_call(e, p.x, p.t0, x0)
     e = replace_call(e, p.x, p.tf, xf)
     e = subs2(e, x0, p.x, 0)
@@ -871,7 +964,7 @@ function p_mayer_exa!(p, p_ocp, e, type)
     return __wrap(code, p.lnum, p.line)
 end
 
-function p_bolza!(p, p_ocp, e1, e2, type; log = false, backend = __default_parsing_backend())
+function p_bolza!(p, p_ocp, e1, e2, type; log=false, backend=__default_parsing_backend())
     log && println("objective (Bolza): $e1 + ∫($e2) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.t0) && return __throw("time not yet declared", p.lnum, p.line)
@@ -882,7 +975,7 @@ function p_bolza!(p, p_ocp, e1, e2, type; log = false, backend = __default_parsi
     ee2 = replace_call(e2, [p.x, p.u], p.t, [xut, xut])
     has(ee2, p.t) && (p.is_autonomous = false)
     return parsing(:bolza, backend)(p, p_ocp, e1, e2, type)
-end 
+end
 
 function p_bolza_fun!(p, p_ocp, e1, e2, type)
     pref = prefix_fun()
@@ -905,7 +998,7 @@ function p_bolza_fun!(p, p_ocp, e1, e2, type)
         function $fun2($(args2...))
             return @views $e2
         end
-        $pref.objective!($p_ocp, $ttype; mayer=$fun1, lagrange=$fun2)
+        $pref.objective!($p_ocp, $ttype; mayer=($fun1), lagrange=($fun2))
     end
     return __wrap(code, p.lnum, p.line)
 end
@@ -918,7 +1011,7 @@ end
 
 # Summary of available parsing subfunctions (:fun backend)
 
-const PARSING_FUN = OrderedDict{Symbol, Function}()
+const PARSING_FUN = OrderedDict{Symbol,Function}()
 PARSING_FUN[:pragma] = p_pragma_fun!
 PARSING_FUN[:alias] = p_alias_fun!
 PARSING_FUN[:variable] = p_variable_fun!
@@ -934,7 +1027,7 @@ PARSING_FUN[:bolza] = p_bolza_fun!
 
 # Summary of available parsing subfunctions (:fun backend)
 
-const PARSING_EXA = OrderedDict{Symbol, Function}()
+const PARSING_EXA = OrderedDict{Symbol,Function}()
 PARSING_EXA[:pragma] = p_pragma_exa!
 PARSING_EXA[:alias] = p_alias_exa!
 PARSING_EXA[:variable] = p_variable_exa!
@@ -950,7 +1043,7 @@ PARSING_EXA[:bolza] = p_bolza_exa!
 
 const PARSING_BACKENDS = (:fun, :exa) # known parsing backends
 
-const PARSING_DIR = OrderedDict{Symbol, OrderedDict{Symbol, Function}}()
+const PARSING_DIR = OrderedDict{Symbol,OrderedDict{Symbol,Function}}()
 PARSING_DIR[:fun] = PARSING_FUN
 PARSING_DIR[:exa] = PARSING_EXA
 
@@ -967,8 +1060,8 @@ function activate_backend(backend)
     backend ∈ PARSING_BACKENDS || throw("unknown parsing backend")
     backend == :fun && throw("backend :fun is always active")
     ACTIVE_PARSING_BACKENDS[backend] = true
-    return nothing 
-end 
+    return nothing
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -979,8 +1072,8 @@ function deactivate_backend(backend)
     backend ∈ PARSING_BACKENDS || throw("unknown parsing backend")
     backend == :fun && throw("backend :fun is always active")
     ACTIVE_PARSING_BACKENDS[backend] = false
-    return nothing 
-end 
+    return nothing
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -990,7 +1083,7 @@ Check whether backend is active or not.
 function is_active_backend(backend)
     backend ∈ PARSING_BACKENDS || throw("unknown parsing backend")
     return ACTIVE_PARSING_BACKENDS[backend]
-end 
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -1061,7 +1154,7 @@ end
 
 macro def(ocp, e, log=false) # old syntax with ocp name in arguments for compatibility
     try
-        code = def_fun(e; log = log)
+        code = def_fun(e; log=log)
         code = :($ocp = $code)
         return esc(code)
     catch ex
@@ -1084,22 +1177,22 @@ $(TYPEDSIGNATURES)
 
 Core computation of `@def` macro, parsing an expression towards a CTModels.Model.
 """
-function def_fun(e; log = false)
+function def_fun(e; log=false)
     pref = prefix_fun()
     p_ocp = __symgen(:p_ocp)
     p = ParsingInfo()
     ee = QuoteNode(e)
-    code = parse!(p, p_ocp, e; log = log, backend = :fun)
+    code = parse!(p, p_ocp, e; log=log, backend=:fun)
     code = quote
         $p_ocp = $pref.PreModel()
         $code
         $pref.definition!($p_ocp, $ee)
-        $pref.time_dependence!($p_ocp; autonomous = $p.is_autonomous)
+        $pref.time_dependence!($p_ocp; autonomous=$p.is_autonomous)
     end
 
     if is_active_backend(:exa)
-        build_exa = def_exa(e; log = log)
-        code = concat(code, :($pref.build($p_ocp; build_examodel = $build_exa)))
+        build_exa = def_exa(e; log=log)
+        code = concat(code, :($pref.build($p_ocp; build_examodel=($build_exa))))
     else
         code = concat(code, :($pref.build($p_ocp)))
     end
@@ -1111,15 +1204,16 @@ $(TYPEDSIGNATURES)
 
 Core computation used to discretise, parsing an expression towards an ExaModels.ExaModel.
 """
-function def_exa(e; log = false)
+function def_exa(e; log=false)
     pref = prefix_exa()
     e_pref = e_prefix()
     p_ocp = __symgen(:p_ocp) # ExaModel name (this is the pre OCP, here)
     p = ParsingInfo()
-    code = parse!(p, p_ocp, e; log = log, backend = :exa)
+    code = parse!(p, p_ocp, e; log=log, backend=:exa)
     dyn_check = quote
         !isempty($(p.dyn_coords)) || throw($e_pref.ParsingError("dynamics not defined"))
-        sort($(p.dyn_coords)) == 1:$(p.dim_x) || throw($e_pref.ParsingError("some coordinates of dynamics undefined"))         
+        sort($(p.dyn_coords)) == 1:($(p.dim_x)) ||
+            throw($e_pref.ParsingError("some coordinates of dynamics undefined"))
     end
     default_scheme = QuoteNode(__default_scheme_exa())
     default_grid_size = __default_grid_size_exa()
@@ -1136,9 +1230,9 @@ function def_exa(e; log = false)
                 $pref.solution(sol, $(p.u))
             elseif val == :variable
                 isnothing($(p.dim_v)) ? base_type[] : $pref.solution(sol, $(p.v))
-            elseif val == :costate 
+            elseif val == :costate
                 px = zeros(base_type, $(p.dim_x), grid_size)
-                for i ∈ 1:$(p.dim_x)
+                for i in 1:($(p.dim_x))
                     px[i, :] = Array($pref.multipliers(sol, $dyn_con[i])) # Array to copy from GPU
                 end
                 px
@@ -1151,9 +1245,17 @@ function def_exa(e; log = false)
             elseif val == :control_u
                 $pref.multipliers_U(sol, $(p.u))
             elseif val == :variable_l
-                isnothing($(p.dim_v)) ? base_type[] : $pref.multipliers_L(sol, $(p.v))
+                if isnothing($(p.dim_v))
+                    base_type[]
+                else
+                    $pref.multipliers_L(sol, $(p.v))
+                end
             elseif val == :variable_u
-                isnothing($(p.dim_v)) ? base_type[] : $pref.multipliers_U(sol, $(p.v))
+                if isnothing($(p.dim_v))
+                    base_type[]
+                else
+                    $pref.multipliers_U(sol, $(p.v))
+                end
             else
                 throw("unknown value $val for kwarg val")
             end
@@ -1162,14 +1264,20 @@ function def_exa(e; log = false)
     end
 
     code = quote
-        function (; scheme=$default_scheme, grid_size=$default_grid_size, backend=$default_backend, init=$default_init, base_type=$default_base_type)
+        function (;
+            scheme=($default_scheme),
+            grid_size=($default_grid_size),
+            backend=($default_backend),
+            init=($default_init),
+            base_type=($default_base_type),
+        )
             $(p.box_x) # lvar and uvar for state
             $(p.box_u) # lvar and uvar for control
             $(p.box_v) # lvar and uvar for variable (after x and u for compatibility with CTDirect)
-            $p_ocp = $pref.ExaCore(base_type; backend = backend)
+            $p_ocp = $pref.ExaCore(base_type; backend=backend)
             $code
             $dyn_check
-            return $pref.ExaModel($p_ocp), $getter 
+            return $pref.ExaModel($p_ocp), $getter
         end
     end
     return code
