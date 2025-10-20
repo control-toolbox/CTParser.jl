@@ -52,6 +52,44 @@ function __test_onepass_exa(
 )
     backend_name = isnothing(backend) ? "CPU" : "GPU"
 
+    test_name = "min ($backend_name, $scheme)"
+    @testset "$test_name" begin
+        println(test_name)
+        o = @def begin
+            v = (a, b) ∈ R², variable
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R⁴, control
+            ∂(x₁)(t) == x₁(t)
+            ∂(x₂)(t) == x₁(t)
+            ∂(x₃)(t) == x₁(t)
+            c = v₁ + b + x₁(0) + 2cos(x₃(1))
+            c → min
+        end
+        m = discretise_exa(o)
+        @test NLPModels.get_minimize(m) == true
+        @test criterion(o) == :min
+    end
+    
+    test_name = "max ($backend_name, $scheme)"
+    @testset "$test_name" begin
+        println(test_name)
+        o = @def begin
+            v = (a, b) ∈ R², variable
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R⁴, control
+            ∂(x₁)(t) == x₁(t)
+            ∂(x₂)(t) == x₁(t)
+            ∂(x₃)(t) == x₁(t)
+            c = v₁ + b + x₁(0) + 2cos(x₃(1))
+            c → max
+        end
+        m = discretise_exa(o)
+        @test NLPModels.get_minimize(m) == false
+        @test criterion(o) == :max
+    end
+
     test_name = "auxiliary functions ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)

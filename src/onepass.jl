@@ -63,6 +63,7 @@ $(TYPEDEF)
     dim_x::Union{Integer,Symbol,Expr,Nothing} = nothing
     dim_u::Union{Integer,Symbol,Expr,Nothing} = nothing
     is_autonomous::Bool = true
+    criterion::Union{Symbol,Nothing} = nothing # :min or :max
     aliases::OrderedDict{Union{Symbol,Expr},Union{Real,Symbol,Expr}} = __init_aliases() # Dict ordered by Symbols *and Expr* just for scalar variable / state / control
     lnum::Int = 0
     line::String = ""
@@ -865,6 +866,7 @@ function p_lagrange!(p, p_ocp, e, type; log=false, backend=__default_parsing_bac
     xut = __symgen(:xut)
     ee = replace_call(e, [p.x, p.u], p.t, [xut, xut])
     has(ee, p.t) && (p.is_autonomous = false)
+    p.criterion = type
     return parsing(:lagrange, backend)(p, p_ocp, e, type)
 end
 
@@ -899,17 +901,16 @@ function p_lagrange_exa!(p, p_ocp, e, type)
     ej12 = subs5(e, xt, p.x, j1)
     ej12 = subs2(ej12, ut, p.u, j1)
     ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
-    sg = (type == :min) ? 1 : (-1) # with exa, max changed to min
     code = quote
         if scheme == :euler
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1))
+            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1))
         elseif scheme == :euler_b
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 for $j1 in 1:grid_size)
+            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size)
         elseif scheme == :midpoint
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1))
+            $pref.objective($p_ocp, $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1))
         elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 / 2 for $j1 in (0, grid_size))
-            $pref.objective($p_ocp, $sg * $(p.dt) * $ej1 for $j1 in 1:(grid_size - 1))
+            $pref.objective($p_ocp, $(p.dt) * $ej1 / 2 for $j1 in (0, grid_size))
+            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:(grid_size - 1))
         else
             throw(
                 "unknown numerical scheme: $scheme (possible choices are :euler, :euler_b, :midpoint, :trapeze)",
@@ -929,6 +930,7 @@ function p_mayer!(p, p_ocp, e, type; log=false, backend=__default_parsing_backen
         p.lnum,
         p.line,
     )
+    p.criterion = type
     return parsing(:mayer, backend)(p, p_ocp, e, type)
 end
 
@@ -959,8 +961,7 @@ function p_mayer_exa!(p, p_ocp, e, type)
     e = subs2(e, x0, p.x, 0)
     e = subs2(e, xf, p.x, :grid_size)
     # now, x[i](t0) has been replaced by x[i, 0] and x[i](tf) by x[i, grid_size]
-    sg = (type == :min) ? 1 : (-1)
-    code = :($pref.objective($p_ocp, $sg * $e))
+    code = :($pref.objective($p_ocp, $e))
     return __wrap(code, p.lnum, p.line)
 end
 
@@ -974,6 +975,7 @@ function p_bolza!(p, p_ocp, e1, e2, type; log=false, backend=__default_parsing_b
     xut = __symgen(:xut)
     ee2 = replace_call(e2, [p.x, p.u], p.t, [xut, xut])
     has(ee2, p.t) && (p.is_autonomous = false)
+    p.criterion = type
     return parsing(:bolza, backend)(p, p_ocp, e1, e2, type)
 end
 
@@ -1274,7 +1276,7 @@ function def_exa(e; log=false)
             $(p.box_x) # lvar and uvar for state
             $(p.box_u) # lvar and uvar for control
             $(p.box_v) # lvar and uvar for variable (after x and u for compatibility with CTDirect)
-            $p_ocp = $pref.ExaCore(base_type; backend=backend)
+            $p_ocp = $pref.ExaCore(base_type; backend=backend, minimize=$(p.criterion == :min))
             $code
             $dyn_check
             return $pref.ExaModel($p_ocp), $getter
