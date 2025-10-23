@@ -51,7 +51,7 @@ julia> x0 = Symbol(x, 0); subs(e, :( \$x[1](\$(t0)) ), :( \$x0[1] ))
 :(x0[1] * (2 * x(tf)) - (x[2])(tf) * (2 * x(0)))
 ```
 """
-subs(e, e1::Union{Symbol,Real}, e2) = expr_it(e, Expr, x -> x == e1 ? e2 : x) # optimised for some litterals (including symbols)
+subs(e, e1::Union{Symbol,Real}, e2) = expr_it(e, Expr, x -> x == e1 ? e2 : x) # optimised for some literals (including symbols)
 
 subs(e, e1, e2) = begin
     foo(e1, e2) = (h, args...) -> begin
