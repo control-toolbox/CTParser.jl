@@ -1276,7 +1276,9 @@ function def_exa(e; log=false)
             $(p.box_x) # lvar and uvar for state
             $(p.box_u) # lvar and uvar for control
             $(p.box_v) # lvar and uvar for variable (after x and u for compatibility with CTDirect)
-            $p_ocp = $pref.ExaCore(base_type; backend=backend, minimize=($p.criterion == :min))
+            $p_ocp = $pref.ExaCore(
+                base_type; backend=backend, minimize=($p.criterion == :min)
+            )
             $code
             $dyn_check
             return $pref.ExaModel($p_ocp), $getter
