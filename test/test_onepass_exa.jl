@@ -70,7 +70,7 @@ function __test_onepass_exa(
         @test NLPModels.get_minimize(m) == true
         @test criterion(o) == :min
     end
-    
+
     test_name = "max ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
