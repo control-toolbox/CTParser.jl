@@ -34,12 +34,12 @@ end
 
 function test_onepass_exa()
     __test_onepass_exa(; scheme=:euler)
-    __test_onepass_exa(; scheme=:euler_b)
+    __test_onepass_exa(; scheme=:euler_implicit)
     __test_onepass_exa(; scheme=:midpoint)
     __test_onepass_exa(; scheme=:trapeze)
     if CUDA.functional()
         __test_onepass_exa(CUDABackend(); scheme=:euler)
-        __test_onepass_exa(CUDABackend(); scheme=:euler_b)
+        __test_onepass_exa(CUDABackend(); scheme=:euler_implicit)
         __test_onepass_exa(CUDABackend(); scheme=:midpoint)
         __test_onepass_exa(CUDABackend(); scheme=:trapeze)
     else
@@ -949,7 +949,7 @@ function __test_onepass_exa(
             o; backend=backend, grid_size=N, init=(tfs, xs, us), scheme=scheme
         )
         s = madnlp(m; tol=tolerance)
-        __atol = scheme ∈ (:euler, :euler_b) ? 1e-3 : 1e-5
+        __atol = scheme ∈ (:euler, :euler_implicit) ? 1e-3 : 1e-5
         @test s.objective ≈ -1.0125736217178989e+00 atol = __atol
     end
 

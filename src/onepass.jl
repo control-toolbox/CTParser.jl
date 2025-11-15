@@ -838,7 +838,7 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     code = quote
         if scheme == :euler
             $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1))
-        elseif scheme == :euler_b
+        elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
             $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 in 0:(grid_size - 1))
         elseif scheme == :midpoint
             $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1))
@@ -848,7 +848,7 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
             )
         else
             throw(
-                "unknown numerical scheme: $scheme (possible choices are :euler, :euler_b, :midpoint, :trapeze)",
+                "unknown numerical scheme: $scheme (possible choices are :euler, :euler_implicit, :midpoint, :trapeze)",
             ) # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
     end
@@ -904,7 +904,7 @@ function p_lagrange_exa!(p, p_ocp, e, type)
     code = quote
         if scheme == :euler
             $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1))
-        elseif scheme == :euler_b
+        elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
             $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size)
         elseif scheme == :midpoint
             $pref.objective($p_ocp, $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1))
@@ -913,7 +913,7 @@ function p_lagrange_exa!(p, p_ocp, e, type)
             $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:(grid_size - 1))
         else
             throw(
-                "unknown numerical scheme: $scheme (possible choices are :euler, :euler_b, :midpoint, :trapeze)",
+                "unknown numerical scheme: $scheme (possible choices are :euler, :euler_implicit, :midpoint, :trapeze)",
             ) # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
     end
