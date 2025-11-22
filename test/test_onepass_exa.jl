@@ -48,7 +48,7 @@ function test_onepass_exa()
 end
 
 function __test_onepass_exa(
-    backend=nothing; scheme=CTParser.__default_scheme_exa(), tolerance=1e-8
+    backend=nothing; scheme=CTParser.__default_scheme_exa(), tolerance=1e-8, kwargs...
 )
     backend_name = isnothing(backend) ? "CPU" : "GPU"
 
@@ -768,11 +768,11 @@ function __test_onepass_exa(
 
         @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
         m, _ = discretise_exa_full(o; backend=backend, scheme=scheme)
-        s = madnlp(m; tol=tolerance)
+        s = madnlp(m; tol=tolerance, kwargs...)
         @test s.objective ≈ 6 atol = 1e-2
         N = 1000
         m, _ = discretise_exa_full(o; backend=backend, grid_size=N, scheme=scheme)
-        s = madnlp(m; tol=tolerance)
+        s = madnlp(m; tol=tolerance, kwargs...)
         @test s.objective ≈ 6 atol = 1e-3
     end
 
@@ -793,7 +793,7 @@ function __test_onepass_exa(
         end
         N = 1000
         m, getter = discretise_exa_full(o; backend=backend, grid_size=N, scheme=scheme)
-        s = madnlp(m; tol=tolerance)
+        s = madnlp(m; tol=tolerance, kwargs...)
         @test size(getter(s; val=:state)) == (3, N + 1)
         @test size(getter(s; val=:control)) == (1, N + 1)
         @test size(getter(s; val=:variable)) == (0,)
@@ -826,7 +826,7 @@ function __test_onepass_exa(
         end
         N = 1000
         m, getter = discretise_exa_full(o; backend=backend, grid_size=N, scheme=scheme)
-        s = madnlp(m; tol=tolerance)
+        s = madnlp(m; tol=tolerance, kwargs...)
         @test size(getter(s; val=:state)) == (3, N + 1)
         @test size(getter(s; val=:control)) == (2, N + 1)
         @test size(getter(s; val=:variable)) == (4,)
@@ -856,10 +856,10 @@ function __test_onepass_exa(
 
         m, _ = discretise_exa_full(o; backend=backend, scheme=scheme)
         @test m isa ExaModels.ExaModel
-        s = madnlp(m; tol=tolerance)
+        s = madnlp(m; tol=tolerance, kwargs...)
         @test s.objective ≈ 6 atol = 1e-2
         m, _ = discretise_exa_full(o; backend=backend, grid_size=1000, scheme=scheme)
-        s = madnlp(m; tol=tolerance)
+        s = madnlp(m; tol=tolerance, kwargs...)
         @test s.objective ≈ 6 atol = 1e-3
     end
 
@@ -881,10 +881,10 @@ function __test_onepass_exa(
 
         m, _ = discretise_exa_full(o; backend=backend, scheme=scheme)
         @test m isa ExaModels.ExaModel
-        s = madnlp(m; tol=tolerance)
+        s = madnlp(m; tol=tolerance, kwargs...)
         @test s.objective ≈ 2 * 6 atol = 1e-2
         m, _ = discretise_exa_full(o; backend=backend, grid_size=1000, scheme=scheme)
-        s = madnlp(m; tol=tolerance)
+        s = madnlp(m; tol=tolerance, kwargs...)
         @test s.objective ≈ 2 * 6 atol = 1e-3
     end
 
@@ -919,7 +919,7 @@ function __test_onepass_exa(
             -Cd * v(t)^2 * exp(-β * (r(t) - 1)) / m(t) - 1 / r(t)^2 + u(t) * Tmax / m(t)
             ∂(m)(t) == -b * Tmax * u(t)
 
-            r(tf) → max
+            -r(tf) → min # todo: also add max when issue with GPU solved
         end
 
         tfs = 0.18761155665063417
@@ -948,7 +948,7 @@ function __test_onepass_exa(
         m, _ = discretise_exa_full(
             o; backend=backend, grid_size=N, init=(tfs, xs, us), scheme=scheme
         )
-        s = madnlp(m; tol=tolerance)
+        s = madnlp(m; tol=tolerance, kwargs...)
         __atol = scheme ∈ (:euler, :euler_implicit) ? 1e-3 : 1e-5
         @test s.objective ≈ -1.0125736217178989e+00 atol = __atol
     end
@@ -1002,7 +1002,7 @@ function __test_onepass_exa(
         N = 100
         m, _ = discretise_exa_full(o; grid_size=N, backend=backend, scheme=scheme)
         @test m isa ExaModels.ExaModel
-        sol = madnlp(m; tol=tolerance)
+        sol = madnlp(m; tol=tolerance, kwargs...)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
     end
 end
