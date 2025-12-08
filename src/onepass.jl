@@ -464,7 +464,7 @@ function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
     p.box_x = concat(p.box_x, code_box)
     i = __symgen(:i)
     j = __symgen(:j)
-    code = :($pref.variable(
+    code = :($pref.variable( # debug: update from here
         $p_ocp,
         $n,
         0:grid_size;
@@ -475,6 +475,7 @@ function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
     code = __wrap(code, p.lnum, p.line)
     dyn_con = Symbol(:dyn_con, x) # name for the constraints associated with the dynamics
     code = :($x = $code; $dyn_con = Vector{$pref.Constraint}(undef, $n)) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
+    # debug: add definition of x_m here
     return code
 end
 
