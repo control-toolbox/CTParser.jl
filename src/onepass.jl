@@ -625,7 +625,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = replace_call(e2, p.x, p.t0, x0)
             e2 = replace_call(e2, p.x, p.tf, xf)
             e2 = subs2(e2, x0, p.x, 1)
-            e2 = subs2(e2, xf, p.x, :grid_size+1)
+            e2 = subs2(e2, xf, p.x, :(grid_size+1))
             concat(code, :($pref.constraint($p_ocp, $e2; lcon=($e1), ucon=($e3))))
         end
         (:initial, rg) => begin
@@ -660,7 +660,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             xf = __symgen(:xf)
             i = __symgen(:i)
             e2 = replace_call(e2, p.x, p.tf, xf)
-            e2 = subs3(e2, xf, p.x, i, :grid_size+1)
+            e2 = subs3(e2, xf, p.x, i, :(grid_size+1))
             concat(
                 code,
                 :($pref.constraint($p_ocp, $e2 for $i in $rg; lcon=($e1), ucon=($e3))),
@@ -960,7 +960,7 @@ function p_mayer_exa!(p, p_ocp, e, type)
     e = replace_call(e, p.x, p.t0, x0)
     e = replace_call(e, p.x, p.tf, xf)
     e = subs2(e, x0, p.x, 1)
-    e = subs2(e, xf, p.x, :grid_size+1)
+    e = subs2(e, xf, p.x, :(grid_size+1))
     # now, x[i](t0) has been replaced by x[i, 1] and x[i](tf) by x[i, grid_size+1]
     code = :($pref.objective($p_ocp, $e))
     return __wrap(code, p.lnum, p.line)
