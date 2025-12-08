@@ -467,9 +467,9 @@ function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
     code = :($pref.variable( # debug: update from here
         $p_ocp,
         $n,
-        0:grid_size;
-        lvar=[$(p.l_x)[$i] for ($i, $j) in Base.product(1:($n), 0:grid_size)],
-        uvar=[$(p.u_x)[$i] for ($i, $j) in Base.product(1:($n), 0:grid_size)],
+        1:grid_size+1;
+        lvar=[$(p.l_x)[$i] for ($i, $j) in Base.product(1:($n), 1:grid_size+1)],
+        uvar=[$(p.u_x)[$i] for ($i, $j) in Base.product(1:($n), 1:grid_size+1)],
         start=init[2],
     ))
     code = __wrap(code, p.lnum, p.line)
@@ -530,9 +530,9 @@ function p_control_exa!(p, p_ocp, u, m, uu; components_names=nothing)
     code = :($pref.variable(
         $p_ocp,
         $m,
-        0:grid_size;
-        lvar=[$(p.l_u)[$i] for ($i, $j) in Base.product(1:($m), 0:grid_size)],
-        uvar=[$(p.u_u)[$i] for ($i, $j) in Base.product(1:($m), 0:grid_size)],
+        1:grid_size+1;
+        lvar=[$(p.l_u)[$i] for ($i, $j) in Base.product(1:($m), 1:grid_size+1)],
+        uvar=[$(p.u_u)[$i] for ($i, $j) in Base.product(1:($m), 1:grid_size+1)],
         start=init[3],
     ))
     code = __wrap(code, p.lnum, p.line)
@@ -624,8 +624,8 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             xf = __symgen(:xf)
             e2 = replace_call(e2, p.x, p.t0, x0)
             e2 = replace_call(e2, p.x, p.tf, xf)
-            e2 = subs2(e2, x0, p.x, 0)
-            e2 = subs2(e2, xf, p.x, :grid_size)
+            e2 = subs2(e2, x0, p.x, 1)
+            e2 = subs2(e2, xf, p.x, :grid_size+1)
             concat(code, :($pref.constraint($p_ocp, $e2; lcon=($e1), ucon=($e3))))
         end
         (:initial, rg) => begin
@@ -641,7 +641,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             x0 = __symgen(:x0)
             i = __symgen(:i)
             e2 = replace_call(e2, p.x, p.t0, x0)
-            e2 = subs3(e2, x0, p.x, i, 0)
+            e2 = subs3(e2, x0, p.x, i, 1)
             concat(
                 code,
                 :($pref.constraint($p_ocp, $e2 for $i in $rg; lcon=($e1), ucon=($e3))),
@@ -660,7 +660,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             xf = __symgen(:xf)
             i = __symgen(:i)
             e2 = replace_call(e2, p.x, p.tf, xf)
-            e2 = subs3(e2, xf, p.x, i, :grid_size)
+            e2 = subs3(e2, xf, p.x, i, :grid_size+1)
             concat(
                 code,
                 :($pref.constraint($p_ocp, $e2 for $i in $rg; lcon=($e1), ucon=($e3))),
@@ -732,7 +732,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             concat(
                 code,
                 :($pref.constraint(
-                    $p_ocp, $e2 for $j in 0:grid_size; lcon=($e1), ucon=($e3)
+                    $p_ocp, $e2 for $j in 1:grid_size+1; lcon=($e1), ucon=($e3)
                 )),
             )
         end
@@ -838,14 +838,14 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     dxij = :($(p.x)[$i, $j2] - $(p.x)[$i, $j1])
     code = quote
         if scheme == :euler
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1))
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 in 1:grid_size)
         elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 in 0:(grid_size - 1))
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 in 1:grid_size)
         elseif scheme == :midpoint
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1))
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 in 1:grid_size)
         elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
             $pref.constraint(
-                $p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 in 0:(grid_size - 1)
+                $p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 in 1:grid_size
             )
         else
             throw(
@@ -904,14 +904,14 @@ function p_lagrange_exa!(p, p_ocp, e, type)
     ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
     code = quote
         if scheme == :euler
-            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1))
-        elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
             $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size)
+        elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
+            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 2:grid_size+1)
         elseif scheme == :midpoint
-            $pref.objective($p_ocp, $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1))
+            $pref.objective($p_ocp, $(p.dt) * $ej12 for $j1 in 1:grid_size)
         elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
-            $pref.objective($p_ocp, $(p.dt) * $ej1 / 2 for $j1 in (0, grid_size))
-            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:(grid_size - 1))
+            $pref.objective($p_ocp, $(p.dt) * $ej1 / 2 for $j1 in (1, grid_size+1))
+            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 2:grid_size)
         else
             throw(
                 "unknown numerical scheme: $scheme (possible choices are :euler, :euler_implicit, :midpoint, :trapeze)",
@@ -959,9 +959,9 @@ function p_mayer_exa!(p, p_ocp, e, type)
     xf = __symgen(:xf)
     e = replace_call(e, p.x, p.t0, x0)
     e = replace_call(e, p.x, p.tf, xf)
-    e = subs2(e, x0, p.x, 0)
-    e = subs2(e, xf, p.x, :grid_size)
-    # now, x[i](t0) has been replaced by x[i, 0] and x[i](tf) by x[i, grid_size]
+    e = subs2(e, x0, p.x, 1)
+    e = subs2(e, xf, p.x, :grid_size+1)
+    # now, x[i](t0) has been replaced by x[i, 1] and x[i](tf) by x[i, grid_size+1]
     code = :($pref.objective($p_ocp, $e))
     return __wrap(code, p.lnum, p.line)
 end
