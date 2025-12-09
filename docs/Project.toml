@@ -1,5 +1,9 @@
 [deps]
+CTBase = "54762871-cc72-4466-b8e8-f6c8b58076cd"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Markdown = "d6f4376e-aef5-505a-96c1-9c027394607a"
+MarkdownAST = "d0879d2d-cac2-40c8-9cee-1863dc0c7391"
 
 [compat]
+CTBase = "0.17"
 Documenter = "1"
