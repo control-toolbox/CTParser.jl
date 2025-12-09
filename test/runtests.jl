@@ -12,6 +12,7 @@ import CTParser:
     concat,
     constraint_type,
     @def,
+    @init,
     prefix_fun,
     prefix_fun!,
     prefix_exa,
@@ -57,7 +58,14 @@ macro ignore(e)
 end
 
 @testset verbose = true showtiming = true "CTParser tests" begin
-    for name in (:aqua, :utils, :prefix, :onepass_fun, :onepass_exa)
+    for name in (
+        :aqua, 
+        :utils, 
+        :prefix, 
+        :onepass_fun, 
+        :onepass_exa, 
+        :initial_guess,
+    )
         #for name ∈ (:onepass_exa,)
         @testset "$(name)" begin
             test_name = Symbol(:test_, name)
