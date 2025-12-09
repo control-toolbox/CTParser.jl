@@ -479,7 +479,7 @@ function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
     code = quote
         $x = $code
         $dyn_con = Vector{$pref.Constraint}(undef, $n) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
-        $p.x_m = [$x[i, j] for i ∈ 1:($n), j ∈ 1:grid_size+1]
+        $(p.x_m) = [$x[i, j] for i ∈ 1:($n), j ∈ 1:grid_size+1]
     end
     return code
 end
@@ -1192,7 +1192,7 @@ function def_fun(e; log=false)
         $p_ocp = $pref.PreModel()
         $code
         $pref.definition!($p_ocp, $ee)
-        $pref.time_dependence!($p_ocp; autonomous=$p.is_autonomous)
+        $pref.time_dependence!($p_ocp; autonomous=$(p.is_autonomous)) # debug: instead of $p.is...
     end
 
     if is_active_backend(:exa)
@@ -1280,7 +1280,7 @@ function def_exa(e; log=false)
             $(p.box_u) # lvar and uvar for control
             $(p.box_v) # lvar and uvar for variable (after x and u for compatibility with CTDirect)
             $p_ocp = $pref.ExaCore(
-                base_type; backend=backend, minimize=($p.criterion == :min)
+                base_type; backend=backend, minimize=($(p.criterion) == :min) # debug: should be OK (instead of $p.crit...)
             )
             $code
             $dyn_check
