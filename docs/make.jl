@@ -33,24 +33,62 @@ makedocs(
     checkdocs=:none,
     pages=[
         "Introduction" => "index.md",
-        "API" => [
+        "API Reference" => [
             CTBase.automatic_reference_documentation(
                 subdirectory=".",
                 primary_modules=[
                     CTParser => src(
-                        "CTParser.jl",
                         "defaults.jl",
+                    ),
+                ],
+                exclude=EXCLUDE_SYMBOLS,
+                public=false,
+                private=true,
+                title="Defaults",
+                title_in_menu="Defaults",
+                filename="defaults",
+            ),
+            CTBase.automatic_reference_documentation(
+                subdirectory=".",
+                primary_modules=[
+                    CTParser => src(
                         "utils.jl",
+                    ),
+                ],
+                exclude=EXCLUDE_SYMBOLS,
+                public=false,
+                private=true,
+                title="Utils",
+                title_in_menu="Utils",
+                filename="utils",
+            ),
+            CTBase.automatic_reference_documentation(
+                subdirectory=".",
+                primary_modules=[
+                    CTParser => src(
                         "onepass.jl",
+                    ),
+                ],
+                exclude=EXCLUDE_SYMBOLS,
+                public=false,
+                private=true,
+                title="Onepass",
+                title_in_menu="Onepass",
+                filename="onepass",
+            ),
+            CTBase.automatic_reference_documentation(
+                subdirectory=".",
+                primary_modules=[
+                    CTParser => src(
                         "initial_guess.jl",
                     ),
                 ],
                 exclude=EXCLUDE_SYMBOLS,
                 public=false,
                 private=true,
-                title="CTParser",
-                title_in_menu="CTParser",
-                filename="ctparser",
+                title="Initial Guess",
+                title_in_menu="Initial Guess",
+                filename="initial_guess",
             ),
         ],
     ],
