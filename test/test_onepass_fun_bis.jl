@@ -308,4 +308,195 @@ function test_onepass_fun_bis()
         ex2 = CTParser.p_dynamics!(p2, p_ocp, p2.x, p2.t, e2)
         @test p2.is_autonomous == false
     end
+
+    # ============================================================================
+    # COST FUNCTIONS - Precondition Errors
+    # ============================================================================
+
+    @testset "p_lagrange! precondition errors" begin
+        println("p_lagrange! preconditions (bis)")
+
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "lagrange test"
+        p_ocp = :p_ocp
+        e = :(x(t)^2 + u(t)^2)
+
+        # No state declared
+        ex = CTParser.p_lagrange!(p, p_ocp, e, :min)
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # State declared but no control
+        p.x = :x
+        ex = CTParser.p_lagrange!(p, p_ocp, e, :min)
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # State + control but no time
+        p.u = :u
+        ex = CTParser.p_lagrange!(p, p_ocp, e, :min)
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # All declared → should build successfully
+        p.t = :t
+        ex = CTParser.p_lagrange!(p, p_ocp, e, :min)
+        @test ex isa Expr
+        @test p.criterion == :min
+
+        # Test :max criterion
+        p2 = CTParser.ParsingInfo()
+        p2.lnum = 1
+        p2.line = "lagrange max test"
+        p2.x = :x
+        p2.u = :u
+        p2.t = :t
+        ex2 = CTParser.p_lagrange!(p2, :p_ocp, e, :max)
+        @test p2.criterion == :max
+    end
+
+    @testset "p_mayer! precondition errors" begin
+        println("p_mayer! preconditions (bis)")
+
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "mayer test"
+        p_ocp = :p_ocp
+        e = :(x(tf))
+
+        # No state declared
+        ex = CTParser.p_mayer!(p, p_ocp, e, :min)
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # State declared but no t0
+        p.x = :x
+        ex = CTParser.p_mayer!(p, p_ocp, e, :min)
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # State + t0 but no tf
+        p.t0 = 0
+        ex = CTParser.p_mayer!(p, p_ocp, e, :min)
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # All declared → should build successfully
+        p.tf = :tf
+        ex = CTParser.p_mayer!(p, p_ocp, e, :min)
+        @test ex isa Expr
+        @test p.criterion == :min
+
+        # Test trailing integral error
+        p2 = CTParser.ParsingInfo()
+        p2.lnum = 1
+        p2.line = "mayer integral error test"
+        p2.x = :x
+        p2.t0 = 0
+        p2.tf = 1
+        e_bad = :(x(0) + ∫(u(t)))  # trailing ∫
+        ex2 = CTParser.p_mayer!(p2, p_ocp, e_bad, :min)
+        @test ex2 isa Expr
+        @test_throws ParsingError eval(ex2)
+    end
+
+    @testset "p_bolza! precondition errors" begin
+        println("p_bolza! preconditions (bis)")
+
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "bolza test"
+        p_ocp = :p_ocp
+        e1 = :(x(tf))
+        e2 = :(u(t)^2)
+
+        # No state declared
+        ex = CTParser.p_bolza!(p, p_ocp, e1, e2, :min)
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # State declared but no t0
+        p.x = :x
+        ex = CTParser.p_bolza!(p, p_ocp, e1, e2, :min)
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # State + t0 but no tf
+        p.t0 = 0
+        ex = CTParser.p_bolza!(p, p_ocp, e1, e2, :min)
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # State + t0 + tf but no control
+        p.tf = :tf
+        ex = CTParser.p_bolza!(p, p_ocp, e1, e2, :min)
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # State + t0 + tf + control but no time
+        p.u = :u
+        ex = CTParser.p_bolza!(p, p_ocp, e1, e2, :min)
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # All declared → should build successfully
+        p.t = :t
+        ex = CTParser.p_bolza!(p, p_ocp, e1, e2, :min)
+        @test ex isa Expr
+        @test p.criterion == :min
+    end
+
+    # ============================================================================
+    # PARSE! - Direct tests for unknown syntax
+    # ============================================================================
+
+    @testset "parse! unknown syntax" begin
+        println("parse! unknown syntax (bis)")
+
+        p = CTParser.ParsingInfo()
+        p.lnum = 0
+        p.line = ""
+        p_ocp = :p_ocp
+
+        # Unknown syntax should return a __throw expression
+        ex = CTParser.parse!(p, p_ocp, :(unknown_syntax_that_does_not_match))
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # Another unknown pattern (using a valid but unrecognized expression)
+        p2 = CTParser.ParsingInfo()
+        ex2 = CTParser.parse!(p2, :p_ocp, :(foo ~ bar))
+        @test ex2 isa Expr
+        @test_throws ParsingError eval(ex2)
+    end
+
+    # ============================================================================
+    # P_TIME! - Additional precondition errors
+    # ============================================================================
+
+    @testset "p_time! bad time declarations" begin
+        println("p_time! bad declarations (bis)")
+
+        # Variable declared, but t0 depends on wrong variable expression
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "time bad declaration test"
+        p.v = :v
+        p_ocp = :p_ocp
+
+        # t0 = v (not v[i]) when v is the variable → bad
+        ex = CTParser.p_time!(p, p_ocp, :t, :(v + 1), 1)
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # tf = v expression when v is the variable → bad
+        p2 = CTParser.ParsingInfo()
+        p2.lnum = 1
+        p2.line = "time bad declaration test 2"
+        p2.v = :v
+        ex2 = CTParser.p_time!(p2, :p_ocp, :t, 0, :(v * 2))
+        @test ex2 isa Expr
+        @test_throws ParsingError eval(ex2)
+    end
 end
