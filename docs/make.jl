@@ -1,6 +1,8 @@
 using Documenter
 using CTParser
 using CTBase
+using Markdown
+using MarkdownAST: MarkdownAST
 
 repo_url = "github.com/control-toolbox/CTParser.jl"
 
@@ -20,7 +22,7 @@ makedocs(
     remotes=nothing,
     warnonly=true,
     sitename="CTParser.jl",
-    format=Documenter.HTML(
+    format=Documenter.HTML(;
         repolink="https://" * repo_url,
         prettyurls=false,
         assets=[
