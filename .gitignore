@@ -26,7 +26,5 @@ docs/site/
 # environment.
 Manifest.toml
 
-# Claude context files
-.claude-context.md
 # Local reports (analysis, status reports, previews) should not be tracked
 reports/
