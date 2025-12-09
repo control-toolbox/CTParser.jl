@@ -26,5 +26,5 @@ docs/site/
 # environment.
 Manifest.toml
 
-#
+# Local reports (analysis, status reports, previews) should not be tracked
 reports/

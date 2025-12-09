@@ -1,5 +1,6 @@
 using Test
 using Aqua
+using OrderedCollections: OrderedDict
 import CTParser:
     CTParser,
     subs,
@@ -57,16 +58,69 @@ macro ignore(e)
     return :()
 end
 
-@testset verbose = true showtiming = true "CTParser tests" begin
-    for name in (
-        :aqua, 
-        :utils, 
-        :prefix, 
-        :onepass_fun, 
-        :onepass_exa, 
-        :initial_guess,
+const VERBOSE = true
+const SHOWTIMING = true
+
+"""Return the default set of tests enabled for CTParser."""
+function default_tests()
+    return OrderedDict(
+        :aqua => true,
+        :utils => true,
+        :utils_bis => true,
+        :prefix => true,
+        :prefix_bis => true,
+        :onepass_fun => true,
+        :onepass_fun_bis => true,
+        :onepass_exa => true,
+        :onepass_exa_bis => true,
     )
-        #for name ∈ (:onepass_exa,)
+end
+
+const TEST_SELECTIONS = isempty(ARGS) ? Symbol[] : Symbol.(ARGS)
+
+function selected_tests()
+    tests = default_tests()
+    sels = TEST_SELECTIONS
+
+    # No selection: use defaults
+    if isempty(sels)
+        return tests
+    end
+
+    # Single :all selection: enable everything
+    if length(sels) == 1 && sels[1] == :all
+        for k in keys(tests)
+            tests[k] = true
+        end
+        return tests
+    end
+
+    # Otherwise, start with everything disabled
+    for k in keys(tests)
+        tests[k] = false
+    end
+
+    # Enable explicit selections
+    for sel in sels
+        if sel == :all
+            for k in keys(tests)
+                tests[k] = true
+            end
+            break
+        end
+        if haskey(tests, sel)
+            tests[sel] = true
+        end
+    end
+
+    return tests
+end
+
+const SELECTED_TESTS = selected_tests()
+
+@testset verbose = VERBOSE showtiming = SHOWTIMING "CTParser tests" begin
+    for (name, enabled) in SELECTED_TESTS
+        enabled || continue
         @testset "$(name)" begin
             test_name = Symbol(:test_, name)
             include("$(test_name).jl")
