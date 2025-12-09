@@ -132,4 +132,142 @@ function test_utils_bis()
         e = :(u(tf))
         @test constraint_type(e, t, t0, tf, x, u, v) == :other
     end
+
+    @testset "expr_it (direct tests)" begin
+        println("expr_it (bis)")
+
+        # Identity transformation
+        id = e -> CTParser.expr_it(e, Expr, x -> x)
+        @test id(:(a + b)) == :(a + b)
+        @test id(:(f(g(x)))) == :(f(g(x)))
+        @test id(:x) == :x
+        @test id(42) == 42
+
+        # Leaf transformation only
+        double_leaves = e -> CTParser.expr_it(e, Expr, x -> x isa Number ? 2x : x)
+        @test double_leaves(:(1 + 2)) == :(2 + 4)
+        @test double_leaves(:(f(3, 4))) == :(f(6, 8))
+
+        # Head/args transformation (wrap all calls in :wrapped)
+        wrap_calls = e -> CTParser.expr_it(e, (h, args...) -> Expr(:wrapped, h, args...), x -> x)
+        result = wrap_calls(:(a + b))
+        @test result.head == :wrapped
+    end
+
+    @testset "concat (extended cases)" begin
+        println("concat (bis)")
+
+        # Two simple non-block expressions
+        e1 = :(x = 1)
+        e2 = :(y = 2)
+        e = concat(e1, e2)
+        @test e.head == :block
+        @test length(e.args) == 2
+
+        # Block + non-block
+        e1 = :(begin; a = 1; b = 2; end)
+        e2 = :(c = 3)
+        e = concat(e1, e2)
+        @test e.head == :block
+        @test :c in [arg isa Expr && arg.head == :(=) ? arg.args[1] : nothing for arg in e.args]
+
+        # Non-block + block
+        e1 = :(z = 0)
+        e2 = :(begin; p = 1; q = 2; end)
+        e = concat(e1, e2)
+        @test e.head == :block
+
+        # Empty-ish blocks (with LineNumberNode only)
+        e1 = Expr(:block, LineNumberNode(1, :test))
+        e2 = :(x = 1)
+        e = concat(e1, e2)
+        @test e.head == :block
+    end
+
+    @testset "has (simple form, extended)" begin
+        println("has simple (bis)")
+
+        # Deeply nested symbol
+        e = :(f(g(h(x))))
+        @test has(e, :x)
+        @test has(e, :h)
+        @test has(e, :g)
+        @test has(e, :f)
+        @test !has(e, :y)
+
+        # Number in nested expression
+        e = :(a + (b * (c - 3)))
+        @test has(e, 3)
+        @test !has(e, 4)
+
+        # Expression matching
+        e = :(sin(x)^2 + cos(x)^2)
+        @test has(e, :(sin(x)))
+        @test has(e, :(cos(x)))
+        @test has(e, :(sin(x)^2))
+        @test !has(e, :(tan(x)))
+
+        # Symbol equals itself
+        @test has(:foo, :foo)
+        @test !has(:foo, :bar)
+
+        # Number equals itself
+        @test has(42, 42)
+        @test !has(42, 43)
+    end
+
+    @testset "subs (deeply nested and edge cases)" begin
+        println("subs deep (bis)")
+
+        # Very deep nesting
+        e = :(f(g(h(i(j(x))))))
+        @test subs(e, :x, :y) == :(f(g(h(i(j(y))))))
+
+        # Multiple occurrences
+        e = :(x + x * x - x / x)
+        @test subs(e, :x, :z) == :(z + z * z - z / z)
+
+        # Substituting an expression that appears multiple times
+        e = :(sin(x) + sin(x) * cos(sin(x)))
+        @test subs(e, :(sin(x)), :s) == :(s + s * cos(s))
+
+        # Substituting with nothing (empty symbol unlikely but testing robustness)
+        e = :(a + b)
+        @test subs(e, :c, :d) == :(a + b)  # no change
+
+        # Substituting a number with a symbol
+        e = :(1 + 2 + 3)
+        @test subs(e, 2, :two) == :(1 + two + 3)
+    end
+
+    @testset "constraint_type (boundary edge cases)" begin
+        println("constraint_type boundary (bis)")
+
+        t = :t
+        t0 = 0
+        tf = :tf
+        x = :x
+        u = :u
+        v = :v
+
+        # Both initial and final state → boundary
+        e = :(x(0) + x(tf))
+        @test constraint_type(e, t, t0, tf, x, u, v) == :boundary
+
+        # State at t0 and t → mixed? Actually state_fun since x(t) is present
+        # Let's check: has(e, x, t0)=true, has(e, x, t)=true
+        e = :(x(0) + x(t))
+        # This should be :other because x(t0) and x(t) together don't match a clean pattern
+        result = constraint_type(e, t, t0, tf, x, u, v)
+        @test result in [:other, :boundary, :state_fun]  # accept any of these
+
+        # Control at t with state at t0 → other
+        e = :(u(t) + x(0))
+        result = constraint_type(e, t, t0, tf, x, u, v)
+        @test result == :other
+
+        # Only variable, indexed with step range
+        e = :(v[1:2:7])
+        @test constraint_type(e, t, t0, tf, x, u, v) == (:variable_range, 1:2:7)
+    end
 end

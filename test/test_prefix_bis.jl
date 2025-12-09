@@ -64,4 +64,78 @@ function test_prefix_bis()
         activate_backend(:exa)
         @test is_active_backend(:exa)
     end
+
+    @testset "prefix setters (fun, exa, e_prefix)" begin
+        println("prefix setters (bis)")
+
+        # Save original values
+        orig_fun = prefix_fun()
+        orig_exa = prefix_exa()
+        orig_e = e_prefix()
+
+        # prefix_fun!
+        @test prefix_fun() == CTParser.__default_prefix_fun()
+        prefix_fun!(:TestModule)
+        @test prefix_fun() == :TestModule
+        prefix_fun!(:AnotherModule)
+        @test prefix_fun() == :AnotherModule
+        prefix_fun!(orig_fun)  # restore
+        @test prefix_fun() == orig_fun
+
+        # prefix_exa!
+        @test prefix_exa() == CTParser.__default_prefix_exa()
+        prefix_exa!(:MyExaModule)
+        @test prefix_exa() == :MyExaModule
+        prefix_exa!(orig_exa)  # restore
+        @test prefix_exa() == orig_exa
+
+        # e_prefix!
+        @test e_prefix() == CTParser.__default_e_prefix()
+        e_prefix!(:CustomExceptions)
+        @test e_prefix() == :CustomExceptions
+        e_prefix!(orig_e)  # restore
+        @test e_prefix() == orig_e
+    end
+
+    @testset "prefix setters (pathological values)" begin
+        println("prefix setters pathological (bis)")
+
+        # Save original values
+        orig_fun = prefix_fun()
+        orig_exa = prefix_exa()
+        orig_e = e_prefix()
+
+        # Setting to unusual but valid symbols
+        prefix_fun!(:_)
+        @test prefix_fun() == :_
+        prefix_fun!(Symbol("with-dash"))
+        @test prefix_fun() == Symbol("with-dash")
+        prefix_fun!(Symbol("with.dot"))
+        @test prefix_fun() == Symbol("with.dot")
+
+        # Restore
+        prefix_fun!(orig_fun)
+        prefix_exa!(orig_exa)
+        e_prefix!(orig_e)
+
+        # Verify restoration
+        @test prefix_fun() == orig_fun
+        @test prefix_exa() == orig_exa
+        @test e_prefix() == orig_e
+    end
+
+    @testset "default values consistency" begin
+        println("default values (bis)")
+
+        # Check all default values from defaults.jl
+        @test CTParser.__default_parsing_backend() == :fun
+        @test CTParser.__default_scheme_exa() == :midpoint
+        @test CTParser.__default_grid_size_exa() == 250
+        @test CTParser.__default_backend_exa() === nothing
+        @test CTParser.__default_init_exa() == (0.1, 0.1, 0.1)
+        @test CTParser.__default_base_type_exa() == Float64
+        @test CTParser.__default_prefix_fun() == :CTModels
+        @test CTParser.__default_prefix_exa() == :ExaModels
+        @test CTParser.__default_e_prefix() == :CTBase
+    end
 end
