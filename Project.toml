@@ -1,6 +1,6 @@
 name = "CTParser"
 uuid = "32681960-a1b1-40db-9bff-a1ca817385d1"
-version = "0.7.2"
+version = "0.8.0"
 authors = ["Jean-Baptiste Caillau <jean-baptiste.caillau@univ-cotedazur.fr>"]
 
 [deps]
@@ -15,7 +15,7 @@ Unicode = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 CTBase = "0.17"
 DocStringExtensions = "0.9"
 MLStyle = "0.4"
-OrderedCollections = "1.8"
+OrderedCollections = "1"
 Parameters = "0.12"
 Unicode = "1"
 julia = "1.10"
