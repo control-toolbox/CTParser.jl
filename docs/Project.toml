@@ -1,5 +1,7 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+CTBase = "54762871-cc72-4466-b8e8-f6c8b58076cd"
 
 [compat]
 Documenter = "1"
+CTBase = "0.17"
