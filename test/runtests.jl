@@ -13,6 +13,7 @@ import CTParser:
     concat,
     constraint_type,
     @def,
+    @init,
     prefix_fun,
     prefix_fun!,
     prefix_exa,
