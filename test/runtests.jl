@@ -57,7 +57,7 @@ macro ignore(e)
 end
 
 @testset verbose = true showtiming = true "CTParser tests" begin
-    for name in (:aqua, :utils, :prefix, :onepass_fun, :onepass_exa)
+    for name in (:aqua, :utils, :utils_bis, :prefix, :onepass_fun, :onepass_exa)
         #for name ∈ (:onepass_exa,)
         @testset "$(name)" begin
             test_name = Symbol(:test_, name)
