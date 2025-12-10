@@ -350,7 +350,7 @@ macro init(ocp, e, rest...)
             log_expr = opt.args[2]
         else
             error(
-                "Unsupported trailing argument in @init. Use `log = true` or `log = false`.",
+                "Unsupported trailing argument in @init. Use `log = true` or `log = false`."
             )
         end
     elseif length(rest) > 1
@@ -364,7 +364,7 @@ macro init(ocp, e, rest...)
     catch err
         # Treat unsupported DSL syntax as a static parsing error with proper line info.
         if err isa ErrorException &&
-           occursin("Unsupported left-hand side in @init", err.msg)
+            occursin("Unsupported left-hand side in @init", err.msg)
             throw_expr = CTParser.__throw(err.msg, lnum, line_str)
             return esc(throw_expr)
         else

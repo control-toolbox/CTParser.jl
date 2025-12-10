@@ -359,7 +359,9 @@ function test_onepass_exa_bis()
         p_ocp = :p_ocp
 
         # boundary constraint
-        ex = CTParser.p_constraint_exa!(p, p_ocp, 0, :(x[1](0) + x[1](1)), 0, :boundary, :c1)
+        ex = CTParser.p_constraint_exa!(
+            p, p_ocp, 0, :(x[1](0) + x[1](1)), 0, :boundary, :c1
+        )
         @test ex isa Expr
     end
 
@@ -375,7 +377,9 @@ function test_onepass_exa_bis()
         p_ocp = :p_ocp
 
         # initial constraint with range
-        ex = CTParser.p_constraint_exa!(p, p_ocp, [0, 0], :(x(0)), [0, 0], (:initial, nothing), :c1)
+        ex = CTParser.p_constraint_exa!(
+            p, p_ocp, [0, 0], :(x(0)), [0, 0], (:initial, nothing), :c1
+        )
         @test ex isa Expr
     end
 
@@ -391,7 +395,9 @@ function test_onepass_exa_bis()
         p_ocp = :p_ocp
 
         # final constraint
-        ex = CTParser.p_constraint_exa!(p, p_ocp, [0, 0], :(x(1)), [0, 0], (:final, nothing), :c1)
+        ex = CTParser.p_constraint_exa!(
+            p, p_ocp, [0, 0], :(x(1)), [0, 0], (:final, nothing), :c1
+        )
         @test ex isa Expr
     end
 
@@ -409,7 +415,9 @@ function test_onepass_exa_bis()
         p_ocp = :p_ocp
 
         # variable_range constraint
-        ex = CTParser.p_constraint_exa!(p, p_ocp, [0, 0], :(v), [1, 1], (:variable_range, nothing), :c1)
+        ex = CTParser.p_constraint_exa!(
+            p, p_ocp, [0, 0], :(v), [1, 1], (:variable_range, nothing), :c1
+        )
         @test ex isa Expr
     end
 
@@ -427,7 +435,9 @@ function test_onepass_exa_bis()
         p_ocp = :p_ocp
 
         # state_range constraint
-        ex = CTParser.p_constraint_exa!(p, p_ocp, [0, 0], :(x(t)), [1, 1], (:state_range, nothing), :c1)
+        ex = CTParser.p_constraint_exa!(
+            p, p_ocp, [0, 0], :(x(t)), [1, 1], (:state_range, nothing), :c1
+        )
         @test ex isa Expr
     end
 
@@ -445,7 +455,9 @@ function test_onepass_exa_bis()
         p_ocp = :p_ocp
 
         # control_range constraint
-        ex = CTParser.p_constraint_exa!(p, p_ocp, [0], :(u(t)), [1], (:control_range, nothing), :c1)
+        ex = CTParser.p_constraint_exa!(
+            p, p_ocp, [0], :(u(t)), [1], (:control_range, nothing), :c1
+        )
         @test ex isa Expr
     end
 

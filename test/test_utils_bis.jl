@@ -149,7 +149,8 @@ function test_utils_bis()
         @test double_leaves(:(f(3, 4))) == :(f(6, 8))
 
         # Head/args transformation (wrap all calls in :wrapped)
-        wrap_calls = e -> CTParser.expr_it(e, (h, args...) -> Expr(:wrapped, h, args...), x -> x)
+        wrap_calls =
+            e -> CTParser.expr_it(e, (h, args...) -> Expr(:wrapped, h, args...), x -> x)
         result = wrap_calls(:(a + b))
         @test result.head == :wrapped
     end
@@ -165,15 +166,28 @@ function test_utils_bis()
         @test length(e.args) == 2
 
         # Block + non-block
-        e1 = :(begin; a = 1; b = 2; end)
+        e1 = :(
+            begin
+                ;
+                a = 1;
+                b = 2;
+            end
+        )
         e2 = :(c = 3)
         e = concat(e1, e2)
         @test e.head == :block
-        @test :c in [arg isa Expr && arg.head == :(=) ? arg.args[1] : nothing for arg in e.args]
+        @test :c in
+            [arg isa Expr && arg.head == :(=) ? arg.args[1] : nothing for arg in e.args]
 
         # Non-block + block
         e1 = :(z = 0)
-        e2 = :(begin; p = 1; q = 2; end)
+        e2 = :(
+            begin
+                ;
+                p = 1;
+                q = 2;
+            end
+        )
         e = concat(e1, e2)
         @test e.head == :block
 
