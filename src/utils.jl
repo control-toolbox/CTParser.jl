@@ -389,6 +389,28 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Return `true` if `x` represents a range.
+
+This predicate is specialised for `AbstractRange` values and for
+expressions of the form `i:j` or `i:p:j`.
+"""
+is_range(x) = false
+is_range(x::T) where {T<:AbstractRange} = true
+is_range(x::Expr) = (x.head == :call) && (x.args[1] == :(:))
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `x` itself if it is a range, or a one-element array `[x]`.
+
+This is a normalisation helper used when interpreting constraint
+indices.
+"""
+as_range(x) = is_range(x) ? x : [x]
+
+"""
+$(TYPEDSIGNATURES)
+
 Return the type constraint among
 `:initial`, `:final`, `:boundary`, `:control_range`, `:control_fun`,
 `:state_range`, `:state_fun`, `:mixed`, `:variable_range`, `:variable_fun` (`:other` otherwise),

@@ -200,28 +200,6 @@ __wrap(e, n, line) = quote
     end
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Return `true` if `x` represents a range.
-
-This predicate is specialised for `AbstractRange` values and for
-expressions of the form `i:j` or `i:p:j`.
-"""
-is_range(x) = false
-is_range(x::T) where {T<:AbstractRange} = true
-is_range(x::Expr) = (x.head == :call) && (x.args[1] == :(:))
-
-"""
-$(TYPEDSIGNATURES)
-
-Return `x` itself if it is a range, or a one-element array `[x]`.
-
-This is a normalisation helper used when interpreting constraint
-indices.
-"""
-as_range(x) = is_range(x) ? x : [x]
-
 # Main code
 
 """
@@ -741,7 +719,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
                 rg = :(1:($(p.dim_x))) # x(t0) implies rg == nothing but means x[1:p.dim_x](t0)
                 e2 = subs(e2, p.x, :($(p.x)[$rg]))
             elseif !is_range(rg)
-                rg = as_range(rg)
+                rg = as_range(rg) # case rg = i (vs i:j or i:p:j)
             end
             code = :(
                 length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
@@ -760,7 +738,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
                 rg = :(1:($(p.dim_x)))
                 e2 = subs(e2, p.x, :($(p.x)[$rg]))
             elseif !is_range(rg)
-                rg = as_range(rg)
+                rg = as_range(rg) # case rg = i (vs i:j or i:p:j)
             end
             code = :(
                 length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
@@ -779,7 +757,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
                 rg = :(1:($(p.dim_v)))
                 e2 = subs(e2, p.v, :($(p.v)[$rg]))
             elseif !is_range(rg)
-                rg = as_range(rg)
+                rg = as_range(rg) # case rg = i (vs i:j or i:p:j)
             end
             code_box = :(
                 length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
@@ -796,7 +774,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             if isnothing(rg)
                 rg = :(1:($(p.dim_x))) # NB. no need to update e2 (unused) here
             elseif !is_range(rg)
-                rg = as_range(rg)
+                rg = as_range(rg) # case rg = i (vs i:j or i:p:j)
             end
             code_box = :(
                 length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
@@ -813,7 +791,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             if isnothing(rg)
                 rg = :(1:($(p.dim_u))) # NB. no need to update e2 (unused here)
             elseif !is_range(rg)
-                rg = as_range(rg)
+                rg = as_range(rg) # case rg = i (vs i:j or i:p:j)
             end
             code_box = :(
                 length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
