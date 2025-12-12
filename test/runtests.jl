@@ -64,15 +64,15 @@ const SHOWTIMING = true
 """Return the default set of tests enabled for CTParser."""
 function default_tests()
     return OrderedDict(
-        :aqua => false,
+        :aqua => true,
         :utils => true,
         :utils_bis => true,
-        :prefix => false,
-        :prefix_bis => false,
-        :onepass_fun => false,
-        :onepass_fun_bis => false,
-        :onepass_exa => false,
-        :onepass_exa_bis => false,
+        :prefix => true,
+        :prefix_bis => true,
+        :onepass_fun => true,
+        :onepass_fun_bis => true,
+        :onepass_exa => true,
+        :onepass_exa_bis => true,
     )
 end
 
