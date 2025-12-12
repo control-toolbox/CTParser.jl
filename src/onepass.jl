@@ -794,8 +794,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
         end
         (:state_range, rg) => begin
             if isnothing(rg)
-                rg = :(1:($(p.dim_x)))
-                e2 = subs(e2, p.x, :($(p.x)[$rg])) # debug: unused?
+                rg = :(1:($(p.dim_x))) # NB. no need to update e2 (unused) here
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
@@ -812,8 +811,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
         end
         (:control_range, rg) => begin
             if isnothing(rg)
-                rg = :(1:($(p.dim_u)))
-                e2 = subs(e2, p.u, :($(p.u)[$rg])) # debug: unused?
+                rg = :(1:($(p.dim_u))) # NB. no need to update e2 (unused here)
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
