@@ -739,6 +739,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
         (:initial, rg) => begin
             if isnothing(rg)
                 rg = :(1:($(p.dim_x))) # x(t0) implies rg == nothing but means x[1:p.dim_x](t0)
+                e2 = subs(e2, p.x, :($(p.x)[$rg]))
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
@@ -757,6 +758,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
         (:final, rg) => begin
             if isnothing(rg)
                 rg = :(1:($(p.dim_x)))
+                e2 = subs(e2, p.x, :($(p.x)[$rg]))
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
@@ -793,6 +795,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
         (:state_range, rg) => begin
             if isnothing(rg)
                 rg = :(1:($(p.dim_x)))
+                e2 = subs(e2, p.x, :($(p.x)[$rg])) # debug: unused?
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
@@ -810,7 +813,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
         (:control_range, rg) => begin
             if isnothing(rg)
                 rg = :(1:($(p.dim_u)))
-                e2 = subs(e2, p.u, :($(p.u)[$rg]))
+                e2 = subs(e2, p.u, :($(p.u)[$rg])) # debug: unused?
             elseif !is_range(rg)
                 rg = as_range(rg)
             end
