@@ -96,19 +96,6 @@ function e_prefix!(p)
     return nothing
 end
 
-# Utils
-
-"""
-$(TYPEDSIGNATURES)
-
-Generate a fresh symbol by concatenating the given components and a
-`gensym()` suffix.
-
-This is used throughout the parser to create unique internal names that
-do not collide with user-defined identifiers.
-"""
-__symgen(s...) = Symbol(s..., gensym())
-
 """
 $(TYPEDEF)
 

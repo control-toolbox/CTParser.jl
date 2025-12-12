@@ -4,6 +4,39 @@
 """
 $(TYPEDSIGNATURES)
 
+Generate a fresh symbol by concatenating the given components and a
+`gensym()` suffix.
+
+This is used throughout the parser to create unique internal names that
+do not collide with user-defined identifiers.
+"""
+__symgen(s...) = Symbol(s..., gensym())
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `true` if `x` represents a range.
+
+This predicate is specialised for `AbstractRange` values and for
+expressions of the form `i:j` or `i:p:j`.
+"""
+is_range(x) = false
+is_range(x::T) where {T<:AbstractRange} = true
+is_range(x::Expr) = (x.head == :call) && (x.args[1] == :(:))
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `x` itself if it is a range, or a one-element array `[x]`.
+
+This is a normalisation helper used when interpreting constraint
+indices.
+"""
+as_range(x) = is_range(x) ? x : [x]
+
+"""
+$(TYPEDSIGNATURES)
+
 Expr iterator: apply `_Expr` to nodes and `f` to leaves of the AST.
 
 # Example
@@ -81,12 +114,12 @@ julia> subs2(subs2(e, :x0, :x, 0), :xf, :x, :N)
 :(x0 * (2 * x[3, N]) - cos(xf) * (2 * x[2, 0]))
 ```
 """
-function subs2(e, x, y, j)
+function subs2(e, x, y, j; k = __symgen(:k))
     foo(x, y, j) = (h, args...) -> begin
         f = Expr(h, args...)
         @match f begin
-            :($xx[$i]) && if (xx == x)
-            end => :($y[$i, $j])
+            :($xx[$rg]) && if ((xx == x) && is_range(rg)) end => :([$y[$k, $j] for $k ∈ $rg])
+            :($xx[$i]) && if (xx == x) end => :($y[$i, $j])
             _ => f
         end
     end
@@ -385,28 +418,6 @@ concat(e1, e2) = @match (e1.head, e2.head) begin
     (_, :block) => Expr(:block, e1, e2.args...)
     _ => Expr(:block, e1, e2)
 end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return `true` if `x` represents a range.
-
-This predicate is specialised for `AbstractRange` values and for
-expressions of the form `i:j` or `i:p:j`.
-"""
-is_range(x) = false
-is_range(x::T) where {T<:AbstractRange} = true
-is_range(x::Expr) = (x.head == :call) && (x.args[1] == :(:))
-
-"""
-$(TYPEDSIGNATURES)
-
-Return `x` itself if it is a range, or a one-element array `[x]`.
-
-This is a normalisation helper used when interpreting constraint
-indices.
-"""
-as_range(x) = is_range(x) ? x : [x]
 
 """
 $(TYPEDSIGNATURES)

@@ -27,13 +27,117 @@ function test_utils()
     @testset "subs2" begin
         println("subs2")
 
-        e = :(x0[1] * 2xf[3] - cos(xf[2]) * 2x0[2])
-        @test subs2(subs2(e, :x0, :x, 0), :xf, :x, :N) ==
-            :(x[1, 0] * (2 * x[3, N]) - cos(x[2, N]) * (2 * x[2, 0]))
+        # ===== EXISTING FUNCTIONALITY (scalar indexing) =====
 
-        e = :(x0 * 2xf[3] - cos(xf) * 2x0[2])
-        @test subs2(subs2(e, :x0, :x, 0), :xf, :x, :N) ==
-            :(x0 * (2 * x[3, N]) - cos(xf) * (2 * x[2, 0]))
+        @testset "scalar indexing (existing)" begin
+            # Test 1: Basic scalar substitution
+            e = :(x0[1] * 2xf[3] - cos(xf[2]) * 2x0[2])
+            @test subs2(subs2(e, :x0, :x, 0), :xf, :x, :N) ==
+                :(x[1, 0] * (2 * x[3, N]) - cos(x[2, N]) * (2 * x[2, 0]))
+
+            # Test 2: Non-indexed symbols should NOT be substituted
+            e = :(x0 * 2xf[3] - cos(xf) * 2x0[2])
+            @test subs2(subs2(e, :x0, :x, 0), :xf, :x, :N) ==
+                :(x0 * (2 * x[3, N]) - cos(xf) * (2 * x[2, 0]))
+
+            # Test 3: Numeric index
+            e = :(x0[5] + x0[10])
+            @test subs2(e, :x0, :x, 0) == :(x[5, 0] + x[10, 0])
+
+            # Test 4: Symbolic index
+            e = :(x0[i] + x0[j])
+            @test subs2(e, :x0, :x, 0) == :(x[i, 0] + x[j, 0])
+        end
+
+        # ===== NEW FUNCTIONALITY (range indexing) =====
+
+        @testset "range indexing (new)" begin
+            # Test 5: Simple range 1:3
+            e = :(x0[1:3])
+            result = subs2(e, :x0, :x, 0; k = :k)
+            @test result == :([x[k, 0] for k ∈ 1:3])
+
+            # Test 6: Range with step 1:2:5
+            e = :(x0[1:2:5])
+            result = subs2(e, :x0, :x, 0; k = :k)
+            @test result == :([x[k, 0] for k ∈ 1:2:5])
+
+            # Test 7: Range with symbolic bounds
+            e = :(x0[1:n])
+            result = subs2(e, :x0, :x, 0; k = :k)
+            @test result == :([x[k, 0] for k ∈ 1:n])
+
+            # Test 8: Multiple ranges in same expression
+            e = :(x0[1:3] + xf[2:4])
+            result = subs2(subs2(e, :x0, :x, 0; k = :k1), :xf, :x, :N; k = :k2)
+            @test result == :([x[k1, 0] for k1 ∈ 1:3] + [x[k2, N] for k2 ∈ 2:4])
+
+            # Test 9: Range inside function call
+            e = :(sum(x0[1:n]))
+            result = subs2(e, :x0, :x, 0; k = :k)
+            @test result == :(sum([x[k, 0] for k ∈ 1:n]))
+        end
+
+        @testset "mixed scalar and range" begin
+            # Test 10: Expression with both scalars and ranges
+            e = :(x0[1] + x0[2:4] + x0[5])
+            result = subs2(e, :x0, :x, 0; k = :k)
+            # x0[1] → x[1, 0]
+            # x0[2:4] → [x[k, 0] for k ∈ 2:4]
+            # x0[5] → x[5, 0]
+            @test result == :(x[1, 0] + [x[k, 0] for k ∈ 2:4] + x[5, 0])
+        end
+
+        @testset "nested and complex expressions" begin
+            # Test 11: Nested function calls with ranges
+            e = :(norm(x0[1:3]) + cos(x0[4]))
+            result = subs2(e, :x0, :x, 0; k = :k)
+            @test result == :(norm([x[k, 0] for k ∈ 1:3]) + cos(x[4, 0]))
+
+            # Test 12: Range in matrix operations
+            e = :(A * x0[1:n])
+            result = subs2(e, :x0, :x, 0; k = :k)
+            @test result == :(A * [x[k, 0] for k ∈ 1:n])
+
+            # Test 13: Multiple substitutions with symbolic j
+            e = :(x0[1:3] + xf[2:4])
+            result = subs2(subs2(e, :x0, :x, :j; k = :k1), :xf, :x, :(j+1); k = :k2)
+            @test result == :([x[k1, j] for k1 ∈ 1:3] + [x[k2, j+1] for k2 ∈ 2:4])
+        end
+
+        @testset "edge cases" begin
+            # Test 14: Single-element range (should still create comprehension)
+            e = :(x0[1:1])
+            result = subs2(e, :x0, :x, 0; k = :k)
+            @test result == :([x[k, 0] for k ∈ 1:1])
+
+            # Test 15: Wrong variable name (should not substitute)
+            e = :(y0[1:3])
+            result = subs2(e, :x0, :x, 0; k = :k)
+            @test result == e  # Unchanged
+
+            # Test 16: Complex symbolic j expression
+            e = :(x0[1:3])
+            result = subs2(e, :x0, :x, :grid_size; k = :k)
+            @test result == :([x[k, grid_size] for k ∈ 1:3])
+
+            # Test 17: Scalar index that is a range expression (should not match)
+            # This tests that we properly distinguish i (scalar) from 1:3 (range)
+            e = :(x0[i])
+            result = subs2(e, :x0, :x, 0; k = :k)
+            @test result == :(x[i, 0])  # Scalar behavior
+        end
+
+        @testset "backward compatibility" begin
+            # Test 18: Ensure original tests still pass
+            e = :(x0[1] * 2xf[3] - cos(xf[2]) * 2x0[2])
+            @test subs2(subs2(e, :x0, :x, 0), :xf, :x, :N) ==
+                :(x[1, 0] * (2 * x[3, N]) - cos(x[2, N]) * (2 * x[2, 0]))
+
+            e = :(x0 * 2xf[3] - cos(xf) * 2x0[2])
+            @test subs2(subs2(e, :x0, :x, 0), :xf, :x, :N) ==
+                :(x0 * (2 * x[3, N]) - cos(xf) * (2 * x[2, 0]))
+        end
     end
 
     @testset "subs3" begin
