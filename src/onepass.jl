@@ -1296,7 +1296,7 @@ function def_fun(e; log=false)
         $p_ocp = $pref.PreModel()
         $code
         $pref.definition!($p_ocp, $ee)
-        $pref.time_dependence!($p_ocp; autonomous=$(p.is_autonomous)) # debug: instead of $p.is...
+        $pref.time_dependence!($p_ocp; autonomous=$p.is_autonomous) # not $(p.xxxx) as this info is known statically
     end
 
     if is_active_backend(:exa)
@@ -1384,7 +1384,7 @@ function def_exa(e; log=false)
             $(p.box_u) # lvar and uvar for control
             $(p.box_v) # lvar and uvar for variable (after x and u for compatibility with CTDirect)
             $p_ocp = $pref.ExaCore(
-                base_type; backend=backend, minimize=($(p.criterion) == :min) # debug: should be OK (instead of $p.crit...)
+                base_type; backend=backend, minimize=($p.criterion == :min) # not $(p.xxxx) as this info is known statically
             )
             $code
             $dyn_check
