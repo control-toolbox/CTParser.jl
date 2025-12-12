@@ -96,7 +96,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Substitute x[rg] by y[i, j], whatever rg, in e.
+Substitute x[rg] by y[i, j], whatever rg, in e. (Note: rg is then expected to be used to loop on i.)
 
 # Examples
 ```@example
@@ -125,7 +125,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Substitute x[rg] by y[i], whatever rg, in e.
+Substitute x[rg] by y[i], whatever rg, in e. (Note: rg is then expected to be used to loop on i.) 
 
 # Examples
 ```@example
