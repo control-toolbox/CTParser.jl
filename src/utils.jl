@@ -98,43 +98,40 @@ end
 $(TYPEDSIGNATURES)
 
 Substitute occurrences of symbol `x` in expression `e` with indexed access to `y` at time index `j`.
-Handles three patterns:
+Handles two patterns:
 - `x[i]` (scalar index) → `y[i, j]`
 - `x[1:3]` (range index) → `[y[k, j] for k ∈ 1:3]`
-- `x` (bare symbol) → `[y[k, j] for k ∈ 1:dim]`
 
-The `dim` parameter specifies the dimension for bare symbol expansion.
 See also: subs5.
 
 # Examples
 ```@example
 julia> # Scalar indexing
 julia> e = :(x0[1] * 2xf[3] - cos(xf[2]) * 2x0[2])
-julia> subs2(subs2(e, :x0, :x, 0, 5), :xf, :x, :N, 5)
+julia> subs2(subs2(e, :x0, :x, 0), :xf, :x, :N)
 :(x[1, 0] * (2 * x[3, N]) - cos(x[2, N]) * (2 * x[2, 0]))
 
 julia> # Range indexing
 julia> e = :(x0[1:3])
-julia> subs2(e, :x0, :x, 0, 5; k = :k)
+julia> subs2(e, :x0, :x, 0; k = :k)
 :([x[k, 0] for k ∈ 1:3])
 
-julia> # Bare symbol expansion
-julia> e = :(x0)
-julia> subs2(e, :x0, :x, 0, 3; k = :k)
-:([x[k, 0] for k ∈ 1:3])
+julia> # Bare symbols are not substituted
+julia> e = :(x0 * 2xf[3])
+julia> subs2(subs2(e, :x0, :x, 0), :xf, :x, :N)
+:(x0 * (2 * x[3, N]))
 ```
 """
-function subs2(e, x, y, j, dim; k = __symgen(:k))
+function subs2(e, x, y, j; k = __symgen(:k))
     foo(x, y, j) = (h, args...) -> begin
         f = Expr(h, args...)
         @match f begin
             :($xx[$rg]) && if ((xx == x) && is_range(rg)) end => :([$y[$k, $j] for $k ∈ $rg])
             :($xx[$i]) && if (xx == x) end => :($y[$i, $j])
-            :($xx) && if (xx == x) end => :([$y[$k, $j] for $k ∈ 1:$dim])
             _ => f
         end
     end
-    expr_it(e, foo(x, y, j), x -> x)
+    expr_it(e, foo(x, y, j), x -> x) 
 end
 
 """
