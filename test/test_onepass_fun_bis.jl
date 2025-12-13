@@ -106,7 +106,8 @@ function test_onepass_fun_bis()
 
         # aliases should be an OrderedDict with default entries
         @test p.aliases isa OrderedDict
-        @test haskey(p.aliases, :R¹) || haskey(p.aliases, Symbol("R", CTBase.ctupperscripts(1)))
+        @test haskey(p.aliases, :R¹) ||
+            haskey(p.aliases, Symbol("R", CTBase.ctupperscripts(1)))
         @test haskey(p.aliases, :<=)
         @test haskey(p.aliases, :>=)
         @test haskey(p.aliases, :derivative)
