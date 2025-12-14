@@ -220,7 +220,7 @@ function __test_onepass_exa(
             ∂(x₁)(t) == u₁(t)
             ∂(x₂)(t) == u₂(t)
             ∂(x₃)(t) == u₁(t) + u₂(t)
-            sum(x(0))^2 + sum(x(1))^2 + ∫(sum(u(t))^2) → min
+            (sum(x(0))^2 + sum(x(1))^2) + ∫(sum(u(t))^2) → min
         end
         m = discretise_exa(o; backend=backend, scheme=scheme)
         @test m isa ExaModels.ExaModel
@@ -233,7 +233,7 @@ function __test_onepass_exa(
             ∂(x₁)(t) == u₁(t)
             ∂(x₂)(t) == u₂(t)
             ∂(x₃)(t) == u₁(t) + u₂(t)
-            sum(x[1:2](0)) + sum(x[2:3](1)) + ∫(sum(u[1:2](t))) → min
+            (sum(x[1:2](0)) + sum(x[2:3](1))) + ∫(sum(u[1:2](t))) → min
         end
         m = discretise_exa(o; backend=backend, scheme=scheme)
         @test m isa ExaModels.ExaModel
@@ -547,7 +547,7 @@ function __test_onepass_exa(
             ∂(x₁)(t) == u₁(t)
             ∂(x₂)(t) == u₂(t)
             ∂(x₃)(t) == u₁(t) + u₂(t)
-            f(x(0), [0, 0]) + f(x(1), [0, 0]) + ∫(h(u(t))) → min
+            (f(x(0), [0, 0]) + f(x(1), [0, 0])) + ∫(h(u(t))) → min
         end
         m = discretise_exa(o; backend=backend, scheme=scheme)
         @test m isa ExaModels.ExaModel
@@ -630,7 +630,7 @@ function __test_onepass_exa(
             ∂(x₂)(t) == u₁(t)
             ∂(x₃)(t) == u₂(t)
             h(u(t)) ≤ 5
-            f(x(0), [0, 0]) + ∫(f(x(t), u(t))) → min
+            (f(x(0), [0, 0])) + ∫(f(x(t), u(t))) → min
         end
         m = discretise_exa(o; backend=backend, scheme=scheme)
         @test m isa ExaModels.ExaModel
