@@ -102,7 +102,7 @@ Handles two patterns:
 - `x[i]` (scalar index) → `y[i, j]`
 - `x[1:3]` (range index) → `[y[k, j] for k ∈ 1:3]`
 
-See also: subs5.
+See also: subs2m.
 
 # Examples
 ```@example
@@ -166,59 +166,42 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Substitute x[rg] by y[i], whatever rg, in e. (Note: rg is then expected to be used to loop on i.) 
+Substitute x[i] or x[rg] in e for the midpoint scheme:
+- x[i] → (y[i, j] + y[i, j + 1]) / 2 (scalar indexing)
+- x[rg] → [(y[k, j] + y[k, j + 1]) / 2 for k ∈ rg] (range indexing)
 
-# Examples
-```@example
-julia> e = :(v[1:2:d] * 2xf[1:3])
-:(v[1:2:d] * (2 * xf[1:3]))
+Bare symbols like x (without indexing) are NOT substituted.
 
-julia> subs4(e, :v, :v, :i)
-:(v[i] * (2 * xf[1:3]))
-
-julia> subs4(e, :xf, :xf, 1)
-:(v[1:2:d] * (2 * xf[1]))
-```
-"""
-function subs4(e, x, y, i) # currently unused
-    foo(x, y, i) = (h, args...) -> begin
-        f = Expr(h, args...)
-        @match f begin
-            :($xx[$rg]) && if (xx == x)
-            end => :($y[$i])
-            _ => f
-        end
-    end
-    expr_it(e, foo(x, y, i), x -> x)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Substitute x[i] by (y[i, j] + y[i, j + 1]) / 2, whatever i, in e. See also: subs2.
+See also: subs2.
 
 # Examples
 ```@example
 julia> e = :(x0[1] * 2xf[3] - cos(xf[2]) * 2x0[2])
 :(x0[1] * (2 * xf[3]) - cos(xf[2]) * (2 * x0[2]))
 
-julia> subs5(subs5(e, :x0, :x, 0), :xf, :x, :N)
+julia> subs2m(subs2m(e, :x0, :x, 0), :xf, :x, :N)
 :(((x[1, 0] + x[1, 0 + 1]) / 2) * (2 * ((x[3, N] + x[3, N + 1]) / 2)) - cos((x[2, N] + x[2, N + 1]) / 2) * (2 * ((x[2, 0] + x[2, 0 + 1]) / 2)))
 
 julia> e = :(x0 * 2xf[3] - cos(xf) * 2x0[2])
 :(x0 * (2 * xf[3]) - cos(xf) * (2 * x0[2]))
 
-julia> subs5(subs5(e, :x0, :x, 0), :xf, :x, :N)
+julia> subs2m(subs2m(e, :x0, :x, 0), :xf, :x, :N)
 :(x0 * (2 * ((x[3, N] + x[3, N + 1]) / 2)) - cos(xf) * (2 * ((x[2, 0] + x[2, 0 + 1]) / 2)))
+
+julia> e = :(x0[1:3])
+:(x0[1:3])
+
+julia> subs2m(e, :x0, :x, 0)
+:([((x[k, 0] + x[k, 0 + 1]) / 2) for k ∈ 1:3])
 ```
 """
-function subs5(e, x, y, j)
+function subs2m(e, x, y, j; k = __symgen(:k))
     foo(x, y, j) =
         (h, args...) -> begin
             f = Expr(h, args...)
             @match f begin
-                :($xx[$i]) && if (xx == x)
-                end => :(($y[$i, $j] + $y[$i, $j + 1]) / 2)
+                :($xx[$rg]) && if ((xx == x) && is_range(rg)) end => :([($y[$k, $j] + $y[$k, $j + 1]) / 2 for $k ∈ $rg])
+                :($xx[$i]) && if (xx == x) end => :(($y[$i, $j] + $y[$i, $j + 1]) / 2)
                 _ => f
             end
         end

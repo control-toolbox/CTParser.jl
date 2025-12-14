@@ -149,28 +149,59 @@ function test_utils()
         @test subs3(e, :xf, :x, 1, :N) == :(x0[1:2:d] * (2 * x[1, N]))
     end
 
-    @testset "subs4" begin
-        println("subs4")
+    @testset "subs2m" begin
+        println("subs2m")
 
-        e = :(v[1:2:d] * 2xf[1:3])
-        @test subs4(e, :v, :v, :i) == :(v[i] * (2 * xf[1:3]))
-        @test subs4(e, :xf, :xf, 1) == :(v[1:2:d] * (2 * xf[1]))
-    end
+        @testset "range indexing" begin
+            # Test 1: Basic range substitution
+            e = :(x0[1:3])
+            result = subs2m(e, :x0, :x, 0; k = :k)
+            @test result == :([((x[k, 0] + x[k, 0 + 1]) / 2) for k ∈ 1:3])
 
-    @testset "subs5" begin
-        println("subs5")
+            # Test 2: Range with step
+            e = :(x0[1:2:5])
+            result = subs2m(e, :x0, :x, 0; k = :k)
+            @test result == :([((x[k, 0] + x[k, 0 + 1]) / 2) for k ∈ 1:2:5])
 
-        e = :(x0[1] * 2xf[3] - cos(xf[2]) * 2x0[2])
-        @test subs5(subs5(e, :x0, :x, 0), :xf, :x, :N) == :(
-            ((x[1, 0] + x[1, 0 + 1]) / 2) * (2 * ((x[3, N] + x[3, N + 1]) / 2)) -
-            cos((x[2, N] + x[2, N + 1]) / 2) * (2 * ((x[2, 0] + x[2, 0 + 1]) / 2))
-        )
+            # Test 3: Range in arithmetic expression
+            e = :(2 * x0[1:3])
+            result = subs2m(e, :x0, :x, 0; k = :k)
+            @test result == :(2 * [((x[k, 0] + x[k, 0 + 1]) / 2) for k ∈ 1:3])
 
-        e = :(x0 * 2xf[3] - cos(xf) * 2x0[2])
-        @test subs5(subs5(e, :x0, :x, 0), :xf, :x, :N) == :(
-            x0 * (2 * ((x[3, N] + x[3, N + 1]) / 2)) -
-            cos(xf) * (2 * ((x[2, 0] + x[2, 0 + 1]) / 2))
-        )
+            # Test 4: Multiple ranges in same expression
+            e = :(x0[1:2] + xf[2:4])
+            result = subs2m(subs2m(e, :x0, :x, 0; k = :k), :xf, :x, :N; k = :k)
+            @test result == :(
+                [((x[k, 0] + x[k, 0 + 1]) / 2) for k ∈ 1:2] +
+                [((x[k, N] + x[k, N + 1]) / 2) for k ∈ 2:4]
+            )
+
+            # Test 5: Range with symbolic j
+            e = :(x0[1:3])
+            result = subs2m(e, :x0, :x, :j; k = :k)
+            @test result == :([((x[k, j] + x[k, j + 1]) / 2) for k ∈ 1:3])
+
+            # Test 6: Single-element range
+            e = :(x0[2:2])
+            result = subs2m(e, :x0, :x, 0; k = :k)
+            @test result == :([((x[k, 0] + x[k, 0 + 1]) / 2) for k ∈ 2:2])
+        end
+
+        @testset "backward compatibility" begin
+            # Test 7: Scalar indexing still works
+            e = :(x0[1] * 2xf[3] - cos(xf[2]) * 2x0[2])
+            @test subs2m(subs2m(e, :x0, :x, 0), :xf, :x, :N) == :(
+                ((x[1, 0] + x[1, 0 + 1]) / 2) * (2 * ((x[3, N] + x[3, N + 1]) / 2)) -
+                cos((x[2, N] + x[2, N + 1]) / 2) * (2 * ((x[2, 0] + x[2, 0 + 1]) / 2))
+            )
+
+            # Test 8: Bare symbols are NOT substituted
+            e = :(x0 * 2xf[3] - cos(xf) * 2x0[2])
+            @test subs2m(subs2m(e, :x0, :x, 0), :xf, :x, :N) == :(
+                x0 * (2 * ((x[3, N] + x[3, N + 1]) / 2)) -
+                cos(xf) * (2 * ((x[2, 0] + x[2, 0 + 1]) / 2))
+            )
+        end
     end
 
     @testset "replace_call" begin
