@@ -104,6 +104,538 @@ function __test_onepass_exa(
         @test CTParser.as_range(:(x + 1)) == [:(x + 1)]
     end
 
+    test_name = "bare symbols and ranges - costs ($backend_name, $scheme)"
+    @testset "$test_name" begin
+        println(test_name)
+
+        # Test: Lagrange with sum over all state components
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            x(0) == [1, 2, 3]
+            x(1) == [4, 5, 6]
+            ∫(sum(x(t))^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Lagrange with sum over range of states
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            ∫(sum(x[1:2](t))^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Lagrange with sum over all controls
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R³, control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∫(sum(u(t))^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Lagrange with sum over range of controls
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R³, control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∫(sum(u[1:2](t))^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Mayer with sum over all states at t0
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            sum(x(0))^2 → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Mayer with sum over all states at tf
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            sum(x(1))^2 → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Mayer with sum over range at t0
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            sum(x[1:2](0))^2 → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Mayer with sum over range at tf
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            sum(x[2:3](1))^2 → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Bolza cost with bare symbols
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            sum(x(0))^2 + sum(x(1))^2 + ∫(sum(u(t))^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Bolza cost with ranges
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            sum(x[1:2](0)) + sum(x[2:3](1)) + ∫(sum(u[1:2](t))) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+    end
+
+    test_name = "bare symbols and ranges - constraints ($backend_name, $scheme)"
+    @testset "$test_name" begin
+        println(test_name)
+
+        # Test: Initial constraint with bare symbol
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            sum(x(0)) == 6
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Initial constraint with range
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            sum(x[1:2](0)) == 3
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Final constraint with bare symbol
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            sum(x(1)) == 15
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Final constraint with range
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            sum(x[2:3](1)) == 11
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Boundary constraint combining t0 and tf with bare symbols
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            sum(x(0)) + sum(x(1)) == 21
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Boundary constraint with ranges
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            sum(x[1:2](0)) - sum(x[2:3](1)) == -8
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Path constraint with bare state symbol
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            sum(x(t))^2 ≤ 100
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Path constraint with state range
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            sum(x[1:2](t)) ≤ 10
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Path constraint with bare control symbol
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R³, control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            sum(u(t))^2 ≤ 5
+            ∫(x₁(t)^2 + x₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Path constraint with control range
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R³, control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            sum(u[1:2](t)) ≤ 3
+            ∫(x₁(t)^2 + x₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Mixed constraint with bare symbols
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            sum(x(t)) + sum(u(t)) ≤ 15
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Mixed constraint with ranges
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R³, control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₃(t)
+            sum(x[1:2](t)) + sum(u[2:3](t)) ≤ 8
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+    end
+
+    test_name = "bare symbols and ranges - dynamics ($backend_name, $scheme)"
+    @testset "$test_name" begin
+        println(test_name)
+
+        # Test: Dynamics with sum over all states
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == sum(x(t))
+            ∂(x₂)(t) == u₁(t)
+            ∂(x₃)(t) == u₂(t)
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Dynamics with sum over state range
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == sum(x[2:3](t))
+            ∂(x₂)(t) == u₁(t)
+            ∂(x₃)(t) == u₂(t)
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Dynamics with sum over all controls
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R³, control
+            ∂(x₁)(t) == sum(u(t))
+            ∂(x₂)(t) == u₁(t)
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Dynamics with sum over control range
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R³, control
+            ∂(x₁)(t) == sum(u[1:2](t))
+            ∂(x₂)(t) == u₃(t)
+            ∫(u₁(t)^2 + u₂(t)^2 + u₃(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Dynamics with mixed bare symbols
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == sum(x(t)) + sum(u(t))
+            ∂(x₂)(t) == u₁(t)
+            ∂(x₃)(t) == u₂(t)
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Dynamics with mixed ranges
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R³, control
+            ∂(x₁)(t) == sum(x[1:2](t)) + sum(u[2:3](t))
+            ∂(x₂)(t) == u₁(t)
+            ∂(x₃)(t) == u₂(t)
+            ∫(u₁(t)^2 + u₂(t)^2 + u₃(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+    end
+
+    test_name = "user-defined functions with ranges ($backend_name, $scheme)"
+    @testset "$test_name" begin
+        println(test_name)
+
+        # Define user functions outside @def
+        f(x, u) = x[1] * x[3] + u[1]^2 * cos(u[2])
+        g(x) = x[1] + 2 * x[2]
+        h(u) = u[1]^2 + sin(u[2])
+
+        # Test: User-defined function in Lagrange cost
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            ∫(f(x(t), u(t))^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: User-defined function in Mayer cost at t0
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            f(x(0), [0, 0])^2 → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: User-defined function in Mayer cost at tf
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            f(x(1), [0, 0])^2 → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: User-defined function in Bolza cost
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            f(x(0), [0, 0]) + f(x(1), [0, 0]) + ∫(h(u(t))) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: User-defined function in initial constraint
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            f(x(0), [0, 0]) == 5
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: User-defined function in final constraint
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            f(x(1), [0, 0]) == 10
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: User-defined function in boundary constraint
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            f(x(0), [0, 0]) + f(x(1), [0, 0]) == 15
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: User-defined function in path constraint
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == u₁(t) + u₂(t)
+            f(x(t), u(t)) ≤ 10
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: User-defined function in dynamics
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == u₁(t)
+            ∂(x₂)(t) == u₂(t)
+            ∂(x₃)(t) == g(x[1:2](t))
+            ∫(u₁(t)^2 + u₂(t)^2) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+
+        # Test: Multiple user-defined functions
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+            ∂(x₁)(t) == g(x[1:2](t))
+            ∂(x₂)(t) == u₁(t)
+            ∂(x₃)(t) == u₂(t)
+            h(u(t)) ≤ 5
+            f(x(0), [0, 0]) + ∫(f(x(t), u(t))) → min
+        end
+        m = discretise_exa(o; backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+    end
+
     test_name = "pragma ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
