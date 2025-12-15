@@ -1537,4 +1537,58 @@ function __test_onepass_exa(
         sol = madnlp(m; tol=tolerance, kwargs...)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
     end
+
+    test_name = "use case no. 4: vectorised ($backend_name, $scheme)"
+    @testset "$test_name" begin
+        println(test_name)
+
+        f₁(x, u) = 2x[1] * u[1] + x[2] * u[2]
+        f₂(x) = x[1] + 2x[2] - x[3]
+        f₃(x0, xf) = x0[2]^2 + sum(xf)^2
+        f₄(u) = sum(u.^2)
+        
+        o1 = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+
+            x[1:2:3](0) == [1, 3]
+ 
+            ∂(x₁)(t) == sum(x(t))
+            ∂(x₂)(t) == f₁(x(t), u(t))
+            ∂(x₃)(t) == f₂(x(t)) 
+
+            f₃(x(0), x(1)) + 0.5∫( f₄(u(t)) ) → min
+        end
+
+        N = 250
+        m1, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
+        @test m1 isa ExaModels.ExaModel
+        sol1 = madnlp(m1; tol=tolerance, kwargs...)
+        @test sol1.status == MadNLP.SOLVE_SUCCEEDED
+        obj1 = sol1.objective
+
+        o2 = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+
+            x[1:2:3](0) == [1, 3]
+ 
+            ∂(x₁)(t) == x₁(t) + x₂(t) + x₃(t)
+            ∂(x₂)(t) == 2x₁(t) * u₁(t) + x₂(t) * u₂(t)
+            ∂(x₃)(t) == x₁(t) + 2x₂(t) - x₃(t)
+
+            (x₂(0)^2 + (x₁(1) + x₂(1) + x₃(1))^2) + 0.5∫( u₁(t)^2 + u₂(t)^2 ) → min
+        end
+
+        m2, _ = discretise_exa_full(o2; grid_size=N, backend=backend, scheme=scheme)
+        @test m2 isa ExaModels.ExaModel
+        sol2 = madnlp(m2; tol=tolerance, kwargs...)
+        @test sol2.status == MadNLP.SOLVE_SUCCEEDED
+        obj2 = sol2.objective
+
+        __atol = 1e-6 
+        @test obj1 ≈ obj2 atol = __atol
+    end
 end
