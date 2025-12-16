@@ -720,8 +720,8 @@ end
 
 function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
     pref = prefix_exa()
-    isnothing(e1) && (e1 = :(-Inf * ones(length($e3))))
-    isnothing(e3) && (e3 = :(Inf * ones(length($e1))))
+    isnothing(e1) && (e1 = -Inf)
+    isnothing(e3) && (e3 = Inf)
     code = @match c_type begin
         :boundary || :variable_fun => begin
             code = :(length($e1) == length($e3) == 1 || throw("this constraint must be scalar")) # (vs. __throw) since raised at runtime
