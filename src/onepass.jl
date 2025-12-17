@@ -720,8 +720,8 @@ end
 
 function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
     pref = prefix_exa()
-    isnothing(e1) && (e1 = -Inf)
-    isnothing(e3) && (e3 = Inf)
+    isnothing(e1) && (e1 = :(-Inf * ones(length($e3))))
+    isnothing(e3) && (e3 = :(Inf * ones(length($e1))))
     code = @match c_type begin
         :boundary || :variable_fun => begin
             code = :(length($e1) == length($e3) == 1 || throw("this constraint must be scalar")) # (vs. __throw) since raised at runtime
@@ -737,7 +737,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             if isnothing(rg)
                 rg = :(1:($(p.dim_x))) # x(t0) implies rg == nothing but means x[1:p.dim_x](t0)
                 e2 = subs(e2, p.x, :($(p.x)[$rg]))
-            elseif !is_range(rg)
+            elseif !is_range(rg) # debug: there (and elsewhere), just if then + systematic as_range (no more is_range)
                 rg = as_range(rg)
             end
             code = :(
