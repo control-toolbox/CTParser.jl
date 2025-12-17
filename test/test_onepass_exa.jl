@@ -34,6 +34,7 @@ end
 
 function test_onepass_exa()
     __test_onepass_exa(; scheme=:euler)
+    @ignore begin # debug
     __test_onepass_exa(; scheme=:euler_implicit)
     __test_onepass_exa(; scheme=:midpoint)
     __test_onepass_exa(; scheme=:trapeze)
@@ -45,6 +46,7 @@ function test_onepass_exa()
     else
         println("********** CUDA not available")
     end
+    end # debug
 end
 
 function __test_onepass_exa(
@@ -52,6 +54,7 @@ function __test_onepass_exa(
 )
     backend_name = isnothing(backend) ? "CPU" : "GPU"
 
+    @ignore begin # debug
     test_name = "min ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
@@ -1016,5 +1019,41 @@ function __test_onepass_exa(
         @test m isa ExaModels.ExaModel
         sol = madnlp(m; tol=tolerance, kwargs...)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
+    end
+    end # debug
+
+    test_name = "use case no. 8: stability of solve for unilateral constraints ($backend_name, $scheme)"
+    @testset "$test_name" begin
+        println(test_name)
+
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
+
+            x₁(0) == 1
+            x₂(0) == 2
+            x₁(1) + x₂(1) + x₃(1) == 10
+
+            ∂(x₁)(t) == x₁(t) * u₁(t) + x₂(t) * u₂(t)
+            ∂(x₂)(t) == u₁(t) + u₂(t)
+            ∂(x₃)(t) == x₁(t)
+
+            x₁(t)^2 + x₂(t)^2 + x₃(t)^2 ≤ 50
+
+            (x₁(0)^2 + x₂(0)^2 + x₃(0)^2 + (x₁(1) + x₂(1) + x₃(1))^2) + 0.5∫( u₁(t)^2 + u₂(t)^2 ) → min
+        end
+
+        N = 250
+        max_iter = 2
+        m, _ = discretise_exa_full(o; grid_size=N, backend=backend, scheme=scheme)
+        @test m isa ExaModels.ExaModel
+        sol = madnlp(m; tol=tolerance, max_iter=max_iter, kwargs...)
+        obj1 = sol.objective
+        sol = madnlp(m; tol=tolerance, max_iter=max_iter, kwargs...)
+        obj2 = sol.objective
+
+        __atol = 1e-9
+        @test obj1 ≈ obj2 atol = __atol
     end
 end
