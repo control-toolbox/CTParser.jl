@@ -34,7 +34,6 @@ end
 
 function test_onepass_exa()
     __test_onepass_exa(; scheme=:euler)
-    @ignore begin # debug
     __test_onepass_exa(; scheme=:euler_implicit)
     __test_onepass_exa(; scheme=:midpoint)
     __test_onepass_exa(; scheme=:trapeze)
@@ -46,7 +45,6 @@ function test_onepass_exa()
     else
         println("********** CUDA not available")
     end
-    end # debug
 end
 
 function __test_onepass_exa(
