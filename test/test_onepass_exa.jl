@@ -54,7 +54,6 @@ function __test_onepass_exa(
 )
     backend_name = isnothing(backend) ? "CPU" : "GPU"
 
-    @ignore begin # debug
     test_name = "min ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
@@ -959,10 +958,22 @@ function __test_onepass_exa(
             x ∈ R⁴, state
             u ∈ R⁵, control
             v ≤ [1, 2, 3]
+            v ≥ [1, 2, 3]
+            v[1] ≤ 1
+            v[1] ≥ 1 
+            v[1:2] ≤ [1, 2]
             v[1:2] ≥ [1, 2]
+            x[2](t) ≤ 1
+            x[2:2:4](t) ≤ [1, 2]
+            x[2:4](t) ≤ [1, 2, 3]
+            x[2](t) ≥ 1
+            x[2:2:4](t) ≥ [1, 2]
+            x[2:4](t) ≥ [1, 2, 3]
+            u[2](t) ≤ 1
             u[2:2:4](t) ≤ [1, 2]
-            u[2:4](t) ≥ [1, 2, 3]
-            u[2:2:4](t) ≤ [1, 2]
+            u[2:4](t) ≤ [1, 2, 3]
+            u[2](t) ≥ 1
+            u[2:2:4](t) ≥ [1, 2]
             u[2:4](t) ≥ [1, 2, 3]
             ∂(x₁)(t) == x₁(t)
             ∂(x₂)(t) == x₁(t)
@@ -1713,7 +1724,6 @@ function __test_onepass_exa(
         __atol = 1e-6
         @test obj1 ≈ obj2 atol = __atol
     end
-    end # debug
 
     test_name = "use case no. 7: mixed vectorisation ($backend_name, $scheme)"
     @testset "$test_name" begin
@@ -1729,47 +1739,49 @@ function __test_onepass_exa(
             x ∈ R³, state
             u ∈ R², control
 
-            #x[1:2](0) == [1, 2]
-            x₁(0) == 1
-            x₂(0) == 2
-            #sum(x(1)) == 10
-            x₁(1) + x₂(1) + x₃(1) == 10
+            x[1:2](0) == [1, 2]
+            sum(x(1)) == 10
 
-            #∂(x₁)(t) == p₁(x[1:2](t), u(t))
-            ∂(x₁)(t) == x₁(t) * u₁(t) + x₂(t) * u₂(t)
-            #∂(x₂)(t) == sum(u(t))
-            ∂(x₂)(t) == u₁(t) + u₂(t)
-            #∂(x₃)(t) == x₁(t)
+            ∂(x₁)(t) == p₁(x[1:2](t), u(t))
+            ∂(x₂)(t) == sum(u(t))
             ∂(x₃)(t) == x₁(t)
 
-            #p₂(x(t)) ≤ 50
-            x₁(t)^2 + x₂(t)^2 + x₃(t)^2 ≤ 50
+            p₂(x(t)) ≤ 50
 
-            #(p₂(x(0)) + sum(x(1))^2) + 0.5∫( sum(u(t).^2) ) → min
-            (x₁(0)^2 + x₂(0)^2 + x₃(0)^2 + (x₁(1) + x₂(1) + x₃(1))^2) + 0.5∫( u₁(t)^2 + u₂(t)^2 ) → min
+            (p₂(x(0)) + sum(x(1))^2) + 0.5∫( sum(u(t).^2) ) → min
         end
 
         N = 250
-        max_iter = 10
         m1, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
         @test m1 isa ExaModels.ExaModel
-        #sol1 = madnlp(m1; tol=tolerance, max_iter=max_iter, kwargs...)
         sol1 = madnlp(m1; tol=tolerance, kwargs...)
         @test sol1.status == MadNLP.SOLVE_SUCCEEDED
         obj1 = sol1.objective
 
         # Non-vectorised version
+        o2 = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R², control
 
-        @ignore begin # debug
-        m2, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
+            x₁(0) == 1
+            x₂(0) == 2
+            x₁(1) + x₂(1) + x₃(1) == 10
+
+            ∂(x₁)(t) == x₁(t) * u₁(t) + x₂(t) * u₂(t)
+            ∂(x₂)(t) == u₁(t) + u₂(t)
+            ∂(x₃)(t) == x₁(t)
+
+            x₁(t)^2 + x₂(t)^2 + x₃(t)^2 ≤ 50
+
+            (x₁(0)^2 + x₂(0)^2 + x₃(0)^2 + (x₁(1) + x₂(1) + x₃(1))^2) + 0.5∫( u₁(t)^2 + u₂(t)^2 ) → min
+        end
+
+        N = 250
+        m2, _ = discretise_exa_full(o2; grid_size=N, backend=backend, scheme=scheme)
         @test m2 isa ExaModels.ExaModel
-        #sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
         sol2 = madnlp(m2; tol=tolerance, kwargs...)
         @test sol2.status == MadNLP.SOLVE_SUCCEEDED
         obj2 = sol2.objective
-
-        __atol = 1e-6
-        @test obj1 ≈ obj2 atol = __atol
-        end # debug
     end
 end
