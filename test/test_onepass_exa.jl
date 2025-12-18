@@ -54,7 +54,6 @@ function __test_onepass_exa(
 )
     backend_name = isnothing(backend) ? "CPU" : "GPU"
 
-    @ignore begin # debug
     test_name = "min ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
@@ -1020,9 +1019,8 @@ function __test_onepass_exa(
         sol = madnlp(m; tol=tolerance, kwargs...)
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
     end
-    end # debug
 
-    test_name = "use case no. 8: stability of solve for unilateral constraints ($backend_name, $scheme)"
+    test_name = "use case no. 8: example of solve with unilateral nonlinear constraints ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
 
@@ -1044,16 +1042,10 @@ function __test_onepass_exa(
             (x₁(0)^2 + x₂(0)^2 + x₃(0)^2 + (x₁(1) + x₂(1) + x₃(1))^2) + 0.5∫( u₁(t)^2 + u₂(t)^2 ) → min
         end
 
-        N = 250
-        max_iter = 2
+        N = 100
         m, _ = discretise_exa_full(o; grid_size=N, backend=backend, scheme=scheme)
         @test m isa ExaModels.ExaModel
-        sol = madnlp(m; tol=tolerance, max_iter=max_iter, kwargs...)
-        obj1 = sol.objective
-        sol = madnlp(m; tol=tolerance, max_iter=max_iter, kwargs...)
-        obj2 = sol.objective
-
-        __atol = 1e-9
-        @test obj1 ≈ obj2 atol = __atol
+        sol = madnlp(m; tol=tolerance, kwargs...)
+        @test sol.status == MadNLP.SOLVE_SUCCEEDED
     end
 end

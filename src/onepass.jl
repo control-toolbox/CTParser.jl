@@ -731,7 +731,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = replace_call(e2, p.x, p.tf, xf)
             e2 = subs2(e2, x0, p.x, 0)
             e2 = subs2(e2, xf, p.x, :grid_size)
-            concat(code, :($pref.constraint($p_ocp, $e2; lcon=($e1), ucon=($e3))))
+            concat(code, :($pref.constraint($p_ocp, $e2; lcon=($e1[1]), ucon=($e3[1])))) # todo: e1/3[1] will be e1/3[k] when vectorised over dim
         end
         (:initial, rg) => begin
             if isnothing(rg)
@@ -837,7 +837,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             concat(
                 code,
                 :($pref.constraint(
-                    $p_ocp, $e2 for $j in 0:grid_size; lcon=($e1), ucon=($e3)
+                    $p_ocp, $e2 for $j in 0:grid_size; lcon=($e1[1]), ucon=($e3[1])
                 )),
             )
         end
