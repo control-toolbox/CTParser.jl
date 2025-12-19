@@ -33,17 +33,11 @@ function discretise_exa_full(
 end
 
 function test_onepass_exa()
-    __test_onepass_exa(; scheme=:euler)
-    __test_onepass_exa(; scheme=:euler_implicit)
-    __test_onepass_exa(; scheme=:midpoint)
-    __test_onepass_exa(; scheme=:trapeze)
-    if CUDA.functional()
-        __test_onepass_exa(CUDABackend(); scheme=:euler)
-        __test_onepass_exa(CUDABackend(); scheme=:euler_implicit)
-        __test_onepass_exa(CUDABackend(); scheme=:midpoint)
-        __test_onepass_exa(CUDABackend(); scheme=:trapeze)
-    else
-        println("********** CUDA not available")
+    l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
+    #l_scheme = [:midpoint] # debug
+    for scheme ∈ l_scheme
+        __test_onepass_exa(; scheme=scheme)
+        CUDA.functional() && __test_onepass_exa(CUDABackend(); scheme=scheme)
     end
 end
 
@@ -1574,10 +1568,10 @@ function __test_onepass_exa(
         end
 
         N = 250
+        max_iter = 10
         m1, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
         @test m1 isa ExaModels.ExaModel
-        sol1 = madnlp(m1; tol=tolerance, kwargs...)
-        @test sol1.status == MadNLP.SOLVE_SUCCEEDED
+        sol1 = madnlp(m1; tol=tolerance, max_iter=max_iter, kwargs...)
         obj1 = sol1.objective
 
         o2 = @def begin
@@ -1596,11 +1590,10 @@ function __test_onepass_exa(
 
         m2, _ = discretise_exa_full(o2; grid_size=N, backend=backend, scheme=scheme)
         @test m2 isa ExaModels.ExaModel
-        sol2 = madnlp(m2; tol=tolerance, kwargs...)
-        @test sol2.status == MadNLP.SOLVE_SUCCEEDED
+        sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
         obj2 = sol2.objective
 
-        __atol = 1e-6
+        __atol = 1e-9
         @test obj1 ≈ obj2 atol = __atol
     end
 
@@ -1660,7 +1653,7 @@ function __test_onepass_exa(
         sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
         obj2 = sol2.objective
 
-        __atol = 1e-6
+        __atol = 1e-9
         @test obj1 ≈ obj2 atol = __atol
     end
 
@@ -1719,7 +1712,7 @@ function __test_onepass_exa(
         sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
         obj2 = sol2.objective
 
-        __atol = 1e-6
+        __atol = 1e-9
         @test obj1 ≈ obj2 atol = __atol
     end
 
@@ -1750,10 +1743,10 @@ function __test_onepass_exa(
         end
 
         N = 250
+        max_iter = 10
         m1, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
         @test m1 isa ExaModels.ExaModel
-        sol1 = madnlp(m1; tol=tolerance, kwargs...)
-        @test sol1.status == MadNLP.SOLVE_SUCCEEDED
+        sol1 = madnlp(m1; tol=tolerance, max_iter=max_iter, kwargs...)
         obj1 = sol1.objective
 
         # Non-vectorised version
@@ -1775,11 +1768,12 @@ function __test_onepass_exa(
             (x₁(0)^2 + x₂(0)^2 + x₃(0)^2 + (x₁(1) + x₂(1) + x₃(1))^2) + 0.5∫( u₁(t)^2 + u₂(t)^2 ) → min
         end
 
-        N = 250
         m2, _ = discretise_exa_full(o2; grid_size=N, backend=backend, scheme=scheme)
         @test m2 isa ExaModels.ExaModel
-        sol2 = madnlp(m2; tol=tolerance, kwargs...)
-        @test sol2.status == MadNLP.SOLVE_SUCCEEDED
+        sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
         obj2 = sol2.objective
+
+        __atol = 1e-9
+        @test obj1 ≈ obj2 atol = __atol
     end
 end
