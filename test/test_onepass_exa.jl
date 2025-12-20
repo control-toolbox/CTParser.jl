@@ -1737,7 +1737,7 @@ function __test_onepass_exa(
 
             p₂(x(t)) ≤ 50
 
-            (p₂(x(0)) + sum(x(1))^2) + 0.5∫( sum(u(t).^2) ) → min
+            (p₂(x(0)) + sum(x[1:2](1))^2) + 0.5∫( sum(u(t).^2) ) → min
         end
 
         N = 250
@@ -1764,7 +1764,7 @@ function __test_onepass_exa(
 
             x₁(t)^2 + x₂(t)^2 + x₃(t)^2 ≤ 50
 
-            (x₁(0)^2 + x₂(0)^2 + x₃(0)^2 + (x₁(1) + x₂(1) + x₃(1))^2) + 0.5∫( u₁(t)^2 + u₂(t)^2 ) → min
+            (x₁(0)^2 + x₂(0)^2 + x₃(0)^2 + (x₁(1) + x₂(1))^2) + 0.5∫( u₁(t)^2 + u₂(t)^2 ) → min
         end
 
         m2, _ = discretise_exa_full(o2; grid_size=N, backend=backend, scheme=scheme)

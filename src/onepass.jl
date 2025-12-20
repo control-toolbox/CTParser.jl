@@ -708,7 +708,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             if isnothing(rg)
                 rg = :(1:($(p.dim_x))) # x(t0) implies rg == nothing but means x[1:p.dim_x](t0)
                 e2 = subs(e2, p.x, :($(p.x)[$rg]))
-            else # debug: if !is_range(rg) # debug: there (and elsewhere), just if then + systematic as_range (no more is_range)
+            else
                 rg = as_range(rg)
             end
             code = :(
@@ -727,7 +727,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             if isnothing(rg)
                 rg = :(1:($(p.dim_x)))
                 e2 = subs(e2, p.x, :($(p.x)[$rg]))
-            else # debug: if !is_range(rg)
+            else
                 rg = as_range(rg) # case rg = i (vs i:j or i:p:j)
             end
             code = :(
@@ -746,7 +746,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             if isnothing(rg)
                 rg = :(1:($(p.dim_v)))
                 e2 = subs(e2, p.v, :($(p.v)[$rg]))
-            else # debug: if !is_range(rg)
+            else
                 rg = as_range(rg) # case rg = i (vs i:j or i:p:j)
             end
             code_box = :(
@@ -763,7 +763,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
         (:state_range, rg) => begin
             if isnothing(rg)
                 rg = :(1:($(p.dim_x))) # NB. no need to update e2 (unused) here
-            else # debug: if !is_range(rg)
+            else
                 rg = as_range(rg) # case rg = i (vs i:j or i:p:j)
             end
             code_box = :(
@@ -780,7 +780,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
         (:control_range, rg) => begin
             if isnothing(rg)
                 rg = :(1:($(p.dim_u))) # NB. no need to update e2 (unused here)
-            else # debug: if !is_range(rg)
+            else
                 rg = as_range(rg) # case rg = i (vs i:j or i:p:j)
             end
             code_box = :(
