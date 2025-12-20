@@ -191,12 +191,11 @@ case of an exception, prints the originating line number and source
 text before rethrowing.
 """
 __wrap(e, n, line) = quote
-    local ex
     try
         $e
-    catch ex
+    catch
         println("Line ", $n, ": ", $line)
-        throw(ex)
+        rethrow()
     end
 end
 
@@ -220,7 +219,7 @@ Return `x` itself if it is a range, or a one-element array `[x]`.
 This is a normalisation helper used when interpreting constraint
 indices.
 """
-as_range(x) = is_range(x) ? x : [x]
+as_range(x) = is_range(x) ? x : :(($x):($x))
 
 # Main code
 
@@ -1133,7 +1132,7 @@ PARSING_FUN[:lagrange] = p_lagrange_fun!
 PARSING_FUN[:mayer] = p_mayer_fun!
 PARSING_FUN[:bolza] = p_bolza_fun!
 
-# Summary of available parsing subfunctions (:fun backend)
+# Summary of available parsing subfunctions (:exa backend)
 
 const PARSING_EXA = OrderedDict{Symbol,Function}()
 PARSING_EXA[:pragma] = p_pragma_exa!

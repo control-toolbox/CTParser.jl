@@ -44,16 +44,16 @@ function test_onepass_exa_bis()
         @test CTParser.is_range(:(a:b))
         @test CTParser.as_range(:(a:b:c)) == :(a:b:c)
 
-        # Fallback to single-element vector when not a range
-        @test CTParser.as_range(:foo) == [:foo]
+        # Fallback to single-element range expression when not a range
+        @test CTParser.as_range(:foo) == :((:foo):(:foo))
 
         # Edge cases
         @test !CTParser.is_range(42)
         @test !CTParser.is_range("string")
         @test !CTParser.is_range(:(f(x)))
         @test CTParser.is_range(1:10)
-        @test CTParser.as_range(42) == [42]
-        @test CTParser.as_range(:(x + y)) == [:(x + y)]
+        @test CTParser.as_range(42) == :((42):(42))
+        @test CTParser.as_range(:(x + y)) == :((x + y):(x + y))
     end
 
     @testset "p_dynamics_coord_exa! preconditions" begin
@@ -505,5 +505,139 @@ function test_onepass_exa_bis()
 
         ex = CTParser.p_constraint_exa!(p, p_ocp, 0, :(x[1](0) + v), 1, :variable_fun, :c1)
         @test ex isa Expr
+    end
+
+    # ============================================================================
+    # P_CONSTRAINT_EXA! - :other constraint type error (invalid constraints)
+    # ============================================================================
+
+    @testset "p_constraint_exa! :other constraint type error" begin
+        println("p_constraint_exa! :other type (bis)")
+
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "constraint exa :other test"
+        p.t = :t
+        p.t0 = 0
+        p.tf = 1
+        p.x = :x
+        p.u = :u
+        p.v = :v
+        p.dt = :dt
+        p_ocp = :p_ocp
+
+        # Constraint with :other type should raise an error
+        # This simulates what happens when constraint_type returns :other
+        ex = CTParser.p_constraint_exa!(p, p_ocp, 0, :(x[1](0) + u[1](t)), 1, :other, :c1)
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # Another :other case - the exact example from the user
+        ex2 = CTParser.p_constraint_exa!(
+            p, p_ocp, nothing, :(x[1](0) * u[1](t) + u[2](t)^2), 1, :other, :c2
+        )
+        @test ex2 isa Expr
+        @test_throws ParsingError eval(ex2)
+    end
+
+    @testset "p_constraint! detects :other constraint type (exa)" begin
+        println("p_constraint! detects :other for exa (bis)")
+
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "constraint detection test exa"
+        p.t = :t
+        p.t0 = 0
+        p.tf = 1
+        p.x = :x
+        p.u = :u
+        p.v = :v
+        p.dim_x = 2
+        p.dim_u = 2
+        p.dt = :dt
+        p_ocp = :p_ocp
+
+        # Test that p_constraint! correctly identifies invalid constraints
+        # Mixed initial state and control: x1(0) * u1(t) + u2(t)^2 <= 1
+        # This should result in constraint_type returning :other
+        ex = CTParser.p_constraint!(
+            p, p_ocp, nothing, :(x[1](0) * u[1](t) + u[2](t)^2), 1; backend=:exa
+        )
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # Mixed final state and control at initial time: x(tf) + u(t0)
+        # This should also result in :other
+        ex2 = CTParser.p_constraint!(p, p_ocp, 0, :(x[1](tf) + u[1](0)), 1; backend=:exa)
+        @test ex2 isa Expr
+        @test_throws ParsingError eval(ex2)
+
+        # Control at initial and final time: u(t0) + u(tf)
+        ex3 = CTParser.p_constraint!(p, p_ocp, 0, :(u[1](0) + u[1](tf)), 1; backend=:exa)
+        @test ex3 isa Expr
+        @test_throws ParsingError eval(ex3)
+    end
+
+    # ============================================================================
+    # @def_exa MACRO - Invalid constraints that should raise ParsingError
+    # ============================================================================
+
+    @testset "@def_exa macro :other constraint type error" begin
+        println("@def_exa macro :other constraint (bis)")
+
+        backend = nothing
+
+        # Test 1: Mixed initial state and control - x1(0) * u1(t) + u2(t)^2 <= 1
+        # This should trigger constraint_type to return :other and raise ParsingError
+        o = @def_exa begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R², control
+            x[1](0) * u[1](t) + u[2](t)^2 ≤ 1
+            ẋ₁(t) == u[1](t)
+            ẋ₂(t) == u[2](t)
+        end
+        @test_throws ParsingError o(; backend=backend)
+
+        # Test 2: Mixed final state and control at initial time - x(tf) + u(t0)
+        o = @def_exa begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R, control
+            x(1) + u(0) ≤ 1
+            ẋ(t) == u(t)
+        end
+        @test_throws ParsingError o(; backend=backend)
+
+        # Test 3: Control at both initial and final time - u(t0) + u(tf)
+        o = @def_exa begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R, control
+            u(0) + u(1) ≤ 1
+            ẋ(t) == u(t)
+        end
+        @test_throws ParsingError o(; backend=backend)
+
+        # Test 4: Another invalid mixing - state at t and control at t0
+        o = @def_exa begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R, control
+            x(t) + u(0) ≤ 1
+            ẋ(t) == u(t)
+        end
+        @test_throws ParsingError o(; backend=backend)
+
+        # Test 5: The exact user example - x1(0) * u1(t) + u2(t)^2 <= 1
+        o = @def_exa begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R², control
+            x₁(0) * u₁(t) + u₂(t)^2 ≤ 1
+            ẋ₁(t) == u₁(t)
+            ẋ₂(t) == u₂(t)
+        end
+        @test_throws ParsingError o(; backend=backend)
     end
 end
