@@ -45,7 +45,7 @@ function test_onepass_exa_bis()
         @test CTParser.as_range(:(a:b:c)) == :(a:b:c)
 
         # Fallback to single-element range expression when not a range
-        @test CTParser.as_range(:foo) == :((:foo):(:foo))
+        @test CTParser.as_range(:foo) == :(foo:foo)
 
         # Edge cases
         @test !CTParser.is_range(42)
