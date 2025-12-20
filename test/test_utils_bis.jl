@@ -78,16 +78,15 @@ function test_utils_bis()
         @test constraint_type(e, t, t0, tf, x, u, v) == :variable_fun
     end
 
-    @testset "subs2/3/4/5 (pathological cases)" begin
-        println("subs2/3/4/5 (bis)")
+    @testset "subs2/2m/3 (pathological cases)" begin
+        println("subs2/2m/3 (bis)")
 
         e = :(x0[1] * 2xf[3])
 
         # symbol does not appear at all → expression unchanged
         @test subs2(e, :z, :x, 0) == e
+        @test subs2m(e, :z, :x, 0) == e
         @test subs3(e, :z, :x, :i, 0) == e
-        @test subs4(e, :z, :z, :i) == e
-        @test subs5(e, :z, :x, 0) == e
     end
 
     @testset "replace_call (errors)" begin
