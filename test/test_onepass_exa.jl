@@ -1544,9 +1544,7 @@ function __test_onepass_exa(
         @test sol.status == MadNLP.SOLVE_SUCCEEDED
     end
 
-    # todo: use cases 4 to 7 test equivalence of vectorised and non-vectorised formulations only run on CPU
-    # stability issues on GPU (not due to vectorisation)
-    if isnothing(backend) test_name = "use case no. 4: vectorised ($backend_name, $scheme)"
+    test_name = "use case no. 4: vectorised ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
 
@@ -1559,7 +1557,6 @@ function __test_onepass_exa(
             t ∈ [0, 1], time
             x ∈ R³, state
             u ∈ R², control
-
 
             x[1:2:3](0) == [1, 3]
  
@@ -1598,9 +1595,9 @@ function __test_onepass_exa(
 
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
-    end end
+    end
 
-    if isnothing(backend) test_name = "use case no. 5: vectorised with ranges ($backend_name, $scheme)"
+    test_name = "use case no. 5: vectorised with ranges ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
 
@@ -1613,7 +1610,7 @@ function __test_onepass_exa(
             x ∈ R⁴, state
             u ∈ R², control
 
-            x(0) == [1, 2, 3, 4]
+            x(0) == [0, .1, .2, .3]
 
             ∂(x₁)(t) == g₁(x[1:2](t))
             ∂(x₂)(t) == g₂(u(t))
@@ -1637,7 +1634,7 @@ function __test_onepass_exa(
             x ∈ R⁴, state
             u ∈ R², control
 
-            x(0) == [1, 2, 3, 4]
+            x(0) == [0, .1, .2, .3]
 
             ∂(x₁)(t) == x₁(t)^2 + x₂(t)^2
             ∂(x₂)(t) == u₁(t) * u₂(t)
@@ -1654,9 +1651,9 @@ function __test_onepass_exa(
 
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
-    end end
+    end
 
-    if isnothing(backend) test_name = "use case no. 6: vectorised constraints ($backend_name, $scheme)"
+    test_name = "use case no. 6: vectorised constraints ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
 
@@ -1669,8 +1666,8 @@ function __test_onepass_exa(
             x ∈ R³, state
             u ∈ R², control
 
-            sum(x(0)) == 6
-            h₁(x(1)) ≤ 20
+            sum(x(0).^2) == 1.5 
+            h₁(x(1)) ≤ 200
 
             ∂(x₁)(t) == u₁(t)
             ∂(x₂)(t) == u₂(t)
@@ -1694,8 +1691,8 @@ function __test_onepass_exa(
             x ∈ R³, state
             u ∈ R², control
 
-            x₁(0) + x₂(0) + x₃(0) == 6
-            x₁(1) + 2x₂(1) + 3x₃(1) ≤ 20
+            x₁(0)^2 + x₂(0)^2 + x₃(0)^2 == 1.5
+            x₁(1) + 2x₂(1) + 3x₃(1) ≤ 200
 
             ∂(x₁)(t) == u₁(t)
             ∂(x₂)(t) == u₂(t)
@@ -1713,8 +1710,9 @@ function __test_onepass_exa(
 
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
-    end end 
+    end 
 
+    # todo: test below inactived on GPU because run is unstable
     if isnothing(backend) test_name = "use case no. 7: mixed vectorisation ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
@@ -1729,9 +1727,9 @@ function __test_onepass_exa(
             x ∈ R³, state
             u ∈ R², control
 
-            x[1:2](0) == [1, 2]
-            #x₁(1) + x₂(1) + x₃(1) == 10
-            sum(x(1)) == 10
+            x[1:2](0) == [0, 0.1]
+            -0.1 ≤ x₃(0) ≤ 0.1
+            sum(x(1)) == .2
 
             ∂(x₁)(t) == p₁(x[1:2](t), u(t))
             ∂(x₂)(t) == sum(u(t))
@@ -1755,9 +1753,10 @@ function __test_onepass_exa(
             x ∈ R³, state
             u ∈ R², control
 
-            x₁(0) == 1
-            x₂(0) == 2
-            x₁(1) + x₂(1) + x₃(1) == 10
+            x₁(0) == 0
+            x₂(0) == 0.1
+            -0.1 ≤ x₃(0) ≤ 0.1
+            x₁(1) + x₂(1) + x₃(1) == 10 
 
             ∂(x₁)(t) == x₁(t) * u₁(t) + x₂(t) * u₂(t)
             ∂(x₂)(t) == u₁(t) + u₂(t)
