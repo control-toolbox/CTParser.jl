@@ -46,7 +46,6 @@ function __test_onepass_exa(
 )
     backend_name = isnothing(backend) ? "CPU" : "GPU"
 
-    @ignore begin # debug
     test_name = "min ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
@@ -1712,7 +1711,6 @@ function __test_onepass_exa(
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
     end 
-    end # debug
 
     # todo: test below inactived on GPU because run is unstable
     if isnothing(backend) test_name = "use case no. 7: mixed vectorisation ($backend_name, $scheme)"
