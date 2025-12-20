@@ -696,7 +696,7 @@ function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
         (:variable_range, rg) => :($pref.constraint!(
             $p_ocp, :variable; rg=($rg), lb=($e1), ub=($e3), label=($llabel)
         ))
-        :state_fun || control_fun || :mixed => begin # now all treated as path
+        :state_fun || :control_fun || :mixed => begin # now all treated as path
             fun = __symgen(:fun)
             xt = __symgen(:xt)
             ut = __symgen(:ut)
@@ -825,7 +825,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             p.box_u = concat(p.box_u, code_box) # not __wrapped since contains definition of l_u/u_u
             :()
         end
-        :state_fun || control_fun || :mixed => begin
+        :state_fun || :control_fun || :mixed => begin
             code = :(length($e1) == length($e3) == 1 || throw("this constraint must be scalar")) # (vs. __throw) since raised at runtime
             xt = __symgen(:xt)
             ut = __symgen(:ut)
