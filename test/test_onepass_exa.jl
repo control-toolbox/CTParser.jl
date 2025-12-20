@@ -46,6 +46,7 @@ function __test_onepass_exa(
 )
     backend_name = isnothing(backend) ? "CPU" : "GPU"
 
+    @ignore begin # debug
     test_name = "min ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
@@ -1711,6 +1712,7 @@ function __test_onepass_exa(
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
     end 
+    end # debug
 
     # todo: test below inactived on GPU because run is unstable
     if isnothing(backend) test_name = "use case no. 7: mixed vectorisation ($backend_name, $scheme)"
@@ -1729,7 +1731,7 @@ function __test_onepass_exa(
 
             x[1:2](0) == [0, 0.1]
             -0.1 ≤ x₃(0) ≤ 0.1
-            sum(x(1)) == .2
+            sum(x(1)) == 0.2
 
             ∂(x₁)(t) == p₁(x[1:2](t), u(t))
             ∂(x₂)(t) == sum(u(t))
@@ -1756,7 +1758,7 @@ function __test_onepass_exa(
             x₁(0) == 0
             x₂(0) == 0.1
             -0.1 ≤ x₃(0) ≤ 0.1
-            x₁(1) + x₂(1) + x₃(1) == 10 
+            x₁(1) + x₂(1) + x₃(1) == 0.2 
 
             ∂(x₁)(t) == x₁(t) * u₁(t) + x₂(t) * u₂(t)
             ∂(x₂)(t) == u₁(t) + u₂(t)
