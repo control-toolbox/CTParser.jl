@@ -92,10 +92,10 @@ function __test_onepass_exa(
         @test CTParser.is_range(1:2) == true
         @test CTParser.is_range(1:2:5) == true
         @test CTParser.is_range(:(x:y:z)) == true
-        @test CTParser.as_range(1) == [1]
+        @test CTParser.as_range(1) == :((1):(1))
         @test CTParser.as_range(1:2) == 1:2
-        @test CTParser.as_range(:x) == [:x]
-        @test CTParser.as_range(:(x + 1)) == [:(x + 1)]
+        @test CTParser.as_range(:x) == :(x:x)
+        @test CTParser.as_range(:(x + 1)) == :((x + 1):(x + 1))
     end
 
     test_name = "bare symbols and ranges - costs ($backend_name, $scheme)"
