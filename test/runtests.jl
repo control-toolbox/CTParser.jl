@@ -45,13 +45,14 @@ import CTModels:
     criterion,
     Model,
     get_build_examodel
-using ExaModels: ExaModels
+using ExaModels: ExaModels, AbstractNode
 using MadNLP
-using MadNLPGPU
+using MadNLP
 using CUDA
 using BenchmarkTools
 using Interpolations
 using NLPModels
+using LinearAlgebr: LinearAlgebra, norm_sqr 
 
 macro ignore(e)
     return :()
