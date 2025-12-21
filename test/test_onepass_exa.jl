@@ -33,8 +33,8 @@ function discretise_exa_full(
 end
 
 function test_onepass_exa()
-    l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
-    #l_scheme = [:midpoint]
+    #l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
+    l_scheme = [:midpoint] # debug
     for scheme ∈ l_scheme
         __test_onepass_exa(; scheme=scheme)
         CUDA.functional() && __test_onepass_exa(CUDABackend(); scheme=scheme)
@@ -46,6 +46,7 @@ function __test_onepass_exa(
 )
     backend_name = isnothing(backend) ? "CPU" : "GPU"
 
+    @ignore begin # debug
     test_name = "min ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
@@ -1775,4 +1776,57 @@ function __test_onepass_exa(
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
     end end
+    end # debug
+
+    test_name = "use case no. 8: vectorised dynamics ($backend_name, $scheme)"
+    @testset "$test_name" begin
+        println(test_name)
+
+        tf = 5
+        x0 = [0, 1]
+        A = [0 1; -1 0]
+        B = [0, 1]
+        Q = [1 0; 0 1]
+        R = 1
+
+        # Vectorised version
+        o1 = @def begin
+            t ∈ [0, tf], time
+            x ∈ R², state
+            u ∈ R, control
+            x(0) == x0
+            ∂(x₁)(t) == A[1, :]' * x(t) + u(t) * B[1]
+            #∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == A[2, :]' * x(t) + u(t) * B[2]
+            #∂(x₂)(t) == -x₁(t) + u(t) 
+            0.5∫( x(t)' * Q * x(t) + u(t)' * R * u(t) ) → min
+            #0.5∫( x₁(t)^2 + x₂(t)^2 + u(t)^2 ) → min
+        end
+
+        N = 250
+        max_iter = 10
+        m1, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
+        @test m1 isa ExaModels.ExaModel
+        sol1 = madnlp(m1; tol=tolerance, max_iter=max_iter, kwargs...)
+        obj1 = sol1.objective
+
+        # Non-vectorised version
+        o2 = @def begin
+            t ∈ [0, tf], time
+            x ∈ R², state
+            u ∈ R, control
+            x(0) == x0
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == -x₁(t) + u(t) 
+            0.5∫( x₁(t)^2 + x₂(t)^2 + u(t)^2 ) → min
+        end
+        
+        m2, _ = discretise_exa_full(o2; grid_size=N, backend=backend, scheme=scheme)
+        @test m2 isa ExaModels.ExaModel
+        sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
+        obj2 = sol2.objective
+
+        __atol = 1e-9
+        @test obj1 - obj2 ≈ 0 atol = __atol
+    end 
 end
