@@ -500,4 +500,129 @@ function test_onepass_fun_bis()
         @test ex2 isa Expr
         @test_throws ParsingError eval(ex2)
     end
+
+    # ============================================================================
+    # P_CONSTRAINT! - :other constraint type error (invalid constraints)
+    # ============================================================================
+
+    @testset "p_constraint_fun! :other constraint type error" begin
+        println("p_constraint_fun! :other type (bis)")
+
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "constraint :other test"
+        p.t = :t
+        p.t0 = 0
+        p.tf = 1
+        p.x = :x
+        p.u = :u
+        p.v = :v
+        p_ocp = :p_ocp
+
+        # Constraint with :other type should raise an error
+        # This simulates what happens when constraint_type returns :other
+        ex = CTParser.p_constraint_fun!(p, p_ocp, 0, :(x[1](0) + u[1](t)), 1, :other, :c1)
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # Another :other case
+        ex2 = CTParser.p_constraint_fun!(
+            p, p_ocp, nothing, :(x[1](0) * u[1](t) + u[2](t)^2), 1, :other, :c2
+        )
+        @test ex2 isa Expr
+        @test_throws ParsingError eval(ex2)
+    end
+
+    @testset "p_constraint! detects :other constraint type" begin
+        println("p_constraint! detects :other (bis)")
+
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "constraint detection test"
+        p.t = :t
+        p.t0 = 0
+        p.tf = 1
+        p.x = :x
+        p.u = :u
+        p.v = :v
+        p.dim_x = 2
+        p.dim_u = 2
+        p_ocp = :p_ocp
+
+        # Test that p_constraint! correctly identifies invalid constraints
+        # Mixed initial state and control: x1(0) * u1(t) + u2(t)^2 <= 1
+        # This should result in constraint_type returning :other
+        ex = CTParser.p_constraint!(
+            p, p_ocp, nothing, :(x[1](0) * u[1](t) + u[2](t)^2), 1
+        )
+        @test ex isa Expr
+        @test_throws ParsingError eval(ex)
+
+        # Mixed final state and control at initial time: x(tf) + u(t0)
+        # This should also result in :other
+        ex2 = CTParser.p_constraint!(p, p_ocp, 0, :(x[1](tf) + u[1](0)), 1)
+        @test ex2 isa Expr
+        @test_throws ParsingError eval(ex2)
+
+        # Control at initial and final time: u(t0) + u(tf)
+        ex3 = CTParser.p_constraint!(p, p_ocp, 0, :(u[1](0) + u[1](tf)), 1)
+        @test ex3 isa Expr
+        @test_throws ParsingError eval(ex3)
+    end
+
+    # ============================================================================
+    # @def MACRO - Invalid constraints that should raise ParsingError
+    # ============================================================================
+
+    @testset "@def macro :other constraint type error" begin
+        println("@def macro :other constraint (bis)")
+
+        # Test 1: Mixed initial state and control - x1(0) * u1(t) + u2(t)^2 <= 1
+        # This should trigger constraint_type to return :other and raise ParsingError
+        @test_throws ParsingError @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R², control
+            x[1](0) * u[1](t) + u[2](t)^2 ≤ 1
+            x(0) == [0, 0]
+            x(1) == [1, 1]
+            ẋ(t) == [u[1](t), u[2](t)]
+            ∫(u[1](t)^2 + u[2](t)^2) → min
+        end
+
+        # Test 2: Mixed final state and control at initial time - x(tf) + u(t0)
+        @test_throws ParsingError @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R, control
+            x(1) + u(0) ≤ 1
+            x(0) == 0
+            ẋ(t) == u(t)
+            ∫(u(t)^2) → min
+        end
+
+        # Test 3: Control at both initial and final time - u(t0) + u(tf)
+        @test_throws ParsingError @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R, control
+            u(0) + u(1) ≤ 1
+            x(0) == 0
+            x(1) == 1
+            ẋ(t) == u(t)
+            ∫(u(t)^2) → min
+        end
+
+        # Test 4: Another invalid mixing - state at t and control at t0
+        @test_throws ParsingError @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R, control
+            x(t) + u(0) ≤ 1
+            x(0) == 0
+            x(1) == 1
+            ẋ(t) == u(t)
+            ∫(u(t)^2) → min
+        end
+    end
 end

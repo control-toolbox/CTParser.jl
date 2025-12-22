@@ -5,9 +5,8 @@ import CTParser:
     CTParser,
     subs,
     subs2,
+    subs2m,
     subs3,
-    subs4,
-    subs5,
     replace_call,
     has,
     concat,
@@ -46,13 +45,14 @@ import CTModels:
     criterion,
     Model,
     get_build_examodel
-using ExaModels: ExaModels
+using ExaModels: ExaModels, AbstractNode
 using MadNLP
-using MadNLPGPU
+using MadNLP
 using CUDA
 using BenchmarkTools
 using Interpolations
 using NLPModels
+using LinearAlgebra: LinearAlgebra, dot, norm, norm_sqr 
 
 macro ignore(e)
     return :()
@@ -74,6 +74,7 @@ function default_tests()
         :onepass_fun_bis => true,
         :onepass_exa => true,
         :onepass_exa_bis => true,
+        :exa_linalg => true,
     )
 end
 
