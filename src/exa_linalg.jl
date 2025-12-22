@@ -1,10 +1,11 @@
 using ExaModels: AbstractNode, Null
 using LinearAlgebra
+using LinearAlgebra: norm_sqr
 
 # =============================================================================
 # EXPORTS
 # =============================================================================
-export sym_add, sym_mul
+export sym_add, sym_mul, norm_sqr
 
 # =============================================================================
 # 1. ZERO / ONE
@@ -378,6 +379,4 @@ end
 # 15. ABS / ABS2 for symbolic nodes
 # =============================================================================
 
-# Note: These create symbolic expressions; actual absolute value 
-# would require knowing the sign at runtime
-Base.abs2(x::AbstractNode) = x * x
+# Note: abs2 is already defined in ExaModels, so we don't redefine it here

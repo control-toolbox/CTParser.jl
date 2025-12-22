@@ -1,14 +1,10 @@
 # test_exa_linalg
 
-using ExaModels: ExaModels, ExaCore, variable, AbstractNode, Null
-using LinearAlgebra
-using LinearAlgebra: norm_sqr
-
 function test_exa_linalg()
 
     # Setup: Create symbolic variables for testing
-    c = ExaCore()
-    X = variable(c, 5, 4)
+    c = ExaModels.ExaCore()
+    X = ExaModels.variable(c, 5, 4)
 
     x = [X[i, 1] for i in 1:5]
     y = [X[i, 2] for i in 1:5]
@@ -25,10 +21,10 @@ function test_exa_linalg()
         println("  Testing basic AbstractNode properties")
 
         # zero and one
-        @test zero(typeof(x[1])) isa Null
-        @test zero(x[1]) isa Null
-        @test one(typeof(x[1])) isa Null
-        @test one(x[1]) isa Null
+        @test zero(typeof(x[1])) isa ExaModels.Null
+        @test zero(x[1]) isa ExaModels.Null
+        @test one(typeof(x[1])) isa ExaModels.Null
+        @test one(x[1]) isa ExaModels.Null
 
         # Scalar properties
         @test length(x[1]) == 1
@@ -51,7 +47,7 @@ function test_exa_linalg()
     @testset "Type promotion and conversion" begin
         println("  Testing type promotion and conversion")
 
-        @test convert(AbstractNode, 5.0) isa Null
+        @test convert(AbstractNode, 5.0) isa ExaModels.Null
         @test convert(AbstractNode, x[1]) === x[1]
 
         # Promotion with numbers
@@ -62,17 +58,15 @@ function test_exa_linalg()
     @testset "Symbolic arithmetic helpers" begin
         println("  Testing sym_add and sym_mul")
 
-        using CTParser: sym_add, sym_mul
-
         # sym_add with Null(nothing)
-        null_zero = Null(nothing)
-        @test sym_add(null_zero, x[1]) === x[1]
-        @test sym_add(x[1], null_zero) === x[1]
-        @test sym_add(x[1], y[1]) isa AbstractNode
+        null_zero = ExaModels.Null(nothing)
+        @test CTParser.sym_add(null_zero, x[1]) === x[1]
+        @test CTParser.sym_add(x[1], null_zero) === x[1]
+        @test CTParser.sym_add(x[1], y[1]) isa AbstractNode
 
         # sym_mul
-        @test sym_mul(x[1], y[1]) isa AbstractNode
-        @test sym_mul(2.0, x[1]) isa AbstractNode
+        @test CTParser.sym_mul(x[1], y[1]) isa AbstractNode
+        @test CTParser.sym_mul(2.0, x[1]) isa AbstractNode
     end
 
     @testset "Matrix-vector products" begin
@@ -346,15 +340,13 @@ function test_exa_linalg()
     @testset "Type aliases" begin
         println("  Testing type aliases")
 
-        using CTParser: SymbolicVector, SymbolicMatrix, SymbolicVecOrMat
+        @test x isa CTParser.SymbolicVector
+        @test y isa CTParser.SymbolicVector
+        @test M isa CTParser.SymbolicMatrix
+        @test N isa CTParser.SymbolicMatrix
 
-        @test x isa SymbolicVector
-        @test y isa SymbolicVector
-        @test M isa SymbolicMatrix
-        @test N isa SymbolicMatrix
-
-        @test x isa SymbolicVecOrMat
-        @test M isa SymbolicVecOrMat
+        @test x isa CTParser.SymbolicVecOrMat
+        @test M isa CTParser.SymbolicVecOrMat
     end
 
     println("  All exa_linalg tests passed!")
