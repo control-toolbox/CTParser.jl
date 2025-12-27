@@ -2,6 +2,9 @@ using ExaModels: AbstractNode, Null
 using LinearAlgebra
 using LinearAlgebra: norm_sqr
 
+# Load trait-based implementations
+include("symbolic_ops.jl")
+
 # =============================================================================
 # EXPORTS
 # =============================================================================
@@ -48,23 +51,8 @@ Base.convert(::Type{AbstractNode}, x::AbstractNode) = x
 # 5. SYMBOLIC ARITHMETIC HELPERS
 # =============================================================================
 
-"""
-    sym_add(a, b)
-
-Symbolic addition that absorbs `Null(nothing)` as additive identity.
-"""
-function sym_add(a, b)
-    a isa Null{Nothing} && return b
-    b isa Null{Nothing} && return a
-    return a + b
-end
-
-"""
-    sym_mul(a, b)
-
-Symbolic multiplication.
-"""
-sym_mul(a, b) = a * b
+# Note: sym_add and sym_mul are defined in symbolic_ops.jl (included above)
+# They are available here and exported for backward compatibility
 
 # =============================================================================
 # 6. TYPE ALIASES
@@ -75,187 +63,76 @@ const SymbolicMatrix = AbstractMatrix{<:AbstractNode}
 const SymbolicVecOrMat = Union{SymbolicVector, SymbolicMatrix}
 
 # =============================================================================
-# 7. MATRIX-VECTOR PRODUCTS
+# 7. MATRIX-VECTOR PRODUCTS (using trait-based dispatch)
 # =============================================================================
 
 # Numeric matrix × Symbolic vector
 function Base.:*(A::AbstractMatrix{<:Number}, x::SymbolicVector)
-    m, n = size(A)
-    @assert n == length(x) "Dimension mismatch: A is $m×$n, x has length $(length(x))"
-    result = Vector{AbstractNode}(undef, m)
-    for i in 1:m
-        acc = Null(nothing)
-        for j in 1:n
-            acc = sym_add(acc, sym_mul(A[i, j], x[j]))
-        end
-        result[i] = acc
-    end
-    return result
+    return _matmul_vec(symbolic_trait(A), symbolic_trait(x), A, x)
 end
 
 # Symbolic matrix × Numeric vector
 function Base.:*(A::SymbolicMatrix, x::AbstractVector{<:Number})
-    m, n = size(A)
-    @assert n == length(x) "Dimension mismatch"
-    result = Vector{AbstractNode}(undef, m)
-    for i in 1:m
-        acc = Null(nothing)
-        for j in 1:n
-            acc = sym_add(acc, sym_mul(A[i, j], x[j]))
-        end
-        result[i] = acc
-    end
-    return result
+    return _matmul_vec(symbolic_trait(A), symbolic_trait(x), A, x)
 end
 
 # Symbolic matrix × Symbolic vector
 function Base.:*(A::SymbolicMatrix, x::SymbolicVector)
-    m, n = size(A)
-    @assert n == length(x) "Dimension mismatch"
-    result = Vector{AbstractNode}(undef, m)
-    for i in 1:m
-        acc = Null(nothing)
-        for j in 1:n
-            acc = sym_add(acc, sym_mul(A[i, j], x[j]))
-        end
-        result[i] = acc
-    end
-    return result
+    return _matmul_vec(symbolic_trait(A), symbolic_trait(x), A, x)
 end
 
 # =============================================================================
-# 8. ROW VECTOR × MATRIX (via Adjoint)
+# 8. ROW VECTOR × MATRIX (via Adjoint, using trait-based dispatch)
 # =============================================================================
 
 # Symbolic row × Numeric matrix
 function Base.:*(x::LinearAlgebra.Adjoint{<:Any, <:SymbolicVector}, A::AbstractMatrix{<:Number})
-    xp = parent(x)
-    n, p = size(A)
-    @assert length(xp) == n "Dimension mismatch"
-    result = Vector{AbstractNode}(undef, p)
-    for j in 1:p
-        acc = Null(nothing)
-        for i in 1:n
-            acc = sym_add(acc, sym_mul(xp[i], A[i, j]))
-        end
-        result[j] = acc
-    end
-    return adjoint(result)
+    return _rowvec_matmul(symbolic_trait(parent(x)), symbolic_trait(A), x, A)
 end
 
 # Numeric row × Symbolic matrix
 function Base.:*(x::LinearAlgebra.Adjoint{<:Any, <:AbstractVector{<:Number}}, A::SymbolicMatrix)
-    xp = parent(x)
-    n, p = size(A)
-    @assert length(xp) == n "Dimension mismatch"
-    result = Vector{AbstractNode}(undef, p)
-    for j in 1:p
-        acc = Null(nothing)
-        for i in 1:n
-            acc = sym_add(acc, sym_mul(xp[i], A[i, j]))
-        end
-        result[j] = acc
-    end
-    return adjoint(result)
+    return _rowvec_matmul(symbolic_trait(parent(x)), symbolic_trait(A), x, A)
 end
 
 # Symbolic row × Symbolic matrix
 function Base.:*(x::LinearAlgebra.Adjoint{<:Any, <:SymbolicVector}, A::SymbolicMatrix)
-    xp = parent(x)
-    n, p = size(A)
-    @assert length(xp) == n "Dimension mismatch"
-    result = Vector{AbstractNode}(undef, p)
-    for j in 1:p
-        acc = Null(nothing)
-        for i in 1:n
-            acc = sym_add(acc, sym_mul(xp[i], A[i, j]))
-        end
-        result[j] = acc
-    end
-    return adjoint(result)
+    return _rowvec_matmul(symbolic_trait(parent(x)), symbolic_trait(A), x, A)
 end
 
 # =============================================================================
-# 9. MATRIX × MATRIX
+# 9. MATRIX × MATRIX (using trait-based dispatch)
 # =============================================================================
 
 # Numeric × Symbolic
 function Base.:*(A::AbstractMatrix{<:Number}, B::SymbolicMatrix)
-    m, k = size(A)
-    k2, n = size(B)
-    @assert k == k2 "Dimension mismatch"
-    result = Matrix{AbstractNode}(undef, m, n)
-    for i in 1:m, j in 1:n
-        acc = Null(nothing)
-        for l in 1:k
-            acc = sym_add(acc, sym_mul(A[i, l], B[l, j]))
-        end
-        result[i, j] = acc
-    end
-    return result
+    return _matmul_mat(symbolic_trait(A), symbolic_trait(B), A, B)
 end
 
 # Symbolic × Numeric
 function Base.:*(A::SymbolicMatrix, B::AbstractMatrix{<:Number})
-    m, k = size(A)
-    k2, n = size(B)
-    @assert k == k2 "Dimension mismatch"
-    result = Matrix{AbstractNode}(undef, m, n)
-    for i in 1:m, j in 1:n
-        acc = Null(nothing)
-        for l in 1:k
-            acc = sym_add(acc, sym_mul(A[i, l], B[l, j]))
-        end
-        result[i, j] = acc
-    end
-    return result
+    return _matmul_mat(symbolic_trait(A), symbolic_trait(B), A, B)
 end
 
 # Symbolic × Symbolic
 function Base.:*(A::SymbolicMatrix, B::SymbolicMatrix)
-    m, k = size(A)
-    k2, n = size(B)
-    @assert k == k2 "Dimension mismatch"
-    result = Matrix{AbstractNode}(undef, m, n)
-    for i in 1:m, j in 1:n
-        acc = Null(nothing)
-        for l in 1:k
-            acc = sym_add(acc, sym_mul(A[i, l], B[l, j]))
-        end
-        result[i, j] = acc
-    end
-    return result
+    return _matmul_mat(symbolic_trait(A), symbolic_trait(B), A, B)
 end
 
 # =============================================================================
-# 10. DOT PRODUCTS
+# 10. DOT PRODUCTS (using trait-based dispatch)
 # =============================================================================
 
 function LinearAlgebra.dot(x::SymbolicVector, y::SymbolicVector)
-    @assert length(x) == length(y) "Dimension mismatch"
-    acc = Null(nothing)
-    for i in eachindex(x, y)
-        acc = sym_add(acc, sym_mul(x[i], y[i]))
-    end
-    return acc
+    return _dot_product(symbolic_trait(x), symbolic_trait(y), x, y)
 end
 
 function LinearAlgebra.dot(x::AbstractVector{<:Number}, y::SymbolicVector)
-    @assert length(x) == length(y) "Dimension mismatch"
-    acc = Null(nothing)
-    for i in eachindex(x, y)
-        acc = sym_add(acc, sym_mul(x[i], y[i]))
-    end
-    return acc
+    return _dot_product(symbolic_trait(x), symbolic_trait(y), x, y)
 end
 
 function LinearAlgebra.dot(x::SymbolicVector, y::AbstractVector{<:Number})
-    @assert length(x) == length(y) "Dimension mismatch"
-    acc = Null(nothing)
-    for i in eachindex(x, y)
-        acc = sym_add(acc, sym_mul(x[i], y[i]))
-    end
-    return acc
+    return _dot_product(symbolic_trait(x), symbolic_trait(y), x, y)
 end
 
 # =============================================================================
@@ -275,19 +152,19 @@ function Base.:*(x::LinearAlgebra.Adjoint{<:Any, <:AbstractVector{<:Number}}, y:
 end
 
 # =============================================================================
-# 12. MATRIX ADJOINT / TRANSPOSE
+# 12. MATRIX ADJOINT / TRANSPOSE (using trait-based dispatch)
 # =============================================================================
 
 function Base.adjoint(A::SymbolicMatrix)
-    return permutedims(A)
+    return _adjoint_mat(symbolic_trait(A), A)
 end
 
 function Base.transpose(A::SymbolicMatrix)
-    return permutedims(A)
+    return _transpose_mat(symbolic_trait(A), A)
 end
 
 # =============================================================================
-# 13. NORMS
+# 13. NORMS (using trait-based dispatch)
 # =============================================================================
 
 function LinearAlgebra.norm_sqr(x::SymbolicVector)
@@ -296,37 +173,16 @@ end
 
 # Symbolic norm: returns symbolic expression √(∑ xᵢ²)
 function LinearAlgebra.norm(x::SymbolicVector)
-    return sqrt(norm_sqr(x))
+    return _norm_p(symbolic_trait(x), x, 2)
 end
 
 function LinearAlgebra.norm(x::SymbolicVector, p::Real)
-    if p == 2
-        return sqrt(norm_sqr(x))
-    elseif p == 1
-        acc = Null(nothing)
-        for xi in x
-            acc = sym_add(acc, abs(xi))
-        end
-        return acc
-    elseif isinf(p)
-        error("Infinity norm not supported for symbolic vectors")
-    else
-        acc = Null(nothing)
-        for xi in x
-            acc = sym_add(acc, abs(xi)^p)
-        end
-        return acc^(1/p)
-    end
+    return _norm_p(symbolic_trait(x), x, p)
 end
 
 # Matrix norms
 function LinearAlgebra.norm(A::SymbolicMatrix)
-    # Frobenius norm by default
-    acc = Null(nothing)
-    for i in eachindex(A)
-        acc = sym_add(acc, A[i] * A[i])
-    end
-    return sqrt(acc)
+    return _norm_frob(symbolic_trait(A), A)
 end
 
 # =============================================================================

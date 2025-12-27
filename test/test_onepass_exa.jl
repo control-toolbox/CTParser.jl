@@ -1798,9 +1798,9 @@ function __test_onepass_exa(
             x ∈ R², state
             u ∈ R, control
             x(0) == x0
-            ∂(x₁)(t) == A[1, :] * x(t) + u(t) * B[1]
+            ∂(x₁)(t) == dot(A[1, :], x(t)) + u(t) * B[1]
             #∂(x₁)(t) == x₂(t)
-            ∂(x₂)(t) == A[2, :] * x(t) + u(t) * B[2]
+            ∂(x₂)(t) == dot(A[2, :], x(t)) + u(t) * B[2]
             #∂(x₂)(t) == -x₁(t) + u(t) 
             0.5∫( x(t)' * Q * x(t) + u(t)' * R * u(t) ) → min
             #0.5∫( x₁(t)^2 + x₂(t)^2 + u(t)^2 ) → min
