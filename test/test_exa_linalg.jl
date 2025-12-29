@@ -6,10 +6,11 @@ function test_exa_linalg()
     c = ExaModels.ExaCore()
     X = ExaModels.variable(c, 5, 4)
 
-    x = [X[i, 1] for i in 1:5]
-    y = [X[i, 2] for i in 1:5]
-    M = [X[i, j] for i in 1:3, j in 1:3]
-    N = [X[i, j] for i in 1:2, j in 1:4]
+    # Wrap with new SymVector/SymMatrix types
+    x = CTParser.SymVector([X[i, 1] for i in 1:5])
+    y = CTParser.SymVector([X[i, 2] for i in 1:5])
+    M = CTParser.SymMatrix([X[i, j] for i in 1:3, j in 1:3])
+    N = CTParser.SymMatrix([X[i, j] for i in 1:2, j in 1:4])
 
     A = randn(5, 5)
     B = randn(3, 3)
@@ -73,19 +74,19 @@ function test_exa_linalg()
         println("  Testing matrix-vector products")
 
         # Numeric matrix × Symbolic vector
-        @test A * x isa Vector{<:AbstractNode}
+        @test A * x isa CTParser.SymVector
         @test length(A * x) == size(A, 1)
 
         # Symbolic matrix × Numeric vector
-        @test M * v[1:3] isa Vector{<:AbstractNode}
+        @test M * v[1:3] isa CTParser.SymVector
         @test length(M * v[1:3]) == size(M, 1)
 
         # Symbolic matrix × Symbolic vector
-        @test M * x[1:3] isa Vector{<:AbstractNode}
+        @test M * x[1:3] isa CTParser.SymVector
         @test length(M * x[1:3]) == size(M, 1)
 
         # Different sizes
-        @test B * x[1:3] isa Vector{<:AbstractNode}
+        @test B * x[1:3] isa CTParser.SymVector
         @test length(B * x[1:3]) == 3
     end
 
@@ -112,21 +113,21 @@ function test_exa_linalg()
         println("  Testing matrix × matrix products")
 
         # Numeric × Symbolic
-        @test B * M isa Matrix{<:AbstractNode}
+        @test B * M isa CTParser.SymMatrix
         @test size(B * M) == (size(B, 1), size(M, 2))
 
         # Symbolic × Numeric
-        @test M * B isa Matrix{<:AbstractNode}
+        @test M * B isa CTParser.SymMatrix
         @test size(M * B) == (size(M, 1), size(B, 2))
 
         # Symbolic × Symbolic
-        @test M * M isa Matrix{<:AbstractNode}
+        @test M * M isa CTParser.SymMatrix
         @test size(M * M) == (size(M, 1), size(M, 2))
 
         # Different dimensions
-        M2x3 = [X[i, j] for i in 1:2, j in 1:3]
-        M3x4 = [X[i, j] for i in 1:3, j in 1:4]
-        @test M2x3 * M3x4 isa Matrix{<:AbstractNode}
+        M2x3 = CTParser.SymMatrix([X[i, j] for i in 1:2, j in 1:3])
+        M3x4 = CTParser.SymMatrix([X[i, j] for i in 1:3, j in 1:4])
+        @test M2x3 * M3x4 isa CTParser.SymMatrix
         @test size(M2x3 * M3x4) == (2, 4)
     end
 
@@ -175,17 +176,17 @@ function test_exa_linalg()
         println("  Testing matrix transpose and adjoint")
 
         # Transpose
-        @test M' isa Matrix{<:AbstractNode}
+        @test M' isa CTParser.SymMatrix
         @test size(M') == (size(M, 2), size(M, 1))
-        @test transpose(M) isa Matrix{<:AbstractNode}
+        @test transpose(M) isa CTParser.SymMatrix
         @test size(transpose(M)) == (size(M, 2), size(M, 1))
 
         # Non-square matrix
-        @test N' isa Matrix{<:AbstractNode}
+        @test N' isa CTParser.SymMatrix
         @test size(N') == (size(N, 2), size(N, 1))
 
         # Transpose should work in products
-        @test M' * x[1:3] isa Vector{<:AbstractNode}
+        @test M' * x[1:3] isa CTParser.SymVector
         @test length(M' * x[1:3]) == size(M, 2)
     end
 
@@ -224,62 +225,62 @@ function test_exa_linalg()
         println("  Testing broadcasting with unary operations")
 
         # Unary functions on vectors
-        @test sin.(x) isa Vector{<:AbstractNode}
+        @test sin.(x) isa CTParser.SymVector
         @test length(sin.(x)) == length(x)
-        @test cos.(x) isa Vector{<:AbstractNode}
-        @test exp.(x) isa Vector{<:AbstractNode}
-        @test log.(x) isa Vector{<:AbstractNode}
-        @test sqrt.(x) isa Vector{<:AbstractNode}
-        @test abs.(x) isa Vector{<:AbstractNode}
+        @test cos.(x) isa CTParser.SymVector
+        @test exp.(x) isa CTParser.SymVector
+        @test log.(x) isa CTParser.SymVector
+        @test sqrt.(x) isa CTParser.SymVector
+        @test abs.(x) isa CTParser.SymVector
 
         # Unary functions on matrices
-        @test sin.(M) isa Matrix{<:AbstractNode}
+        @test sin.(M) isa CTParser.SymMatrix
         @test size(sin.(M)) == size(M)
-        @test cos.(M) isa Matrix{<:AbstractNode}
-        @test exp.(M) isa Matrix{<:AbstractNode}
-        @test log.(M) isa Matrix{<:AbstractNode}
+        @test cos.(M) isa CTParser.SymMatrix
+        @test exp.(M) isa CTParser.SymMatrix
+        @test log.(M) isa CTParser.SymMatrix
     end
 
     @testset "Broadcasting - binary operations" begin
         println("  Testing broadcasting with binary operations")
 
         # Element-wise arithmetic on vectors
-        @test x .+ y isa Vector{<:AbstractNode}
+        @test x .+ y isa CTParser.SymVector
         @test length(x .+ y) == length(x)
-        @test x .- y isa Vector{<:AbstractNode}
-        @test x .* y isa Vector{<:AbstractNode}
-        @test x ./ y isa Vector{<:AbstractNode}
-        @test x .^ 2 isa Vector{<:AbstractNode}
-        @test x .^ y isa Vector{<:AbstractNode}
+        @test x .- y isa CTParser.SymVector
+        @test x .* y isa CTParser.SymVector
+        @test x ./ y isa CTParser.SymVector
+        @test x .^ 2 isa CTParser.SymVector
+        @test x .^ y isa CTParser.SymVector
 
         # Element-wise with scalars
-        @test 2.0 .* x isa Vector{<:AbstractNode}
-        @test x .+ 1.0 isa Vector{<:AbstractNode}
-        @test x .- 3.0 isa Vector{<:AbstractNode}
-        @test x ./ 2.0 isa Vector{<:AbstractNode}
+        @test 2.0 .* x isa CTParser.SymVector
+        @test x .+ 1.0 isa CTParser.SymVector
+        @test x .- 3.0 isa CTParser.SymVector
+        @test x ./ 2.0 isa CTParser.SymVector
 
         # Element-wise on matrices
-        @test M .+ M isa Matrix{<:AbstractNode}
+        @test M .+ M isa CTParser.SymMatrix
         @test size(M .+ M) == size(M)
-        @test M .- M isa Matrix{<:AbstractNode}
-        @test M .* M isa Matrix{<:AbstractNode}
-        @test 2.0 .* M isa Matrix{<:AbstractNode}
-        @test M ./ 2.0 isa Matrix{<:AbstractNode}
+        @test M .- M isa CTParser.SymMatrix
+        @test M .* M isa CTParser.SymMatrix
+        @test 2.0 .* M isa CTParser.SymMatrix
+        @test M ./ 2.0 isa CTParser.SymMatrix
     end
 
     @testset "Broadcasting - compound expressions" begin
         println("  Testing broadcasting with compound expressions")
 
         # Compound vector expressions
-        @test exp.(x) .+ 1 isa Vector{<:AbstractNode}
-        @test sin.(x) .* cos.(y) isa Vector{<:AbstractNode}
-        @test (x .+ y) ./ 2 isa Vector{<:AbstractNode}
-        @test sqrt.(x.^2 .+ y.^2) isa Vector{<:AbstractNode}
+        @test exp.(x) .+ 1 isa CTParser.SymVector
+        @test sin.(x) .* cos.(y) isa CTParser.SymVector
+        @test (x .+ y) ./ 2 isa CTParser.SymVector
+        @test sqrt.(x.^2 .+ y.^2) isa CTParser.SymVector
 
         # Compound matrix expressions
-        @test sin.(M) .+ cos.(M) isa Matrix{<:AbstractNode}
-        @test (M .+ M) ./ 2 isa Matrix{<:AbstractNode}
-        @test exp.(M) .* 2.0 isa Matrix{<:AbstractNode}
+        @test sin.(M) .+ cos.(M) isa CTParser.SymMatrix
+        @test (M .+ M) ./ 2 isa CTParser.SymMatrix
+        @test exp.(M) .* 2.0 isa CTParser.SymMatrix
     end
 
     @testset "abs and abs2" begin
@@ -289,7 +290,7 @@ function test_exa_linalg()
         @test abs2(x[1]) isa AbstractNode
 
         # abs2 via broadcasting
-        @test abs2.(x) isa Vector{<:AbstractNode}
+        @test abs2.(x) isa CTParser.SymVector
         @test length(abs2.(x)) == length(x)
     end
 
@@ -306,8 +307,8 @@ function test_exa_linalg()
         @test_throws AssertionError dot(x[1:3], y[1:4])
 
         # Matrix dimension mismatch
-        M2x3 = [X[i, j] for i in 1:2, j in 1:3]
-        M4x2 = [X[i, j] for i in 1:4, j in 1:2]
+        M2x3 = CTParser.SymMatrix([X[i, j] for i in 1:2, j in 1:3])
+        M4x2 = CTParser.SymMatrix([X[i, j] for i in 1:4, j in 1:2])
         @test_throws AssertionError M2x3 * M4x2  # 3 != 4
     end
 
@@ -316,12 +317,12 @@ function test_exa_linalg()
 
         # Combine different operations
         result = A * x + v
-        @test result isa Vector{<:AbstractNode}
+        @test result isa CTParser.SymVector
         @test length(result) == length(v)
 
         # Matrix chain
         result = M * M * M
-        @test result isa Matrix{<:AbstractNode}
+        @test result isa CTParser.SymMatrix
         @test size(result) == size(M)
 
         # Complex expression
@@ -330,23 +331,11 @@ function test_exa_linalg()
 
         # Broadcasting mixed with products
         result = (A * x) .+ v
-        @test result isa Vector{<:AbstractNode}
+        @test result isa CTParser.SymVector
 
         # Norm of matrix-vector product
         result = norm(M * x[1:3])
         @test result isa AbstractNode
-    end
-
-    @testset "Type aliases" begin
-        println("  Testing type aliases")
-
-        @test x isa CTParser.SymbolicVector
-        @test y isa CTParser.SymbolicVector
-        @test M isa CTParser.SymbolicMatrix
-        @test N isa CTParser.SymbolicMatrix
-
-        @test x isa CTParser.SymbolicVecOrMat
-        @test M isa CTParser.SymbolicVecOrMat
     end
 
     println("  All exa_linalg tests passed!")

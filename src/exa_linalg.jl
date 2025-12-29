@@ -1,38 +1,160 @@
+# =============================================================================
+# exa_linalg.jl - Symbolic array wrappers for ExaModels.AbstractNode
+#
+# This file defines wrapper types (SymVector, SymMatrix) that eliminate type
+# piracy on array operations while maintaining full ExaModels compatibility.
+#
+# Key design principles:
+# - Wrapper types own the dispatch (no type piracy on array ops)
+# - Scalar operations still use AbstractNode (unavoidable type piracy)
+# - Array operations return wrapped types
+# - Scalar-returning operations return unwrapped AbstractNode
+# =============================================================================
+
 using ExaModels: AbstractNode, Null
 using LinearAlgebra
 using LinearAlgebra: norm_sqr
-
-# Load trait-based implementations
-include("symbolic_ops.jl")
+using Base.Broadcast: Broadcasted, DefaultArrayStyle
 
 # =============================================================================
 # EXPORTS
 # =============================================================================
 export sym_add, sym_mul, norm_sqr
+export SymVector, SymMatrix, SymArray, AbstractSymArray
+export SymNumber  # Type alias for AbstractNode
 
 # =============================================================================
-# 1. ZERO / ONE
+# 1. TYPE DEFINITIONS
 # =============================================================================
+
+# Abstract supertype for all symbolic array wrappers
+abstract type AbstractSymArray{T<:AbstractNode, N} <: AbstractArray{T, N} end
+
+# Symbolic vector wrapper
+struct SymVector{T<:AbstractNode} <: AbstractSymArray{T, 1}
+    data::Vector{T}
+end
+
+# Symbolic matrix wrapper
+struct SymMatrix{T<:AbstractNode} <: AbstractSymArray{T, 2}
+    data::Matrix{T}
+end
+
+# Generic N-dimensional wrapper (for future extensibility)
+struct SymArray{T<:AbstractNode, N} <: AbstractSymArray{T, N}
+    data::Array{T, N}
+end
+
+# Type alias for scalars (just AbstractNode, not a wrapper)
+const SymNumber = AbstractNode
+
+# =============================================================================
+# 2. CONSTRUCTORS
+# =============================================================================
+
+# Convenience constructors from AbstractArray (copy to concrete array)
+SymVector(v::AbstractVector{<:AbstractNode}) = SymVector(collect(v))
+SymMatrix(m::AbstractMatrix{<:AbstractNode}) = SymMatrix(collect(m))
+
+# Convenience constructors with UndefInitializer
+SymVector{T}(::UndefInitializer, n::Int) where T<:AbstractNode = SymVector{T}(Vector{T}(undef, n))
+SymMatrix{T}(::UndefInitializer, m::Int, n::Int) where T<:AbstractNode = SymMatrix{T}(Matrix{T}(undef, m, n))
+SymArray{T,N}(::UndefInitializer, dims::Vararg{Int,N}) where {T<:AbstractNode, N} = SymArray{T,N}(Array{T,N}(undef, dims...))
+
+# =============================================================================
+# 3. ARRAY INTERFACE
+# =============================================================================
+
+# Size and shape
+Base.size(v::SymVector) = size(v.data)
+Base.size(m::SymMatrix) = size(m.data)
+Base.size(a::SymArray) = size(a.data)
+
+Base.length(v::SymVector) = length(v.data)
+Base.length(m::SymMatrix) = length(m.data)
+Base.length(a::SymArray) = length(a.data)
+
+Base.axes(v::SymVector) = axes(v.data)
+Base.axes(m::SymMatrix) = axes(m.data)
+Base.axes(a::SymArray) = axes(a.data)
+
+# Index style
+Base.IndexStyle(::Type{<:AbstractSymArray}) = IndexLinear()
+
+# Indexing - CRITICAL: Returns unwrapped AbstractNode
+Base.getindex(v::SymVector, i::Int) = v.data[i]
+Base.getindex(m::SymMatrix, i::Int, j::Int) = m.data[i, j]
+Base.getindex(m::SymMatrix, i::Int) = m.data[i]  # Linear indexing
+Base.getindex(a::SymArray, i::Int) = a.data[i]
+Base.getindex(a::SymArray{T,N}, I::Vararg{Int,N}) where {T,N} = a.data[I...]
+
+# Setindex - mutable construction
+Base.setindex!(v::SymVector, val, i::Int) = (v.data[i] = val)
+Base.setindex!(m::SymMatrix, val, i::Int, j::Int) = (m.data[i, j] = val)
+Base.setindex!(m::SymMatrix, val, i::Int) = (m.data[i] = val)
+Base.setindex!(a::SymArray, val, i::Int) = (a.data[i] = val)
+Base.setindex!(a::SymArray{T,N}, val, I::Vararg{Int,N}) where {T,N} = (a.data[I...] = val)
+
+# Slicing - returns wrapped types
+Base.getindex(v::SymVector, r::AbstractRange) = SymVector(v.data[r])
+Base.getindex(v::SymVector, inds::AbstractVector{Int}) = SymVector(v.data[inds])
+
+Base.getindex(m::SymMatrix, ::Colon, j::Int) = SymVector(m.data[:, j])
+Base.getindex(m::SymMatrix, i::Int, ::Colon) = SymVector(m.data[i, :])
+Base.getindex(m::SymMatrix, r1::AbstractRange, r2::AbstractRange) = SymMatrix(m.data[r1, r2])
+
+# Similar - returns wrapped type
+Base.similar(v::SymVector) = SymVector(similar(v.data))
+Base.similar(v::SymVector, ::Type{T}) where T<:AbstractNode = SymVector(similar(v.data, T))
+Base.similar(v::SymVector, ::Type{T}, dims::Tuple{Vararg{Int}}) where T<:AbstractNode =
+    SymVector(similar(v.data, T, dims))
+
+Base.similar(m::SymMatrix) = SymMatrix(similar(m.data))
+Base.similar(m::SymMatrix, ::Type{T}) where T<:AbstractNode = SymMatrix(similar(m.data, T))
+Base.similar(m::SymMatrix, ::Type{T}, dims::Tuple{Vararg{Int}}) where T<:AbstractNode =
+    SymMatrix(similar(m.data, T, dims))
+
+Base.similar(a::SymArray{T,N}) where {T,N} = SymArray(similar(a.data))
+Base.similar(a::SymArray{T,N}, ::Type{S}) where {T,N,S<:AbstractNode} = SymArray(similar(a.data, S))
+
+# =============================================================================
+# 4. UNWRAP HELPER
+# =============================================================================
+
+# Extract underlying data from wrappers
+unwrap(v::SymVector) = v.data
+unwrap(m::SymMatrix) = m.data
+unwrap(a::SymArray) = a.data
+unwrap(x::AbstractNode) = x  # Pass-through for scalars
+unwrap(x::Number) = x         # Pass-through for numbers
+unwrap(x::AbstractArray) = x  # Pass-through for regular arrays
+
+# =============================================================================
+# 5. CONVERSION
+# =============================================================================
+
+# Convert AbstractArray{<:AbstractNode} to wrapped types
+Base.convert(::Type{SymVector}, v::AbstractVector{<:AbstractNode}) = SymVector(collect(v))
+Base.convert(::Type{SymMatrix}, m::AbstractMatrix{<:AbstractNode}) = SymMatrix(collect(m))
+
+# Convert wrapped types back to regular arrays
+Base.convert(::Type{Vector{T}}, v::SymVector{T}) where T = v.data
+Base.convert(::Type{Matrix{T}}, m::SymMatrix{T}) where T = m.data
+
+# =============================================================================
+# 6. SCALAR AbstractNode OPERATIONS (unavoidable type piracy)
+# =============================================================================
+
 Base.zero(::Type{<:AbstractNode}) = Null(nothing)
 Base.zero(::AbstractNode) = Null(nothing)
 Base.one(::Type{<:AbstractNode}) = Null(1)
 Base.one(::AbstractNode) = Null(1)
 
-# =============================================================================
-# 2. ADJOINT / TRANSPOSE / CONJ for scalar nodes
-# =============================================================================
 Base.adjoint(x::AbstractNode) = x
 Base.transpose(x::AbstractNode) = x
 Base.conj(x::AbstractNode) = x
 
-# =============================================================================
-# 3. AbstractNode IS A SCALAR (not iterable, not a container)
-# =============================================================================
-
-# Tell Julia that AbstractNode is a scalar for broadcasting
 Base.broadcastable(x::AbstractNode) = Ref(x)
-
-# AbstractNode should not be iterated (it's a scalar)
 Base.iterate(::AbstractNode) = nothing
 Base.length(::AbstractNode) = 1
 Base.size(::AbstractNode) = ()
@@ -40,199 +162,411 @@ Base.ndims(::AbstractNode) = 0
 Base.ndims(::Type{<:AbstractNode}) = 0
 Base.IteratorSize(::Type{<:AbstractNode}) = Base.HasShape{0}()
 
-# =============================================================================
-# 4. TYPE PROMOTION & CONVERSION
-# =============================================================================
 Base.promote_rule(::Type{<:AbstractNode}, ::Type{<:Number}) = AbstractNode
 Base.convert(::Type{AbstractNode}, x::Number) = Null(x)
 Base.convert(::Type{AbstractNode}, x::AbstractNode) = x
 
 # =============================================================================
-# 5. SYMBOLIC ARITHMETIC HELPERS
+# 7. SYMBOLIC ARITHMETIC HELPERS
 # =============================================================================
 
-# Note: sym_add and sym_mul are defined in symbolic_ops.jl (included above)
-# They are available here and exported for backward compatibility
-
-# =============================================================================
-# 6. TYPE ALIASES
-# =============================================================================
-
-const SymbolicVector = AbstractVector{<:AbstractNode}
-const SymbolicMatrix = AbstractMatrix{<:AbstractNode}
-const SymbolicVecOrMat = Union{SymbolicVector, SymbolicMatrix}
-
-# =============================================================================
-# 7. MATRIX-VECTOR PRODUCTS (using trait-based dispatch)
-# =============================================================================
-
-# Numeric matrix × Symbolic vector
-function Base.:*(A::AbstractMatrix{<:Number}, x::SymbolicVector)
-    return _matmul_vec(symbolic_trait(A), symbolic_trait(x), A, x)
+# Symbolic addition with Null(nothing) as additive identity
+function sym_add(a, b)
+    a isa Null{Nothing} && return b
+    b isa Null{Nothing} && return a
+    return a + b
 end
 
-# Symbolic matrix × Numeric vector
-function Base.:*(A::SymbolicMatrix, x::AbstractVector{<:Number})
-    return _matmul_vec(symbolic_trait(A), symbolic_trait(x), A, x)
-end
-
-# Symbolic matrix × Symbolic vector
-function Base.:*(A::SymbolicMatrix, x::SymbolicVector)
-    return _matmul_vec(symbolic_trait(A), symbolic_trait(x), A, x)
-end
+# Symbolic multiplication
+sym_mul(a, b) = a * b
 
 # =============================================================================
-# 8. ROW VECTOR × MATRIX (via Adjoint, using trait-based dispatch)
+# 8. MATRIX-VECTOR PRODUCTS
 # =============================================================================
 
-# Symbolic row × Numeric matrix
-function Base.:*(x::LinearAlgebra.Adjoint{<:Any, <:SymbolicVector}, A::AbstractMatrix{<:Number})
-    return _rowvec_matmul(symbolic_trait(parent(x)), symbolic_trait(A), x, A)
+# Numeric matrix × Symbolic vector -> SymVector
+function Base.:*(A::AbstractMatrix{<:Number}, x::SymVector)
+    m, n = size(A)
+    @assert n == length(x) "Dimension mismatch: matrix has $(n) columns, vector has $(length(x)) elements"
+
+    result = SymVector(Vector{AbstractNode}(undef, m))
+    for i in 1:m
+        acc = Null(nothing)
+        for j in 1:n
+            acc = sym_add(acc, sym_mul(A[i, j], x[j]))
+        end
+        result[i] = acc
+    end
+    return result
 end
 
-# Numeric row × Symbolic matrix
-function Base.:*(x::LinearAlgebra.Adjoint{<:Any, <:AbstractVector{<:Number}}, A::SymbolicMatrix)
-    return _rowvec_matmul(symbolic_trait(parent(x)), symbolic_trait(A), x, A)
+# Symbolic matrix × Numeric vector -> SymVector
+function Base.:*(A::SymMatrix, x::AbstractVector{<:Number})
+    m, n = size(A)
+    @assert n == length(x) "Dimension mismatch: matrix has $(n) columns, vector has $(length(x)) elements"
+
+    result = SymVector(Vector{AbstractNode}(undef, m))
+    for i in 1:m
+        acc = Null(nothing)
+        for j in 1:n
+            acc = sym_add(acc, sym_mul(A[i, j], x[j]))
+        end
+        result[i] = acc
+    end
+    return result
 end
 
-# Symbolic row × Symbolic matrix
-function Base.:*(x::LinearAlgebra.Adjoint{<:Any, <:SymbolicVector}, A::SymbolicMatrix)
-    return _rowvec_matmul(symbolic_trait(parent(x)), symbolic_trait(A), x, A)
-end
+# Symbolic matrix × Symbolic vector -> SymVector
+function Base.:*(A::SymMatrix, x::SymVector)
+    m, n = size(A)
+    @assert n == length(x) "Dimension mismatch: matrix has $(n) columns, vector has $(length(x)) elements"
 
-# =============================================================================
-# 9. MATRIX × MATRIX (using trait-based dispatch)
-# =============================================================================
-
-# Numeric × Symbolic
-function Base.:*(A::AbstractMatrix{<:Number}, B::SymbolicMatrix)
-    return _matmul_mat(symbolic_trait(A), symbolic_trait(B), A, B)
-end
-
-# Symbolic × Numeric
-function Base.:*(A::SymbolicMatrix, B::AbstractMatrix{<:Number})
-    return _matmul_mat(symbolic_trait(A), symbolic_trait(B), A, B)
-end
-
-# Symbolic × Symbolic
-function Base.:*(A::SymbolicMatrix, B::SymbolicMatrix)
-    return _matmul_mat(symbolic_trait(A), symbolic_trait(B), A, B)
+    result = SymVector(Vector{AbstractNode}(undef, m))
+    for i in 1:m
+        acc = Null(nothing)
+        for j in 1:n
+            acc = sym_add(acc, sym_mul(A[i, j], x[j]))
+        end
+        result[i] = acc
+    end
+    return result
 end
 
 # =============================================================================
-# 10. DOT PRODUCTS (using trait-based dispatch)
+# 9. ROW VECTOR × MATRIX (via Adjoint)
 # =============================================================================
 
-function LinearAlgebra.dot(x::SymbolicVector, y::SymbolicVector)
-    return _dot_product(symbolic_trait(x), symbolic_trait(y), x, y)
+# Symbolic row × Numeric matrix -> Adjoint{SymVector}
+function Base.:*(x::LinearAlgebra.Adjoint{<:Any, <:SymVector}, A::AbstractMatrix{<:Number})
+    xp = parent(x)
+    n, p = size(A)
+    @assert length(xp) == n "Dimension mismatch: vector has $(length(xp)) elements, matrix has $(n) rows"
+
+    # T = eltype(xp)
+    result = SymVector(Vector{AbstractNode}(undef, p))
+    for j in 1:p
+        acc = Null(nothing)
+        for i in 1:n
+            acc = sym_add(acc, sym_mul(xp[i], A[i, j]))
+        end
+        result[j] = acc
+    end
+    return adjoint(result)
 end
 
-function LinearAlgebra.dot(x::AbstractVector{<:Number}, y::SymbolicVector)
-    return _dot_product(symbolic_trait(x), symbolic_trait(y), x, y)
+# Numeric row × Symbolic matrix -> Adjoint{SymVector}
+function Base.:*(x::LinearAlgebra.Adjoint{<:Any, <:AbstractVector{<:Number}}, A::SymMatrix)
+    xp = parent(x)
+    n, p = size(A)
+    @assert length(xp) == n "Dimension mismatch: vector has $(length(xp)) elements, matrix has $(n) rows"
+
+    # T = eltype(A)
+    result = SymVector(Vector{AbstractNode}(undef, p))
+    for j in 1:p
+        acc = Null(nothing)
+        for i in 1:n
+            acc = sym_add(acc, sym_mul(xp[i], A[i, j]))
+        end
+        result[j] = acc
+    end
+    return adjoint(result)
 end
 
-function LinearAlgebra.dot(x::SymbolicVector, y::AbstractVector{<:Number})
-    return _dot_product(symbolic_trait(x), symbolic_trait(y), x, y)
+# Symbolic row × Symbolic matrix -> Adjoint{SymVector}
+function Base.:*(x::LinearAlgebra.Adjoint{<:Any, <:SymVector}, A::SymMatrix)
+    xp = parent(x)
+    n, p = size(A)
+    @assert length(xp) == n "Dimension mismatch: vector has $(length(xp)) elements, matrix has $(n) rows"
+
+    # T = promote_type(eltype(xp), eltype(A))
+    result = SymVector(Vector{AbstractNode}(undef, p))
+    for j in 1:p
+        acc = Null(nothing)
+        for i in 1:n
+            acc = sym_add(acc, sym_mul(xp[i], A[i, j]))
+        end
+        result[j] = acc
+    end
+    return adjoint(result)
 end
 
 # =============================================================================
-# 11. INNER PRODUCTS VIA ADJOINT: x' * y
+# 10. MATRIX × MATRIX PRODUCTS
 # =============================================================================
 
-function Base.:*(x::LinearAlgebra.Adjoint{<:Any, <:SymbolicVector}, y::SymbolicVector)
+# Numeric matrix × Symbolic matrix -> SymMatrix
+function Base.:*(A::AbstractMatrix{<:Number}, B::SymMatrix)
+    m, n = size(A)
+    n2, p = size(B)
+    @assert n == n2 "Dimension mismatch: first matrix has $(n) columns, second has $(n2) rows"
+
+    # T = eltype(B)
+    result = SymMatrix(Matrix{AbstractNode}(undef, m, p))
+    for i in 1:m
+        for j in 1:p
+            acc = Null(nothing)
+            for k in 1:n
+                acc = sym_add(acc, sym_mul(A[i, k], B[k, j]))
+            end
+            result[i, j] = acc
+        end
+    end
+    return result
+end
+
+# Symbolic matrix × Numeric matrix -> SymMatrix
+function Base.:*(A::SymMatrix, B::AbstractMatrix{<:Number})
+    m, n = size(A)
+    n2, p = size(B)
+    @assert n == n2 "Dimension mismatch: first matrix has $(n) columns, second has $(n2) rows"
+
+    # T = eltype(A)
+    result = SymMatrix(Matrix{AbstractNode}(undef, m, p))
+    for i in 1:m
+        for j in 1:p
+            acc = Null(nothing)
+            for k in 1:n
+                acc = sym_add(acc, sym_mul(A[i, k], B[k, j]))
+            end
+            result[i, j] = acc
+        end
+    end
+    return result
+end
+
+# Symbolic matrix × Symbolic matrix -> SymMatrix
+function Base.:*(A::SymMatrix, B::SymMatrix)
+    m, n = size(A)
+    n2, p = size(B)
+    @assert n == n2 "Dimension mismatch: first matrix has $(n) columns, second has $(n2) rows"
+
+    # T = promote_type(eltype(A), eltype(B))
+    result = SymMatrix(Matrix{AbstractNode}(undef, m, p))
+    for i in 1:m
+        for j in 1:p
+            acc = Null(nothing)
+            for k in 1:n
+                acc = sym_add(acc, sym_mul(A[i, k], B[k, j]))
+            end
+            result[i, j] = acc
+        end
+    end
+    return result
+end
+
+# =============================================================================
+# 11. DOT PRODUCTS (return unwrapped AbstractNode scalar)
+# =============================================================================
+
+# Symbolic dot Symbolic -> AbstractNode
+function LinearAlgebra.dot(x::SymVector, y::SymVector)
+    n = length(x)
+    @assert n == length(y) "Dimension mismatch: vectors have lengths $(n) and $(length(y))"
+
+    acc = Null(nothing)
+    for i in 1:n
+        acc = sym_add(acc, sym_mul(x[i], y[i]))
+    end
+    return acc
+end
+
+# Numeric dot Symbolic -> AbstractNode
+function LinearAlgebra.dot(x::AbstractVector{<:Number}, y::SymVector)
+    n = length(x)
+    @assert n == length(y) "Dimension mismatch: vectors have lengths $(n) and $(length(y))"
+
+    acc = Null(nothing)
+    for i in 1:n
+        acc = sym_add(acc, sym_mul(x[i], y[i]))
+    end
+    return acc
+end
+
+# Symbolic dot Numeric -> AbstractNode
+function LinearAlgebra.dot(x::SymVector, y::AbstractVector{<:Number})
+    n = length(x)
+    @assert n == length(y) "Dimension mismatch: vectors have lengths $(n) and $(length(y))"
+
+    acc = Null(nothing)
+    for i in 1:n
+        acc = sym_add(acc, sym_mul(x[i], y[i]))
+    end
+    return acc
+end
+
+# =============================================================================
+# 12. INNER PRODUCTS VIA ADJOINT (x' * y)
+# =============================================================================
+
+# These delegate to dot products, which return unwrapped AbstractNode
+
+function Base.:*(x::LinearAlgebra.Adjoint{<:Any, <:SymVector}, y::SymVector)
     return dot(parent(x), y)
 end
 
-function Base.:*(x::LinearAlgebra.Adjoint{<:Any, <:SymbolicVector}, y::AbstractVector{<:Number})
+function Base.:*(x::LinearAlgebra.Adjoint{<:Any, <:SymVector}, y::AbstractVector{<:Number})
     return dot(parent(x), y)
 end
 
-function Base.:*(x::LinearAlgebra.Adjoint{<:Any, <:AbstractVector{<:Number}}, y::SymbolicVector)
+function Base.:*(x::LinearAlgebra.Adjoint{<:Any, <:AbstractVector{<:Number}}, y::SymVector)
     return dot(parent(x), y)
 end
 
 # =============================================================================
-# 12. MATRIX ADJOINT / TRANSPOSE (using trait-based dispatch)
+# 13. MATRIX ADJOINT / TRANSPOSE
 # =============================================================================
 
-function Base.adjoint(A::SymbolicMatrix)
-    return _adjoint_mat(symbolic_trait(A), A)
+# Vector adjoint returns Adjoint wrapper (for x' * A and x' * y syntax)
+Base.adjoint(v::SymVector) = LinearAlgebra.Adjoint(v)
+Base.transpose(v::SymVector) = LinearAlgebra.Transpose(v)
+
+# Matrix adjoint/transpose return wrapped SymMatrix
+function Base.adjoint(A::SymMatrix)
+    # For symbolic (assumed real), adjoint = transpose
+    return SymMatrix(permutedims(A.data))
 end
 
-function Base.transpose(A::SymbolicMatrix)
-    return _transpose_mat(symbolic_trait(A), A)
+function Base.transpose(A::SymMatrix)
+    return SymMatrix(permutedims(A.data))
 end
 
+# Adjoint of adjoint returns the original
+Base.adjoint(x::LinearAlgebra.Adjoint{<:Any, <:SymVector}) = parent(x)
+Base.transpose(x::LinearAlgebra.Transpose{<:Any, <:SymVector}) = parent(x)
+
 # =============================================================================
-# 13. NORMS (using trait-based dispatch)
+# 14. NORMS (return unwrapped AbstractNode scalar)
 # =============================================================================
 
-function LinearAlgebra.norm_sqr(x::SymbolicVector)
+# norm_sqr for vectors
+function LinearAlgebra.norm_sqr(x::SymVector)
     return dot(x, x)
 end
 
-# Symbolic norm: returns symbolic expression √(∑ xᵢ²)
-function LinearAlgebra.norm(x::SymbolicVector)
-    return _norm_p(symbolic_trait(x), x, 2)
+# L2 norm (default)
+function LinearAlgebra.norm(x::SymVector)
+    return sqrt(norm_sqr(x))
 end
 
-function LinearAlgebra.norm(x::SymbolicVector, p::Real)
-    return _norm_p(symbolic_trait(x), x, p)
+# Lp norm
+function LinearAlgebra.norm(x::SymVector, p::Real)
+    if p == 2
+        return norm(x)
+    elseif p == 1
+        # L1 norm: sum of absolute values
+        acc = Null(nothing)
+        for i in 1:length(x)
+            acc = sym_add(acc, abs(x[i]))
+        end
+        return acc
+    elseif p == Inf
+        error("Infinity norm not yet implemented for symbolic vectors")
+    else
+        # General Lp norm
+        acc = Null(nothing)
+        for i in 1:length(x)
+            acc = sym_add(acc, abs(x[i])^p)
+        end
+        return acc^(1/p)
+    end
 end
 
-# Matrix norms
-function LinearAlgebra.norm(A::SymbolicMatrix)
-    return _norm_frob(symbolic_trait(A), A)
+# Frobenius norm for matrices
+function LinearAlgebra.norm(A::SymMatrix)
+    m, n = size(A)
+    acc = Null(nothing)
+    for i in 1:m
+        for j in 1:n
+            acc = sym_add(acc, abs2(A[i, j]))
+        end
+    end
+    return sqrt(acc)
 end
 
 # =============================================================================
-# 14. BROADCASTING
+# 15. BROADCASTING
 # =============================================================================
 
-using Base.Broadcast: Broadcasted, DefaultArrayStyle
+# Custom broadcast style for symbolic wrappers
+struct SymArrayStyle{N} <: Broadcast.AbstractArrayStyle{N} end
 
-# Custom broadcast style for symbolic arrays
-struct SymbolicArrayStyle{N} <: Broadcast.AbstractArrayStyle{N} end
+SymArrayStyle(::Val{N}) where N = SymArrayStyle{N}()
+SymArrayStyle{M}(::Val{N}) where {M,N} = SymArrayStyle{N}()
 
-SymbolicArrayStyle(::Val{N}) where N = SymbolicArrayStyle{N}()
-SymbolicArrayStyle{M}(::Val{N}) where {M,N} = SymbolicArrayStyle{N}()
+# Register style for wrapper types
+Base.BroadcastStyle(::Type{<:SymVector}) = SymArrayStyle{1}()
+Base.BroadcastStyle(::Type{<:SymMatrix}) = SymArrayStyle{2}()
+Base.BroadcastStyle(::Type{<:SymArray{T,N}}) where {T,N} = SymArrayStyle{N}()
 
-# Register style for symbolic arrays
-Base.BroadcastStyle(::Type{<:AbstractArray{<:AbstractNode, N}}) where N = SymbolicArrayStyle{N}()
+# SymArrayStyle wins over DefaultArrayStyle
+Base.BroadcastStyle(::SymArrayStyle{N}, ::DefaultArrayStyle{M}) where {N,M} =
+    SymArrayStyle{max(N,M)}()
+Base.BroadcastStyle(::DefaultArrayStyle{M}, ::SymArrayStyle{N}) where {N,M} =
+    SymArrayStyle{max(N,M)}()
 
-# SymbolicArrayStyle wins over DefaultArrayStyle
-Base.BroadcastStyle(::SymbolicArrayStyle{N}, ::DefaultArrayStyle{M}) where {N,M} = SymbolicArrayStyle{max(N,M)}()
-Base.BroadcastStyle(::DefaultArrayStyle{M}, ::SymbolicArrayStyle{N}) where {N,M} = SymbolicArrayStyle{max(N,M)}()
+# Combine SymArrayStyles
+Base.BroadcastStyle(::SymArrayStyle{N}, ::SymArrayStyle{M}) where {N,M} =
+    SymArrayStyle{max(N,M)}()
 
-# Combine two SymbolicArrayStyles
-Base.BroadcastStyle(::SymbolicArrayStyle{N}, ::SymbolicArrayStyle{M}) where {N,M} = SymbolicArrayStyle{max(N,M)}()
-
-# Allocate output array for broadcast
-function Base.similar(bc::Broadcasted{SymbolicArrayStyle{N}}, ::Type{T}) where {N, T}
+# Allocate output for broadcast - returns wrapped type
+function Base.similar(bc::Broadcasted{SymArrayStyle{1}}, ::Type{T}) where T
     sz = map(length, axes(bc))
-    return Array{AbstractNode, N}(undef, sz...)
+    return SymVector(Vector{AbstractNode}(undef, sz[1]))
 end
 
-# Materialize the broadcast
-function Base.copy(bc::Broadcasted{SymbolicArrayStyle{N}}) where N
+function Base.similar(bc::Broadcasted{SymArrayStyle{2}}, ::Type{T}) where T
     sz = map(length, axes(bc))
-    result = Array{AbstractNode, N}(undef, sz...)
-    @inbounds for I in CartesianIndices(result)
-        result[I] = bc[I]
+    return SymMatrix(Matrix{AbstractNode}(undef, sz...))
+end
+
+function Base.similar(bc::Broadcasted{SymArrayStyle{N}}, ::Type{T}) where {N, T}
+    sz = map(length, axes(bc))
+    return SymArray(Array{AbstractNode, N}(undef, sz...))
+end
+
+# Materialize broadcast
+function Base.copy(bc::Broadcasted{SymArrayStyle{1}})
+    result = similar(bc, AbstractNode)
+    @inbounds for I in CartesianIndices(result.data)
+        result.data[I] = bc[I]
+    end
+    return result
+end
+
+function Base.copy(bc::Broadcasted{SymArrayStyle{2}})
+    result = similar(bc, AbstractNode)
+    @inbounds for I in CartesianIndices(result.data)
+        result.data[I] = bc[I]
+    end
+    return result
+end
+
+function Base.copy(bc::Broadcasted{SymArrayStyle{N}}) where N
+    result = similar(bc, AbstractNode)
+    @inbounds for I in CartesianIndices(result.data)
+        result.data[I] = bc[I]
     end
     return result
 end
 
 # In-place broadcast
-function Base.copyto!(dest::AbstractArray{<:AbstractNode}, bc::Broadcasted{SymbolicArrayStyle{N}}) where N
-    @inbounds for I in CartesianIndices(dest)
-        dest[I] = bc[I]
+function Base.copyto!(dest::SymVector, bc::Broadcasted{SymArrayStyle{1}})
+    @inbounds for I in CartesianIndices(dest.data)
+        dest.data[I] = bc[I]
     end
     return dest
 end
 
-# =============================================================================
-# 15. ABS / ABS2 for symbolic nodes
-# =============================================================================
+function Base.copyto!(dest::SymMatrix, bc::Broadcasted{SymArrayStyle{2}})
+    @inbounds for I in CartesianIndices(dest.data)
+        dest.data[I] = bc[I]
+    end
+    return dest
+end
 
-# Note: abs2 is already defined in ExaModels, so we don't redefine it here
+function Base.copyto!(dest::SymArray{T,N}, bc::Broadcasted{SymArrayStyle{N}}) where {T,N}
+    @inbounds for I in CartesianIndices(dest.data)
+        dest.data[I] = bc[I]
+    end
+    return dest
+end
