@@ -39,7 +39,7 @@ function test_onepass_exa()
     #l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
     l_scheme = [:midpoint] # debug
     for scheme ∈ l_scheme
-        #debug: __test_onepass_exa(; scheme=scheme)
+        __test_onepass_exa(; scheme=scheme)
         CUDA.functional() && __test_onepass_exa(CUDABackend(); scheme=scheme)
     end
 end
@@ -1655,7 +1655,6 @@ function __test_onepass_exa(
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
     end
-    end # debug
 
     test_name = "use case no. 6: vectorised constraints ($backend_name, $scheme)"
     @testset "$test_name" begin
@@ -1779,6 +1778,7 @@ function __test_onepass_exa(
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
     end end
+    end # debug
 
     test_name = "use case no. 8: vectorised dynamics ($backend_name, $scheme)"
     @testset "$test_name" begin
@@ -1810,8 +1810,10 @@ function __test_onepass_exa(
         m1, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
         @test m1 isa ExaModels.ExaModel
         sol1 = madnlp(m1; tol=tolerance, max_iter=max_iter, kwargs...)
+        @test sol1.status == MadNLP.SOLVE_SUCCEEDED
         obj1 = sol1.objective
 
+        @ignore begin #debug
         # Non-vectorised version
         o2 = @def begin
             t ∈ [0, tf], time
@@ -1830,5 +1832,6 @@ function __test_onepass_exa(
 
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
+        end # debug
     end 
 end

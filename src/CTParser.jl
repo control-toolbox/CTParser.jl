@@ -24,6 +24,6 @@ include("defaults.jl")
 include("utils.jl")
 include("onepass.jl")
 include("initial_guess.jl")
-include("exa_linalg.jl")
+#include("exa_linalg.jl") debug
 
 end

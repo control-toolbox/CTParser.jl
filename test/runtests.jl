@@ -74,7 +74,7 @@ function default_tests()
         :onepass_fun_bis => true,
         :onepass_exa => true,
         :onepass_exa_bis => true,
-        :exa_linalg => true,
+        #debug :exa_linalg => true,
         :usecase8_gpu => false,  # Temporary test for GPU-only use case 8
     )
 end

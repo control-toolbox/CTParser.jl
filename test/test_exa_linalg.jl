@@ -18,14 +18,21 @@ function test_exa_linalg()
     v = randn(5)
     w = randn(3)
 
-    @testset "Basic AbstractNode properties" begin
-        println("  Testing basic AbstractNode properties")
+    @testset "Basic SymNumber properties" begin
+        println("  Testing basic SymNumber properties")
 
-        # zero and one
-        @test zero(typeof(x[1])) isa ExaModels.Null
-        @test zero(x[1]) isa ExaModels.Null
-        @test one(typeof(x[1])) isa ExaModels.Null
-        @test one(x[1]) isa ExaModels.Null
+        # x[1] now returns SymNumber
+        @test x[1] isa CTParser.SymNumber
+
+        # zero and one return SymNumber
+        @test zero(CTParser.SymNumber) isa CTParser.SymNumber
+        @test zero(x[1]) isa CTParser.SymNumber
+        @test one(CTParser.SymNumber) isa CTParser.SymNumber
+        @test one(x[1]) isa CTParser.SymNumber
+
+        # Unwrapped values are Null
+        @test CTParser.unwrap_scalar(zero(CTParser.SymNumber)) isa ExaModels.Null
+        @test CTParser.unwrap_scalar(one(CTParser.SymNumber)) isa ExaModels.Null
 
         # Scalar properties
         @test length(x[1]) == 1
@@ -48,26 +55,26 @@ function test_exa_linalg()
     @testset "Type promotion and conversion" begin
         println("  Testing type promotion and conversion")
 
-        @test convert(AbstractNode, 5.0) isa ExaModels.Null
-        @test convert(AbstractNode, x[1]) === x[1]
+        @test convert(CTParser.SymNumber, 5.0) isa CTParser.SymNumber
+        @test convert(CTParser.SymNumber, x[1]) === x[1]
 
         # Promotion with numbers
-        @test promote_type(typeof(x[1]), Float64) == AbstractNode
-        @test promote_type(typeof(x[1]), Int) == AbstractNode
+        @test promote_type(typeof(x[1]), Float64) == CTParser.SymNumber
+        @test promote_type(typeof(x[1]), Int) == CTParser.SymNumber
     end
 
     @testset "Symbolic arithmetic helpers" begin
         println("  Testing sym_add and sym_mul")
 
-        # sym_add with Null(nothing)
-        null_zero = ExaModels.Null(nothing)
+        # sym_add with Null(nothing) - wrapping in SymNumber
+        null_zero = CTParser.SymNumber(ExaModels.Null(nothing))
         @test CTParser.sym_add(null_zero, x[1]) === x[1]
         @test CTParser.sym_add(x[1], null_zero) === x[1]
-        @test CTParser.sym_add(x[1], y[1]) isa AbstractNode
+        @test CTParser.sym_add(x[1], y[1]) isa CTParser.SymNumber
 
         # sym_mul
-        @test CTParser.sym_mul(x[1], y[1]) isa AbstractNode
-        @test CTParser.sym_mul(2.0, x[1]) isa AbstractNode
+        @test CTParser.sym_mul(x[1], y[1]) isa CTParser.SymNumber
+        @test CTParser.sym_mul(2.0, x[1]) isa CTParser.SymNumber
     end
 
     @testset "Matrix-vector products" begin
@@ -134,42 +141,42 @@ function test_exa_linalg()
     @testset "Dot products" begin
         println("  Testing dot products")
 
-        # Symbolic · Symbolic
-        @test dot(x, y) isa AbstractNode
-        @test dot(x[1:3], y[1:3]) isa AbstractNode
+        # Symbolic · Symbolic - now returns SymNumber
+        @test dot(x, y) isa CTParser.SymNumber
+        @test dot(x[1:3], y[1:3]) isa CTParser.SymNumber
 
         # Numeric · Symbolic
-        @test dot(v, x) isa AbstractNode
-        @test dot(v[1:3], x[1:3]) isa AbstractNode
+        @test dot(v, x) isa CTParser.SymNumber
+        @test dot(v[1:3], x[1:3]) isa CTParser.SymNumber
 
         # Symbolic · Numeric
-        @test dot(x, v) isa AbstractNode
-        @test dot(x[1:3], v[1:3]) isa AbstractNode
+        @test dot(x, v) isa CTParser.SymNumber
+        @test dot(x[1:3], v[1:3]) isa CTParser.SymNumber
     end
 
     @testset "Inner products via adjoint" begin
         println("  Testing inner products (x' * y)")
 
-        # Symbolic' × Symbolic
-        @test x' * y isa AbstractNode
-        @test x' * x isa AbstractNode
+        # Symbolic' × Symbolic - now returns SymNumber
+        @test x' * y isa CTParser.SymNumber
+        @test x' * x isa CTParser.SymNumber
 
         # Symbolic' × Numeric
-        @test x' * v isa AbstractNode
-        @test x[1:3]' * v[1:3] isa AbstractNode
+        @test x' * v isa CTParser.SymNumber
+        @test x[1:3]' * v[1:3] isa CTParser.SymNumber
 
         # Numeric' × Symbolic
-        @test v' * x isa AbstractNode
-        @test v[1:3]' * x[1:3] isa AbstractNode
+        @test v' * x isa CTParser.SymNumber
+        @test v[1:3]' * x[1:3] isa CTParser.SymNumber
     end
 
     @testset "Quadratic forms" begin
         println("  Testing quadratic forms")
 
-        # x' * A * x
-        @test x' * A * x isa AbstractNode
-        @test x[1:3]' * M * x[1:3] isa AbstractNode
-        @test x[1:3]' * B * x[1:3] isa AbstractNode
+        # x' * A * x - now returns SymNumber
+        @test x' * A * x isa CTParser.SymNumber
+        @test x[1:3]' * M * x[1:3] isa CTParser.SymNumber
+        @test x[1:3]' * B * x[1:3] isa CTParser.SymNumber
     end
 
     @testset "Matrix transpose and adjoint" begin
@@ -193,32 +200,32 @@ function test_exa_linalg()
     @testset "Vector norms" begin
         println("  Testing vector norms")
 
-        # Default norm (L2)
-        @test norm(x) isa AbstractNode
-        @test norm(y) isa AbstractNode
+        # Default norm (L2) - now returns SymNumber
+        @test norm(x) isa CTParser.SymNumber
+        @test norm(y) isa CTParser.SymNumber
 
         # norm_sqr
-        @test norm_sqr(x) isa AbstractNode
-        @test norm_sqr(x[1:3]) isa AbstractNode
+        @test norm_sqr(x) isa CTParser.SymNumber
+        @test norm_sqr(x[1:3]) isa CTParser.SymNumber
 
         # Explicit L2 norm
-        @test norm(x, 2) isa AbstractNode
+        @test norm(x, 2) isa CTParser.SymNumber
 
         # L1 norm
-        @test norm(x, 1) isa AbstractNode
-        @test norm(x[1:3], 1) isa AbstractNode
+        @test norm(x, 1) isa CTParser.SymNumber
+        @test norm(x[1:3], 1) isa CTParser.SymNumber
 
         # Lp norms
-        @test norm(x, 3) isa AbstractNode
-        @test norm(x, 4) isa AbstractNode
+        @test norm(x, 3) isa CTParser.SymNumber
+        @test norm(x, 4) isa CTParser.SymNumber
     end
 
     @testset "Matrix norms" begin
         println("  Testing matrix norms")
 
-        # Frobenius norm (default)
-        @test norm(M) isa AbstractNode
-        @test norm(N) isa AbstractNode
+        # Frobenius norm (default) - now returns SymNumber
+        @test norm(M) isa CTParser.SymNumber
+        @test norm(N) isa CTParser.SymNumber
     end
 
     @testset "Broadcasting - unary operations" begin
@@ -286,8 +293,8 @@ function test_exa_linalg()
     @testset "abs and abs2" begin
         println("  Testing abs and abs2")
 
-        # abs2 for scalar node
-        @test abs2(x[1]) isa AbstractNode
+        # abs2 for scalar node - now returns SymNumber
+        @test abs2(x[1]) isa CTParser.SymNumber
 
         # abs2 via broadcasting
         @test abs2.(x) isa CTParser.SymVector
@@ -325,17 +332,17 @@ function test_exa_linalg()
         @test result isa CTParser.SymMatrix
         @test size(result) == size(M)
 
-        # Complex expression
+        # Complex expression - now returns SymNumber
         result = (x' * A * x) + dot(x, v) + norm(x)^2
-        @test result isa AbstractNode
+        @test result isa CTParser.SymNumber
 
         # Broadcasting mixed with products
         result = (A * x) .+ v
         @test result isa CTParser.SymVector
 
-        # Norm of matrix-vector product
+        # Norm of matrix-vector product - now returns SymNumber
         result = norm(M * x[1:3])
-        @test result isa AbstractNode
+        @test result isa CTParser.SymNumber
     end
 
     println("  All exa_linalg tests passed!")
