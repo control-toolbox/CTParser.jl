@@ -80,7 +80,7 @@ function test_onepass_exa()
     #l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
     l_scheme = [:midpoint] # debug
     for scheme ∈ l_scheme
-        __test_onepass_exa(; scheme=scheme)
+        #debug __test_onepass_exa(; scheme=scheme)
         CUDA.functional() && __test_onepass_exa(CUDABackend(); scheme=scheme)
     end
 end
@@ -1843,8 +1843,8 @@ function __test_onepass_exa(
             #∂(x₁)(t) == x₂(t)
             ∂(x₂)(t) == dot(A[2, :], x(t)) + u(t) * B[2]
             #∂(x₂)(t) == -x₁(t) + u(t) 
-            0.5∫( x(t)' * Q * x(t) + u(t)' * R * u(t) ) → min
-            #0.5∫( x₁(t)^2 + x₂(t)^2 + u(t)^2 ) → min
+            #0.5∫( x(t)' * Q * x(t) + u(t)' * R * u(t) ) → min
+            0.5∫( x₁(t)^2 + x₂(t)^2 + u(t)^2 ) → min
         end
 
         N = 250
