@@ -4,7 +4,7 @@
 activate_backend(:exa) # nota bene: needs to be executed before @def are expanded
 
 # Auxiliary functions
-# debug: add tests on these, and export them (both from CTParser and from OC)
+# todo: add tests on these, and export them (both from CTParser and from OC)
 # try: just redefine Base.zero and Base.adjoint; may be add promote and convert 
 
 import Base: zero, adjoint, *
@@ -77,10 +77,10 @@ end
 # Tests
 
 function test_onepass_exa()
-    #l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
-    l_scheme = [:midpoint] # debug
+    l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
+    #l_scheme = [:midpoint]
     for scheme ∈ l_scheme
-        #debug __test_onepass_exa(; scheme=scheme)
+        __test_onepass_exa(; scheme=scheme)
         CUDA.functional() && __test_onepass_exa(CUDABackend(); scheme=scheme)
     end
 end
@@ -90,7 +90,6 @@ function __test_onepass_exa(
 )
     backend_name = isnothing(backend) ? "CPU" : "GPU"
 
-    @ignore begin # debug
     test_name = "min ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
@@ -1820,7 +1819,6 @@ function __test_onepass_exa(
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
     end end
-    end # debug
 
     test_name = "use case no. 8: vectorised dynamics ($backend_name, $scheme)"
     @testset "$test_name" begin
@@ -1839,12 +1837,12 @@ function __test_onepass_exa(
             x ∈ R², state
             u ∈ R, control
             x(0) == x0
-            ∂(x₁)(t) == dot(A[1, :], x(t)) + u(t) * B[1]
             #∂(x₁)(t) == x₂(t)
-            ∂(x₂)(t) == dot(A[2, :], x(t)) + u(t) * B[2]
+            ∂(x₁)(t) == dot(A[1, :], x(t)) + u(t) * B[1]
             #∂(x₂)(t) == -x₁(t) + u(t) 
-            #0.5∫( x(t)' * Q * x(t) + u(t)' * R * u(t) ) → min
-            0.5∫( x₁(t)^2 + x₂(t)^2 + u(t)^2 ) → min
+            ∂(x₂)(t) == dot(A[2, :], x(t)) + u(t) * B[2]
+            #0.5∫( x₁(t)^2 + x₂(t)^2 + u(t)^2 ) → min
+            0.5∫( x(t)' * Q * x(t) + u(t)' * R * u(t) ) → min
         end
 
         N = 250
