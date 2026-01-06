@@ -64,6 +64,7 @@ const SHOWTIMING = true
 function default_tests()
     return OrderedDict(
         :aqua => true,
+        :exa_linalg => true,
         :initial_guess => true,
         :utils => true,
         :utils_bis => true,
