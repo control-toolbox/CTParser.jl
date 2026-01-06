@@ -52,6 +52,11 @@ using CUDA
 using BenchmarkTools
 using Interpolations
 using NLPModels
+using LinearAlgebra
+
+# Load ExaLinAlg module for linear algebra operations on ExaModels.AbstractNode arrays
+include("exa_linalg.jl")
+using .ExaLinAlg
 
 macro ignore(e)
     return :()

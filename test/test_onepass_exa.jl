@@ -3,9 +3,6 @@
 
 activate_backend(:exa) # nota bene: needs to be executed before @def are expanded
 
-include("exa_linalg.jl")
-using .ExaLinAlg
-
 # Mock up of CTDirect.discretise for tests
 
 function discretise_exa(

@@ -2,14 +2,6 @@
 # Pure unit tests for ExaModels linear algebra extensions
 # No dependencies on CTParser - only ExaModels and LinearAlgebra
 
-using ExaModels: ExaModels
-using LinearAlgebra
-using Test
-
-# Import the ExaLinAlg module
-include("exa_linalg.jl")
-using .ExaLinAlg
-
 # Helper to create test AbstractNode instances
 function create_nodes()
     # Use Null nodes which are simple AbstractNode instances
