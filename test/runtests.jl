@@ -52,7 +52,7 @@ using CUDA
 using BenchmarkTools
 using Interpolations
 using NLPModels
-using LinearAlgebra: LinearAlgebra, dot, norm, norm_sqr 
+#using LinearAlgebra: LinearAlgebra, dot, norm, norm_sqr 
 
 macro ignore(e)
     return :()
