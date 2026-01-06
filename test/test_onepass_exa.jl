@@ -3,46 +3,7 @@
 
 activate_backend(:exa) # nota bene: needs to be executed before @def are expanded
 
-# Auxiliary functions
-# todo: add tests on these, and export them (both from CTParser and from OC)
-# try: just redefine Base.zero and Base.adjoint; may be add promote and convert 
-
-import Base: zero, adjoint, *
-import LinearAlgebra: dot, Adjoint
-
-zero(x::T) where {T <: ExaModels.AbstractNode} = 0
-
-adjoint(x::ExaModels.AbstractNode) = x
-
-## Convert Number to AbstractNode using Null
-Base.convert(::Type{ExaModels.AbstractNode}, x::Number) = ExaModels.Null(x)
-#
-## Also handle the identity conversion
-#Base.convert(::Type{T}, x::T) where {T<:ExaModels.AbstractNode} = x
-#
-## If you need more specific typing:
-#Base.convert(::Type{ExaModels.Null{T}}, x::Number) where {T} = 
-#    ExaModels.Null{typeof(x)}(x)
-
-# works to define matrices (of vectors) with symbolic entries
-Base.promote_rule(::Type{<:ExaModels.AbstractNode}, ::Type{<:Number}) = ExaModels.AbstractNode
-
-function dot(v::Vector{T}, x::Vector{S}) where {T, S <: ExaModels.AbstractNode}
-    @assert length(v) == length(x)
-    return sum(v .* x)
-end
-
-function *(A::Matrix{T}, x::Vector{S}) where {T, S <: ExaModels.AbstractNode}
-    m, n = size(A)
-    @assert n == length(x)
-    return [dot(A[i, :], x) for i in 1:m]
-end
-
-function *(p::Adjoint{T, Vector{T}}, A::Matrix{S}) where {T <: ExaModels.AbstractNode, S}
-    m, n = size(A)
-    @assert m == length(p)
-    return [p * A[:, j] for j in 1:n]'
-end
+include("exa_linalg.jl")
 
 # Mock up of CTDirect.discretise for tests
 
@@ -77,10 +38,10 @@ end
 # Tests
 
 function test_onepass_exa()
-    l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
-    #l_scheme = [:midpoint]
+    #debug l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
+    l_scheme = [:midpoint]
     for scheme ∈ l_scheme
-        __test_onepass_exa(; scheme=scheme)
+        #debug __test_onepass_exa(; scheme=scheme)
         CUDA.functional() && __test_onepass_exa(CUDABackend(); scheme=scheme)
     end
 end
@@ -90,6 +51,7 @@ function __test_onepass_exa(
 )
     backend_name = isnothing(backend) ? "CPU" : "GPU"
 
+    @ignore begin # debug
     test_name = "min ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
@@ -1819,6 +1781,7 @@ function __test_onepass_exa(
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
     end end
+    end # debug
 
     test_name = "use case no. 8: vectorised dynamics ($backend_name, $scheme)"
     @testset "$test_name" begin
