@@ -1,6 +1,8 @@
 # test onepass, exa parsing (aka parsing towards ExaModels)
 # tests with @def_exa are @test_throw's that bypass :fun parsing since parsing with :fun throws an error before one can be detected by :exa.
 
+using .ExaLinAlg # Load ExaLinAlg module for linear algebra operations on ExaModels.AbstractNode arrays
+
 activate_backend(:exa) # nota bene: needs to be executed before @def are expanded
 
 # Mock up of CTDirect.discretise for tests
