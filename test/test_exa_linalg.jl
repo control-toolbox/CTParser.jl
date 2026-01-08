@@ -517,5 +517,135 @@ function test_exa_linalg()
             @test result16[1, 1] isa ExaModels.AbstractNode
             @test result16[1, 2] == 0.0
         end
+
+        @testset "Method ambiguity fixes" begin
+            # Tests for all previously ambiguous cases (both operands are AbstractNode)
+            # These tests verify that the ambiguity fixes work correctly
+
+            x, y, z, w = create_nodes()
+            vec_nodes1 = [x, y, z]
+            vec_nodes2 = [y, z, w]
+            mat_nodes1 = [x y; z w]
+            mat_nodes2 = [y z; w x]
+
+            @testset "Scalar × Vector (both AbstractNode)" begin
+                # AbstractNode × Vector{AbstractNode}
+                result = x * vec_nodes1
+                @test length(result) == 3
+                @test result isa Vector
+                @test result[1] isa ExaModels.AbstractNode
+            end
+
+            @testset "Vector × Scalar (both AbstractNode)" begin
+                # Vector{AbstractNode} × AbstractNode
+                result = vec_nodes1 * x
+                @test length(result) == 3
+                @test result isa Vector
+                @test result[1] isa ExaModels.AbstractNode
+            end
+
+            @testset "Scalar × Matrix (both AbstractNode)" begin
+                # AbstractNode × Matrix{AbstractNode}
+                result = x * mat_nodes1
+                @test size(result) == (2, 2)
+                @test result isa Matrix
+                @test result[1, 1] isa ExaModels.AbstractNode
+            end
+
+            @testset "Matrix × Scalar (both AbstractNode)" begin
+                # Matrix{AbstractNode} × AbstractNode
+                result = mat_nodes1 * x
+                @test size(result) == (2, 2)
+                @test result isa Matrix
+                @test result[1, 1] isa ExaModels.AbstractNode
+            end
+
+            @testset "dot product (both AbstractNode)" begin
+                # dot(Vector{AbstractNode}, Vector{AbstractNode})
+                result = dot(vec_nodes1, vec_nodes2)
+                @test result isa ExaModels.AbstractNode
+            end
+
+            @testset "Matrix × Vector (both AbstractNode)" begin
+                # Matrix{AbstractNode} × Vector{AbstractNode}
+                # This is the specific case mentioned in the issue!
+                A = [x y z; w x y]  # 2×3 matrix
+                v = [x, y, z]        # length 3 vector
+
+                result = A * v
+                @test length(result) == 2
+                @test result isa Vector
+                @test result[1] isa ExaModels.AbstractNode
+            end
+
+            @testset "Matrix × Matrix (both AbstractNode)" begin
+                # Matrix{AbstractNode} × Matrix{AbstractNode}
+                result = mat_nodes1 * mat_nodes2
+                @test size(result) == (2, 2)
+                @test result isa Matrix
+                @test result[1, 1] isa ExaModels.AbstractNode
+            end
+
+            @testset "Adjoint Vector × Matrix (both AbstractNode)" begin
+                # Adjoint{AbstractNode} × Matrix{AbstractNode}
+                A = [x y; z w; y x]  # 3×2 matrix
+                v = [x, y, z]         # length 3 vector
+
+                result = v' * A
+                @test size(result) == (1, 2)
+                @test result isa LinearAlgebra.Adjoint
+            end
+
+            @testset "Vector + Vector (both AbstractNode)" begin
+                # Vector{AbstractNode} + Vector{AbstractNode}
+                result = vec_nodes1 + vec_nodes2
+                @test length(result) == 3
+                @test result isa Vector
+                @test result[1] isa ExaModels.AbstractNode
+            end
+
+            @testset "Vector - Vector (both AbstractNode)" begin
+                # Vector{AbstractNode} - Vector{AbstractNode}
+                result = vec_nodes1 - vec_nodes2
+                @test length(result) == 3
+                @test result isa Vector
+                @test result[1] isa ExaModels.AbstractNode
+            end
+
+            @testset "Matrix + Matrix (both AbstractNode)" begin
+                # Matrix{AbstractNode} + Matrix{AbstractNode}
+                result = mat_nodes1 + mat_nodes2
+                @test size(result) == (2, 2)
+                @test result isa Matrix
+                @test result[1, 1] isa ExaModels.AbstractNode
+            end
+
+            @testset "Matrix - Matrix (both AbstractNode)" begin
+                # Matrix{AbstractNode} - Matrix{AbstractNode}
+                result = mat_nodes1 - mat_nodes2
+                @test size(result) == (2, 2)
+                @test result isa Matrix
+                @test result[1, 1] isa ExaModels.AbstractNode
+            end
+
+            @testset "Mixed operations (no standard library conflicts)" begin
+                # These verify we don't have ambiguities with standard library types
+                v_num = [1.0, 2.0, 3.0]
+                v_num_2 = [1.0, 2.0]
+                A_num = [1.0 2.0 3.0; 4.0 5.0 6.0]
+
+                # Should work without ambiguity
+                @test (vec_nodes1 * 2.0) isa Vector
+                @test (2.0 * vec_nodes1) isa Vector
+                @test (mat_nodes1 * 2.0) isa Matrix
+                @test (2.0 * mat_nodes1) isa Matrix
+                @test dot(v_num, vec_nodes1) isa ExaModels.AbstractNode
+                @test dot(vec_nodes1, v_num) isa ExaModels.AbstractNode
+                @test (A_num * vec_nodes1) isa Vector
+                @test (mat_nodes1 * v_num_2) isa Vector
+                @test (A_num * [x y; z w; y x]) isa Matrix
+                @test (mat_nodes1 * mat_nodes2) isa Matrix  # Both AbstractNode
+            end
+        end
     end
 end
