@@ -37,7 +37,7 @@ promote_rule(::Type{<:ExaModels.AbstractNode}, ::Type{<:Number}) = ExaModels.Abs
 # ============================================================================
 
 # Scalar × Vector
-function *(a::T, v::Vector{S}) where {T <: ExaModels.AbstractNode, S}
+function *(a::T, v::Vector{<:Number}) where {T <: ExaModels.AbstractNode}
     return [a * vi for vi in v]
 end
 
@@ -45,17 +45,25 @@ function *(a::Number, v::Vector{T}) where {T <: ExaModels.AbstractNode}
     return [a * vi for vi in v]
 end
 
+function *(a::T, v::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+    return [a * vi for vi in v]
+end
+
 # Vector × Scalar
-function *(v::Vector{T}, a::S) where {T <: ExaModels.AbstractNode, S}
+function *(v::Vector{T}, a::Number) where {T <: ExaModels.AbstractNode}
     return [vi * a for vi in v]
 end
 
-function *(v::Vector{T}, a::S) where {T, S <: ExaModels.AbstractNode}
+function *(v::Vector{T}, a::S) where {T <: Number, S <: ExaModels.AbstractNode}
+    return [vi * a for vi in v]
+end
+
+function *(v::Vector{T}, a::S) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     return [vi * a for vi in v]
 end
 
 # Scalar × Matrix
-function *(a::T, A::Matrix{S}) where {T <: ExaModels.AbstractNode, S}
+function *(a::T, A::Matrix{<:Number}) where {T <: ExaModels.AbstractNode}
     return [a * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
@@ -63,12 +71,20 @@ function *(a::Number, A::Matrix{T}) where {T <: ExaModels.AbstractNode}
     return [a * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
+function *(a::T, A::Matrix{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+    return [a * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
+end
+
 # Matrix × Scalar
-function *(A::Matrix{T}, a::S) where {T <: ExaModels.AbstractNode, S}
+function *(A::Matrix{T}, a::Number) where {T <: ExaModels.AbstractNode}
     return [A[i, j] * a for i in axes(A, 1), j in axes(A, 2)]
 end
 
-function *(A::Matrix{T}, a::S) where {T, S <: ExaModels.AbstractNode}
+function *(A::Matrix{T}, a::S) where {T <: Number, S <: ExaModels.AbstractNode}
+    return [A[i, j] * a for i in axes(A, 1), j in axes(A, 2)]
+end
+
+function *(A::Matrix{T}, a::S) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     return [A[i, j] * a for i in axes(A, 1), j in axes(A, 2)]
 end
 
@@ -76,12 +92,17 @@ end
 # Dot product (returns AbstractNode)
 # ============================================================================
 
-function dot(v::Vector{T}, x::Vector{S}) where {T, S <: ExaModels.AbstractNode}
+function dot(v::Vector{<:Number}, x::Vector{T}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(x) "Vectors must have the same length: got $(length(v)) and $(length(x))"
     return sum(v .* x)
 end
 
-function dot(v::Vector{T}, x::Vector{S}) where {T <: ExaModels.AbstractNode, S}
+function dot(v::Vector{T}, x::Vector{<:Number}) where {T <: ExaModels.AbstractNode}
+    @assert length(v) == length(x) "Vectors must have the same length: got $(length(v)) and $(length(x))"
+    return sum(v .* x)
+end
+
+function dot(v::Vector{T}, x::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     @assert length(v) == length(x) "Vectors must have the same length: got $(length(v)) and $(length(x))"
     return sum(v .* x)
 end
@@ -90,13 +111,19 @@ end
 # Matrix × Vector product
 # ============================================================================
 
-function *(A::Matrix{T}, x::Vector{S}) where {T, S <: ExaModels.AbstractNode}
+function *(A::Matrix{<:Number}, x::Vector{T}) where {T <: ExaModels.AbstractNode}
     m, n = size(A)
     @assert n == length(x) "Dimension mismatch: matrix has $n columns but vector has $(length(x)) elements"
     return [dot(A[i, :], x) for i in 1:m]
 end
 
-function *(A::Matrix{T}, x::Vector{S}) where {T <: ExaModels.AbstractNode, S}
+function *(A::Matrix{T}, x::Vector{<:Number}) where {T <: ExaModels.AbstractNode}
+    m, n = size(A)
+    @assert n == length(x) "Dimension mismatch: matrix has $n columns but vector has $(length(x)) elements"
+    return [dot(A[i, :], x) for i in 1:m]
+end
+
+function *(A::Matrix{T}, x::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     m, n = size(A)
     @assert n == length(x) "Dimension mismatch: matrix has $n columns but vector has $(length(x)) elements"
     return [dot(A[i, :], x) for i in 1:m]
@@ -106,14 +133,14 @@ end
 # Matrix × Matrix product
 # ============================================================================
 
-function *(A::Matrix{T}, B::Matrix{S}) where {T, S <: ExaModels.AbstractNode}
+function *(A::Matrix{<:Number}, B::Matrix{T}) where {T <: ExaModels.AbstractNode}
     m, n = size(A)
     p, q = size(B)
     @assert n == p "Dimension mismatch: A has $n columns but B has $p rows"
     return [dot(A[i, :], B[:, j]) for i in 1:m, j in 1:q]
 end
 
-function *(A::Matrix{T}, B::Matrix{S}) where {T <: ExaModels.AbstractNode, S}
+function *(A::Matrix{T}, B::Matrix{<:Number}) where {T <: ExaModels.AbstractNode}
     m, n = size(A)
     p, q = size(B)
     @assert n == p "Dimension mismatch: A has $n columns but B has $p rows"
@@ -131,13 +158,13 @@ end
 # Adjoint Vector × Matrix product
 # ============================================================================
 
-function *(p::Adjoint{T, Vector{T}}, A::Matrix{S}) where {T <: ExaModels.AbstractNode, S}
+function *(p::Adjoint{T, Vector{T}}, A::Matrix{<:Number}) where {T <: ExaModels.AbstractNode}
     m, n = size(A)
     @assert m == length(p) "Dimension mismatch: vector has $(length(p)) elements but matrix has $m rows"
     return [p * A[:, j] for j in 1:n]'
 end
 
-function *(p::Adjoint{T, Vector{T}}, A::Matrix{S}) where {T, S <: ExaModels.AbstractNode}
+function *(p::Adjoint{T, Vector{T}}, A::Matrix{S}) where {T <: Number, S <: ExaModels.AbstractNode}
     m, n = size(A)
     @assert m == length(p) "Dimension mismatch: vector has $(length(p)) elements but matrix has $m rows"
     return [p * A[:, j] for j in 1:n]'
@@ -258,12 +285,12 @@ end
 # ============================================================================
 
 # Vector + Vector
-function +(v::Vector{T}, w::Vector{S}) where {T <: ExaModels.AbstractNode, S}
+function +(v::Vector{T}, w::Vector{<:Number}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
     return [v[i] + w[i] for i in eachindex(v)]
 end
 
-function +(v::Vector{T}, w::Vector{S}) where {T, S <: ExaModels.AbstractNode}
+function +(v::Vector{<:Number}, w::Vector{T}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
     return [v[i] + w[i] for i in eachindex(v)]
 end
@@ -274,12 +301,12 @@ function +(v::Vector{T}, w::Vector{S}) where {T <: ExaModels.AbstractNode, S <: 
 end
 
 # Vector - Vector
-function -(v::Vector{T}, w::Vector{S}) where {T <: ExaModels.AbstractNode, S}
+function -(v::Vector{T}, w::Vector{<:Number}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
     return [v[i] - w[i] for i in eachindex(v)]
 end
 
-function -(v::Vector{T}, w::Vector{S}) where {T, S <: ExaModels.AbstractNode}
+function -(v::Vector{<:Number}, w::Vector{T}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
     return [v[i] - w[i] for i in eachindex(v)]
 end
@@ -290,12 +317,12 @@ function -(v::Vector{T}, w::Vector{S}) where {T <: ExaModels.AbstractNode, S <: 
 end
 
 # Matrix + Matrix
-function +(A::Matrix{T}, B::Matrix{S}) where {T <: ExaModels.AbstractNode, S}
+function +(A::Matrix{T}, B::Matrix{<:Number}) where {T <: ExaModels.AbstractNode}
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
     return [A[i, j] + B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
-function +(A::Matrix{T}, B::Matrix{S}) where {T, S <: ExaModels.AbstractNode}
+function +(A::Matrix{<:Number}, B::Matrix{T}) where {T <: ExaModels.AbstractNode}
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
     return [A[i, j] + B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
@@ -306,12 +333,12 @@ function +(A::Matrix{T}, B::Matrix{S}) where {T <: ExaModels.AbstractNode, S <: 
 end
 
 # Matrix - Matrix
-function -(A::Matrix{T}, B::Matrix{S}) where {T <: ExaModels.AbstractNode, S}
+function -(A::Matrix{T}, B::Matrix{<:Number}) where {T <: ExaModels.AbstractNode}
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
     return [A[i, j] - B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
-function -(A::Matrix{T}, B::Matrix{S}) where {T, S <: ExaModels.AbstractNode}
+function -(A::Matrix{<:Number}, B::Matrix{T}) where {T <: ExaModels.AbstractNode}
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
     return [A[i, j] - B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
