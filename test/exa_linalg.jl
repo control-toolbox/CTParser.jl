@@ -8,22 +8,25 @@ Extends Julia's standard Array interface without wrappers.
 All operations are built on optimized scalar operations (opt_add, opt_sub, opt_mul)
 that properly handle zero and one values, avoiding unnecessary expression tree nodes.
 
-# Exports
+# Public API (Exported)
 - Detection: `is_zero`, `is_one`, `zero_node`, `one_node`
-- Optimized ops: `opt_add`, `opt_sub`, `opt_mul`, `opt_sum`
-- Basic operations: `zero`, `adjoint`, `transpose`, `*`, `+`, `-`
+- Basic operations: `zero`, `adjoint`, `transpose`, `*`, `+`, `-`, `sum`
 - Linear algebra: `dot`, `det`, `tr`, `norm`, `diag`, `diagm`
+
+# Internal Functions (Not Exported)
+- Optimized primitives: `opt_add`, `opt_sub`, `opt_mul`, `opt_sum`
+  These are implementation details used internally by public operations.
 """
 module ExaLinAlg
 
 using ExaModels: ExaModels
 using LinearAlgebra
 
-import Base: zero, adjoint, *, promote_rule, convert, +, -, transpose
+import Base: zero, adjoint, *, promote_rule, convert, +, -, transpose, sum
 import LinearAlgebra: dot, Adjoint, det, tr, norm, diag, diagm
 
-export zero, adjoint, transpose, *, +, -, dot, det, tr, norm, diag, diagm
-export is_zero, is_one, zero_node, one_node, opt_add, opt_sub, opt_mul, opt_sum
+export zero, adjoint, transpose, *, +, -, sum, dot, det, tr, norm, diag, diagm
+export is_zero, is_one, zero_node, one_node
 
 # ============================================================================
 # Section 1: Detection Functions and Canonical Nodes
@@ -201,7 +204,18 @@ function opt_sum(iter)
 end
 
 # ============================================================================
-# Section 3: Basic Type Conversions and Promotions
+# Section 3: sum (wrapper around opt_sum)
+# ============================================================================
+
+"""
+    sum(arr::AbstractArray{<:ExaModels.AbstractNode})
+
+Optimized sum for arrays of AbstractNode that skips zeros and uses opt_add.
+"""
+sum(arr::AbstractArray{<:ExaModels.AbstractNode}) = opt_sum(arr)
+
+# ============================================================================
+# Section 4: Basic Type Conversions and Promotions
 # ============================================================================
 
 zero(x::T) where {T <: ExaModels.AbstractNode} = 0
@@ -210,7 +224,7 @@ zero(x::T) where {T <: ExaModels.AbstractNode} = 0
 adjoint(x::ExaModels.AbstractNode) = x
 transpose(x::ExaModels.AbstractNode) = x
 
-convert(::Type{ExaModels.AbstractNode}, x::Number) = ExaModels.Null(x)
+convert(::Type{ExaModels.AbstractNode}, x::Number) = iszero(x) ? zero_node() : ExaModels.Null(x)
 
 promote_rule(::Type{<:ExaModels.AbstractNode}, ::Type{<:Number}) = ExaModels.AbstractNode
 

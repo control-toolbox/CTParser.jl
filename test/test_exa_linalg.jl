@@ -4,6 +4,9 @@
 
 using .ExaLinAlg
 
+# Import internal functions for testing purposes
+using .ExaLinAlg: opt_add, opt_sub, opt_mul, opt_sum
+
 # Helper to create test AbstractNode instances
 function create_nodes()
     # Use Null nodes which are simple AbstractNode instances
@@ -19,10 +22,23 @@ function test_exa_linalg()
         x, y, z, w = create_nodes()
 
         @testset "Type conversions and promotions" begin
-            # Test convert
+            # Test convert with non-zero
             node = convert(ExaModels.AbstractNode, 5)
             @test node isa ExaModels.Null
             @test node isa ExaModels.AbstractNode
+            @test node.value == 5
+
+            # Test convert with zero (Int)
+            zero_int = convert(ExaModels.AbstractNode, 0)
+            @test zero_int isa ExaModels.Null
+            @test is_zero(zero_int)
+            @test zero_int === zero_node()  # Should be canonical zero
+
+            # Test convert with zero (Float)
+            zero_float = convert(ExaModels.AbstractNode, 0.0)
+            @test zero_float isa ExaModels.Null
+            @test is_zero(zero_float)
+            @test zero_float === zero_node()  # Should be canonical zero
 
             # Test promote_rule
             arr = [x, 2.0, 3.0]
@@ -997,6 +1013,52 @@ function test_exa_linalg()
                 result3 = opt_sum([5])  # Number wrapped in Null
                 @test result3 isa ExaModels.Null
                 @test result3.value == 5
+            end
+        end
+
+        @testset "sum function (uses opt_sum)" begin
+            x, y, z, w = create_nodes()
+
+            @testset "sum with zeros" begin
+                # All AbstractNode zeros should return zero_node()
+                result1 = sum([zero_node(), zero_node(), zero_node()])
+                @test result1 === zero_node()
+
+                # sum([zero_node(), zero_node(), x, zero_node()]) should return x
+                result2 = sum([zero_node(), zero_node(), x, zero_node()])
+                @test result2 === x
+
+                # sum with multiple non-zeros interspersed with zeros
+                result3 = sum([zero_node(), x, zero_node(), y, zero_node()])
+                @test result3 isa ExaModels.AbstractNode
+            end
+
+            @testset "sum with single element" begin
+                # Single AbstractNode
+                result1 = sum([x])
+                @test result1 === x
+
+                # Single zero_node()
+                result2 = sum([zero_node()])
+                @test result2 === zero_node()
+            end
+
+            @testset "sum with all non-zeros" begin
+                # sum of all non-zeros should equal sequential addition
+                result1 = sum([x, y, z])
+                @test result1 === x + y + z
+
+                # sum with interspersed zeros
+                result2 = sum([x, 0, y, 0, z])
+                @test result2 === x + y + z  # Zeros should be skipped
+            end
+
+            @testset "sum on matrices" begin
+                # sum should work on matrices too
+                mat = [x 0; 0 y]
+                result = sum(mat)
+                # Should sum all elements: x + 0 + 0 + y = opt_add(x, y)
+                @test result isa ExaModels.AbstractNode
             end
         end
 

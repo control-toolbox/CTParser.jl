@@ -55,7 +55,6 @@ using NLPModels
 using LinearAlgebra
 
 include("exa_linalg.jl")
-include("exa_linalg_w.jl")
 
 macro ignore(e)
     return :()
@@ -69,7 +68,6 @@ function default_tests()
     return OrderedDict(
         :aqua => true,
         :exa_linalg => true,
-        :exa_linalg_w => true,
         :initial_guess => true,
         :utils => true,
         :utils_bis => true,
