@@ -852,7 +852,55 @@ function p_dynamics_fun!(p, p_ocp, x, t, e)
 end
 
 function p_dynamics_exa!(p, p_ocp, x, t, e)
-    return __throw("dynamics must be defined coordinatewise", p.lnum, p.line) # note: scalar case is redirected before coordinatewise case
+    pref = prefix_exa()
+    xt = __symgen(:xt)
+    ut = __symgen(:ut)
+    e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
+    j1 = __symgen(:j)
+    j2 = :($j1 + 1)
+    j12 = :($j1 + 0.5)
+    k = __symgen(:k)
+    ej1 = subs2(e, xt, p.x, j1)
+    ej1 = subs(ej1, xt, :([$(p.x)[$k, $j1] for $k ∈ 1:$(p.dim_x)]))
+    ej1 = subs2(ej1, ut, p.u, j1)
+    ej1 = subs(ej1, ut, :([$(p.u)[$k, $j1] for $k ∈ 1:$(p.dim_u)]))
+    ej1 = subs(ej1, p.t, :($(p.t0) + $j1 * $(p.dt)))
+    ej2 = subs2(e, xt, p.x, j2)
+    ej2 = subs(ej2, xt, :([$(p.x)[$k, $j2] for $k ∈ 1:$(p.dim_x)]))
+    ej2 = subs2(ej2, ut, p.u, j2)
+    ej2 = subs(ej2, ut, :([$(p.u)[$k, $j2] for $k ∈ 1:$(p.dim_u)]))
+    ej2 = subs(ej2, p.t, :($(p.t0) + $j2 * $(p.dt)))
+    ej12 = subs2m(e, xt, p.x, j1)
+    ej12 = subs(ej12, xt, :([(($(p.x)[$k, $j1] + $(p.x)[$k, $j1 + 1]) / 2) for $k ∈ 1:$(p.dim_x)]))
+    ej12 = subs2(ej12, ut, p.u, j1)
+    ej12 = subs(ej12, ut, :([$(p.u)[$k, $j1] for $k ∈ 1:$(p.dim_u)]))
+    ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
+    dxj = :([$(p.x)[$k, $j2] - $(p.x)[$k, $j1] for $k ∈ 1:$(p.dim_x)])
+    code = LineNumberNode(-1, "unrolling exa dynamics")
+    dyn_con = Symbol(:dyn_con, p.x) # named constraint to allow retrieval of the dynamics multiplier that approximates the adjoint state
+    for i ∈ 1:p.dim_x
+        code_i = quote
+            if scheme == :euler
+                $pref.constraint($p_ocp, $dxj[$i] - $(p.dt) * $ej1[$i] for $j1 in 0:grid_size-1)
+            elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
+                $pref.constraint($p_ocp, $dxj[$i] - $(p.dt) * $ej2[$i] for $j1 in 0:grid_size-1)
+            elseif scheme == :midpoint
+                $pref.constraint($p_ocp, $dxj[$i] - $(p.dt) * $ej12[$i] for $j1 in 0:grid_size-1)
+            elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
+                $pref.constraint(
+                    $p_ocp, $dxj[$i] - $(p.dt) * ($ej1[$i] + $ej2[$i]) / 2 for $j1 in 0:grid_size-1
+                )
+            else
+                throw(
+                    "unknown numerical scheme: $scheme (possible choices are :euler, :euler_implicit, :midpoint, :trapeze)",
+                ) # (vs. __throw) since raised at runtime (and __wrap-ped)
+            end
+        end
+        code_i = __wrap(code_i, p.lnum, p.line)
+        code_i = :($dyn_con[$i] = $code_i) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
+        code = concat(code, code_i)
+    end
+    return code
 end
 
 function p_dynamics_coord!(
