@@ -647,5 +647,221 @@ function test_exa_linalg()
                 @test (mat_nodes1 * mat_nodes2) isa Matrix  # Both AbstractNode
             end
         end
+
+        @testset "Zero-value detection and optimizations" begin
+            # Test helper functions
+            @testset "is_zero_value helper" begin
+                # Test with Numbers
+                @test ExaLinAlg.is_zero_value(0) == true
+                @test ExaLinAlg.is_zero_value(0.0) == true
+                @test ExaLinAlg.is_zero_value(1) == false
+                @test ExaLinAlg.is_zero_value(1.0) == false
+                @test ExaLinAlg.is_zero_value(-1) == false
+
+                # Test with Null nodes
+                @test ExaLinAlg.is_zero_value(ExaModels.Null(0)) == true
+                @test ExaLinAlg.is_zero_value(ExaModels.Null(0.0)) == true
+                @test ExaLinAlg.is_zero_value(ExaModels.Null(1)) == false
+                @test ExaLinAlg.is_zero_value(ExaModels.Null(nothing)) == false
+
+                # Test with symbolic AbstractNode (should return false)
+                x = ExaModels.Null(1.0)
+                y = ExaModels.Null(2.0)
+                expr = x + y  # Creates a Node2
+                @test ExaLinAlg.is_zero_value(expr) == false
+            end
+
+            @testset "zero_node helper" begin
+                z = ExaLinAlg.zero_node()
+                @test z isa ExaModels.Null
+                @test ExaLinAlg.is_zero_value(z) == true
+                @test z.value == 0
+            end
+        end
+
+        @testset "Zero multiplication optimizations" begin
+            x, y, z, w = create_nodes()
+
+            @testset "Scalar × Vector with zero scalar" begin
+                # Null(0) × numeric vector
+                result1 = ExaModels.Null(0) * [1.0, 2.0, 3.0]
+                @test all(ExaLinAlg.is_zero_value.(result1))
+                @test result1 isa Vector{<:ExaModels.AbstractNode}
+                @test length(result1) == 3
+
+                # 0 (Number) × AbstractNode vector
+                vec_nodes = [x, y, z]
+                result2 = 0 * vec_nodes
+                @test all(ExaLinAlg.is_zero_value.(result2))
+                @test result2 isa Vector{<:ExaModels.AbstractNode}
+
+                # 0.0 × AbstractNode vector
+                result3 = 0.0 * vec_nodes
+                @test all(ExaLinAlg.is_zero_value.(result3))
+            end
+
+            @testset "Scalar × Vector with zero elements" begin
+                # AbstractNode × mixed vector
+                result = x * [0, 1.0, 0, 2.0]
+                @test ExaLinAlg.is_zero_value(result[1])
+                @test !ExaLinAlg.is_zero_value(result[2])
+                @test ExaLinAlg.is_zero_value(result[3])
+                @test !ExaLinAlg.is_zero_value(result[4])
+            end
+
+            @testset "Vector × Scalar with zero scalar" begin
+                vec_nodes = [x, y, z]
+
+                # AbstractNode vector × 0
+                result1 = vec_nodes * 0
+                @test all(ExaLinAlg.is_zero_value.(result1))
+                @test result1 isa Vector{<:ExaModels.AbstractNode}
+
+                # AbstractNode vector × 0.0
+                result2 = vec_nodes * 0.0
+                @test all(ExaLinAlg.is_zero_value.(result2))
+
+                # Numeric vector × Null(0)
+                result3 = [1.0, 2.0, 3.0] * ExaModels.Null(0)
+                @test all(ExaLinAlg.is_zero_value.(result3))
+            end
+
+            @testset "Vector × Scalar with zero elements" begin
+                # Mixed vector × AbstractNode
+                result = [0, 1.0, ExaModels.Null(0), 2.0] * x
+                @test ExaLinAlg.is_zero_value(result[1])
+                @test !ExaLinAlg.is_zero_value(result[2])
+                @test ExaLinAlg.is_zero_value(result[3])
+                @test !ExaLinAlg.is_zero_value(result[4])
+            end
+
+            @testset "Scalar × Matrix with zero scalar" begin
+                mat_nodes = [x y; z w]
+
+                # 0 × AbstractNode matrix
+                result1 = 0 * mat_nodes
+                @test all(ExaLinAlg.is_zero_value.(result1))
+                @test result1 isa Matrix{<:ExaModels.AbstractNode}
+                @test size(result1) == (2, 2)
+
+                # Null(0) × numeric matrix
+                result2 = ExaModels.Null(0) * [1.0 2.0; 3.0 4.0]
+                @test all(ExaLinAlg.is_zero_value.(result2))
+            end
+
+            @testset "Matrix × Scalar with zero scalar" begin
+                mat_nodes = [x y; z w]
+
+                # AbstractNode matrix × 0.0
+                result = mat_nodes * 0.0
+                @test all(ExaLinAlg.is_zero_value.(result))
+                @test result isa Matrix{<:ExaModels.AbstractNode}
+            end
+        end
+
+        @testset "Zero addition optimizations" begin
+            x, y, z, w = create_nodes()
+
+            @testset "Vector + Vector with zero elements" begin
+                vec_nodes = [x, y, z]
+
+                # AbstractNode vector + zeros
+                result1 = vec_nodes + [0, 0, 0]
+                @test result1[1] === x  # Identity check
+                @test result1[2] === y
+                @test result1[3] === z
+                @test result1 isa Vector{<:ExaModels.AbstractNode}
+
+                # Zeros + AbstractNode vector
+                result2 = [0.0, 0.0, 0.0] + vec_nodes
+                @test result2[1] === x
+                @test result2[2] === y
+                @test result2[3] === z
+
+                # Mixed: some zeros
+                result3 = vec_nodes + [0, 1.0, 0]
+                @test result3[1] === x  # x + 0 = x
+                @test !ExaLinAlg.is_zero_value(result3[2])  # x + 1.0 creates node
+                @test result3[3] === z  # z + 0 = z
+
+                # Both AbstractNode, with zeros
+                zero_vec = [ExaModels.Null(0), ExaModels.Null(0), ExaModels.Null(0)]
+                result4 = vec_nodes + zero_vec
+                @test result4[1] === x
+                @test result4[2] === y
+                @test result4[3] === z
+            end
+
+            @testset "Matrix + Matrix with zero elements" begin
+                mat_nodes = [x y; z w]
+
+                # AbstractNode matrix + zeros
+                result1 = mat_nodes + [0 0; 0 0]
+                @test result1[1,1] === x
+                @test result1[1,2] === y
+                @test result1[2,1] === z
+                @test result1[2,2] === w
+                @test result1 isa Matrix{<:ExaModels.AbstractNode}
+
+                # Zeros + AbstractNode matrix
+                result2 = [0.0 0.0; 0.0 0.0] + mat_nodes
+                @test result2[1,1] === x
+                @test result2[1,2] === y
+
+                # Mixed: some zeros
+                result3 = mat_nodes + [0 1.0; 0 0]
+                @test result3[1,1] === x  # x + 0 = x
+                @test !ExaLinAlg.is_zero_value(result3[1,2])  # y + 1.0 creates node
+                @test result3[2,1] === z  # z + 0 = z
+                @test result3[2,2] === w  # w + 0 = w
+            end
+        end
+
+        @testset "Zero subtraction optimizations" begin
+            x, y, z, w = create_nodes()
+
+            @testset "Vector - Vector with zero elements" begin
+                vec_nodes = [x, y, z]
+
+                # AbstractNode vector - zeros
+                result1 = vec_nodes - [0, 0, 0]
+                @test result1[1] === x  # Identity check
+                @test result1[2] === y
+                @test result1[3] === z
+                @test result1 isa Vector{<:ExaModels.AbstractNode}
+
+                # Mixed: some zeros
+                result2 = vec_nodes - [0, 1.0, 0]
+                @test result2[1] === x  # x - 0 = x
+                @test !ExaLinAlg.is_zero_value(result2[2])  # x - 1.0 creates node
+                @test result2[3] === z  # z - 0 = z
+
+                # Both AbstractNode, with zeros
+                zero_vec = [ExaModels.Null(0), ExaModels.Null(0), ExaModels.Null(0)]
+                result3 = vec_nodes - zero_vec
+                @test result3[1] === x
+                @test result3[2] === y
+                @test result3[3] === z
+            end
+
+            @testset "Matrix - Matrix with zero elements" begin
+                mat_nodes = [x y; z w]
+
+                # AbstractNode matrix - zeros
+                result1 = mat_nodes - [0 0; 0 0]
+                @test result1[1,1] === x
+                @test result1[1,2] === y
+                @test result1[2,1] === z
+                @test result1[2,2] === w
+                @test result1 isa Matrix{<:ExaModels.AbstractNode}
+
+                # Mixed: some zeros
+                result2 = mat_nodes - [0 1.0; 0 0]
+                @test result2[1,1] === x  # x - 0 = x
+                @test !ExaLinAlg.is_zero_value(result2[1,2])  # y - 1.0 creates node
+                @test result2[2,1] === z  # z - 0 = z
+                @test result2[2,2] === w  # w - 0 = w
+            end
+        end
     end
 end

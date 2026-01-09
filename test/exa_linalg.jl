@@ -16,7 +16,7 @@ using LinearAlgebra
 import Base: zero, adjoint, *, promote_rule, convert, +, -, transpose
 import LinearAlgebra: dot, Adjoint, det, tr, norm, diag, diagm
 
-export zero, adjoint, transpose, *, +, -, dot, det, tr, norm, diag, diagm
+export zero, adjoint, transpose, *, +, -, dot, det, tr, norm, diag, diagm, is_zero_value, zero_node
 
 # ============================================================================
 # Basic type conversions and promotions
@@ -33,59 +33,107 @@ convert(::Type{ExaModels.AbstractNode}, x::Number) = ExaModels.Null(x)
 promote_rule(::Type{<:ExaModels.AbstractNode}, ::Type{<:Number}) = ExaModels.AbstractNode
 
 # ============================================================================
+# Zero-value detection and optimization helpers
+# ============================================================================
+
+"""
+    is_zero_value(x) -> Bool
+
+Check if a value represents zero, handling both Number and AbstractNode types.
+Returns true for: 0, 0.0, Null(0), Null(0.0), etc.
+Returns false for: Null(nothing) and other values.
+"""
+function is_zero_value(x::Number)::Bool
+    return iszero(x)
+end
+
+function is_zero_value(x::ExaModels.Null)::Bool
+    # Null wraps a value in x.value
+    # Null(0) or Null(0.0) are zeros
+    # Null(nothing) is NOT a zero (it's used as identity in exa_linalg_w)
+    val = x.value
+    return val !== nothing && iszero(val)
+end
+
+function is_zero_value(x::ExaModels.AbstractNode)::Bool
+    # For non-Null AbstractNode types, we cannot easily determine if they're zero
+    # These are symbolic expressions, so we conservatively return false
+    return false
+end
+
+"""
+    zero_node() -> Null
+
+Return a canonical zero AbstractNode (Null(0)).
+"""
+zero_node() = ExaModels.Null(0)
+
+# ============================================================================
 # Scalar multiplication with vectors and matrices
 # ============================================================================
 
 # Scalar × Vector
 function *(a::T, v::Vector{<:Number}) where {T <: ExaModels.AbstractNode}
-    return [a * vi for vi in v]
+    is_zero_value(a) && return fill(zero_node(), length(v))
+    return [is_zero_value(vi) ? zero_node() : a * vi for vi in v]
 end
 
 function *(a::Number, v::Vector{T}) where {T <: ExaModels.AbstractNode}
-    return [a * vi for vi in v]
+    is_zero_value(a) && return fill(zero_node(), length(v))
+    return [is_zero_value(vi) ? zero_node() : a * vi for vi in v]
 end
 
 function *(a::T, v::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
-    return [a * vi for vi in v]
+    is_zero_value(a) && return fill(zero_node(), length(v))
+    return [is_zero_value(vi) ? zero_node() : a * vi for vi in v]
 end
 
 # Vector × Scalar
 function *(v::Vector{T}, a::Number) where {T <: ExaModels.AbstractNode}
-    return [vi * a for vi in v]
+    is_zero_value(a) && return fill(zero_node(), length(v))
+    return [is_zero_value(vi) ? zero_node() : vi * a for vi in v]
 end
 
 function *(v::Vector{T}, a::S) where {T <: Number, S <: ExaModels.AbstractNode}
-    return [vi * a for vi in v]
+    is_zero_value(a) && return fill(zero_node(), length(v))
+    return [is_zero_value(vi) ? zero_node() : vi * a for vi in v]
 end
 
 function *(v::Vector{T}, a::S) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
-    return [vi * a for vi in v]
+    is_zero_value(a) && return fill(zero_node(), length(v))
+    return [is_zero_value(vi) ? zero_node() : vi * a for vi in v]
 end
 
 # Scalar × Matrix
 function *(a::T, A::Matrix{<:Number}) where {T <: ExaModels.AbstractNode}
-    return [a * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
+    is_zero_value(a) && return fill(zero_node(), size(A))
+    return [is_zero_value(A[i, j]) ? zero_node() : a * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function *(a::Number, A::Matrix{T}) where {T <: ExaModels.AbstractNode}
-    return [a * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
+    is_zero_value(a) && return fill(zero_node(), size(A))
+    return [is_zero_value(A[i, j]) ? zero_node() : a * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function *(a::T, A::Matrix{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
-    return [a * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
+    is_zero_value(a) && return fill(zero_node(), size(A))
+    return [is_zero_value(A[i, j]) ? zero_node() : a * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
 # Matrix × Scalar
 function *(A::Matrix{T}, a::Number) where {T <: ExaModels.AbstractNode}
-    return [A[i, j] * a for i in axes(A, 1), j in axes(A, 2)]
+    is_zero_value(a) && return fill(zero_node(), size(A))
+    return [is_zero_value(A[i, j]) ? zero_node() : A[i, j] * a for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function *(A::Matrix{T}, a::S) where {T <: Number, S <: ExaModels.AbstractNode}
-    return [A[i, j] * a for i in axes(A, 1), j in axes(A, 2)]
+    is_zero_value(a) && return fill(zero_node(), size(A))
+    return [is_zero_value(A[i, j]) ? zero_node() : A[i, j] * a for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function *(A::Matrix{T}, a::S) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
-    return [A[i, j] * a for i in axes(A, 1), j in axes(A, 2)]
+    is_zero_value(a) && return fill(zero_node(), size(A))
+    return [is_zero_value(A[i, j]) ? zero_node() : A[i, j] * a for i in axes(A, 1), j in axes(A, 2)]
 end
 
 # ============================================================================
@@ -287,65 +335,77 @@ end
 # Vector + Vector
 function +(v::Vector{T}, w::Vector{<:Number}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
-    return [v[i] + w[i] for i in eachindex(v)]
+    return [is_zero_value(w[i]) ? v[i] :
+            is_zero_value(v[i]) ? ExaModels.Null(w[i]) :
+            v[i] + w[i] for i in eachindex(v)]
 end
 
 function +(v::Vector{<:Number}, w::Vector{T}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
-    return [v[i] + w[i] for i in eachindex(v)]
+    return [is_zero_value(v[i]) ? w[i] :
+            is_zero_value(w[i]) ? ExaModels.Null(v[i]) :
+            v[i] + w[i] for i in eachindex(v)]
 end
 
 function +(v::Vector{T}, w::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
-    return [v[i] + w[i] for i in eachindex(v)]
+    return [is_zero_value(w[i]) ? v[i] :
+            is_zero_value(v[i]) ? w[i] :
+            v[i] + w[i] for i in eachindex(v)]
 end
 
 # Vector - Vector
 function -(v::Vector{T}, w::Vector{<:Number}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
-    return [v[i] - w[i] for i in eachindex(v)]
+    return [is_zero_value(w[i]) ? v[i] : v[i] - w[i] for i in eachindex(v)]
 end
 
 function -(v::Vector{<:Number}, w::Vector{T}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
-    return [v[i] - w[i] for i in eachindex(v)]
+    return [is_zero_value(w[i]) ? ExaModels.Null(v[i]) : v[i] - w[i] for i in eachindex(v)]
 end
 
 function -(v::Vector{T}, w::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
-    return [v[i] - w[i] for i in eachindex(v)]
+    return [is_zero_value(w[i]) ? v[i] : v[i] - w[i] for i in eachindex(v)]
 end
 
 # Matrix + Matrix
 function +(A::Matrix{T}, B::Matrix{<:Number}) where {T <: ExaModels.AbstractNode}
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
-    return [A[i, j] + B[i, j] for i in axes(A, 1), j in axes(A, 2)]
+    return [is_zero_value(B[i, j]) ? A[i, j] :
+            is_zero_value(A[i, j]) ? ExaModels.Null(B[i, j]) :
+            A[i, j] + B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function +(A::Matrix{<:Number}, B::Matrix{T}) where {T <: ExaModels.AbstractNode}
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
-    return [A[i, j] + B[i, j] for i in axes(A, 1), j in axes(A, 2)]
+    return [is_zero_value(A[i, j]) ? B[i, j] :
+            is_zero_value(B[i, j]) ? ExaModels.Null(A[i, j]) :
+            A[i, j] + B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function +(A::Matrix{T}, B::Matrix{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
-    return [A[i, j] + B[i, j] for i in axes(A, 1), j in axes(A, 2)]
+    return [is_zero_value(B[i, j]) ? A[i, j] :
+            is_zero_value(A[i, j]) ? B[i, j] :
+            A[i, j] + B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
 # Matrix - Matrix
 function -(A::Matrix{T}, B::Matrix{<:Number}) where {T <: ExaModels.AbstractNode}
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
-    return [A[i, j] - B[i, j] for i in axes(A, 1), j in axes(A, 2)]
+    return [is_zero_value(B[i, j]) ? A[i, j] : A[i, j] - B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function -(A::Matrix{<:Number}, B::Matrix{T}) where {T <: ExaModels.AbstractNode}
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
-    return [A[i, j] - B[i, j] for i in axes(A, 1), j in axes(A, 2)]
+    return [is_zero_value(B[i, j]) ? ExaModels.Null(A[i, j]) : A[i, j] - B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function -(A::Matrix{T}, B::Matrix{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
-    return [A[i, j] - B[i, j] for i in axes(A, 1), j in axes(A, 2)]
+    return [is_zero_value(B[i, j]) ? A[i, j] : A[i, j] - B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
 # ============================================================================
