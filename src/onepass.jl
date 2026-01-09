@@ -876,7 +876,7 @@ function p_dynamics_exa!(p, p_ocp, x, t, e)
     ej12 = subs(ej12, ut, :([$(p.u)[$k, $j1] for $k ∈ 1:$(p.dim_u)]))
     ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
     dxj = :([$(p.x)[$k, $j2] - $(p.x)[$k, $j1] for $k ∈ 1:$(p.dim_x)])
-    code = LineNumberNode(-1, "unrolling exa dynamics")
+    code = :(LineNumberNode(0, "unrolling exa dynamics"))
     dyn_con = Symbol(:dyn_con, p.x) # named constraint to allow retrieval of the dynamics multiplier that approximates the adjoint state
     for i ∈ 1:p.dim_x
         code_i = quote
