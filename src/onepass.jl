@@ -690,7 +690,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
     isnothing(e1) && (e1 = :(-Inf * ones(length($e3))))
     isnothing(e3) && (e3 = :(Inf * ones(length($e1))))
     code = @match c_type begin
-        :boundary || :variable_fun => begin
+        :boundary || :variable_fun => begin # todo: vectorise
             code = :(length($e1) == length($e3) == 1 || throw("this constraint must be scalar")) # (vs. __throw) since raised at runtime
             x0 = __symgen(:x0)
             xf = __symgen(:xf)
@@ -793,7 +793,7 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             p.box_u = concat(p.box_u, code_box) # not __wrapped since contains definition of l_u/u_u
             :()
         end
-        :state_fun || :control_fun || :mixed => begin
+        :state_fun || :control_fun || :mixed => begin # todo: vectorise
             code = :(length($e1) == length($e3) == 1 || throw("this constraint must be scalar")) # (vs. __throw) since raised at runtime
             xt = __symgen(:xt)
             ut = __symgen(:ut)
@@ -852,6 +852,8 @@ function p_dynamics_fun!(p, p_ocp, x, t, e)
 end
 
 function p_dynamics_exa!(p, p_ocp, x, t, e)
+    # Mark all coordinates as defined when using vector-form dynamics
+    append!(p.dyn_coords, collect(1:p.dim_x))
     pref = prefix_exa()
     xt = __symgen(:xt)
     ut = __symgen(:ut)

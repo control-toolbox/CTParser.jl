@@ -77,6 +77,7 @@ function default_tests()
         :onepass_fun_bis => true,
         :onepass_exa => true,
         :onepass_exa_bis => true,
+        :dynamics_exa => true,
     )
 end
 
