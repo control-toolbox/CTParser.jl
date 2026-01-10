@@ -1058,7 +1058,7 @@ function __test_onepass_exa(
             ẋ(t) == u[1:4](t)
             x₁(0) + 2cos(x₂(1)) → min
         end
-        @test_throws ParsingError o(; backend=backend)
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel # legacy: this now passes!
 
         o = @def_exa begin
             t ∈ [0, 1], time
