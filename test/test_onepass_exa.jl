@@ -1051,7 +1051,7 @@ function __test_onepass_exa(
     @testset "$test_name" begin
         println(test_name)
 
-        o = @def_exa begin
+        o = @def begin
             t ∈ [0, 1], time
             x ∈ R⁴, state
             u ∈ R⁵, control

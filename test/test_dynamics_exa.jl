@@ -400,7 +400,7 @@ function __test_dynamics_exa(
             t ∈ [0, 1], time
             x ∈ R³, state
             u ∈ R², control
-            ∂(x)(t) == [p₁(x[1:2](t), u(t)), sum(u(t)), x₁(t)]
+            ∂(x)(t) == [p₁(x[1:2](t), u(t)), sum(u(t)), x₁(t)] # todo: add test with full external call ẋ(t) == f(x(t), u(t)), see tutos with vector fields, etc.
             x(0) == [1, 0, 0]
             x₁(1) => min
         end
@@ -436,7 +436,7 @@ function __test_dynamics_exa(
             t ∈ [0, 1], time
             x ∈ R², state
             u ∈ R, control
-            ∂(x)(t) == [dot(A[1, :], x(t)) + u(t) * B[1], dot(A[2, :], x(t)) + u(t) * B[2]]
+            ∂(x)(t) == [dot(A[1, :], x(t)) + u(t) * B[1], dot(A[2, :], x(t)) + u(t) * B[2]] # todo: add full matrix test (see use case no. 8)
             x(0) == [1, 0]
             x₁(1) => min
         end
