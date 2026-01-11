@@ -2934,7 +2934,7 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R², control
             derivative(x)(t) == t * v * x(t) + u(t)
-            1 → min
+            x1(0) → min
         end
 
         t = 7.0
@@ -2952,7 +2952,7 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R², control
             derivative(x)(t) == t * v₁ * x(t) + u(t)
-            1 → min
+            x1(0) → min
         end
 
         @test final_time(o, v) == v[1]
@@ -2965,7 +2965,7 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R², control
             derivative(x)(t) == t * v1 * x(t) + u(t)
-            1 → min
+            x1(0) → min
         end
 
         @test final_time(o, v) == v[1]
@@ -2978,7 +2978,7 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R², control
             derivative(x)(t) == t * v[1] * x(t) + u(t)
-            1 → min
+            x1(0) → min
         end
 
         @test final_time(o, v) == v[1]
@@ -2991,7 +2991,7 @@ function test_onepass_fun()
             x ∈ R, state
             u ∈ R², control
             derivative(x)(t) == t * x(t) + u₁(t)
-            1 → min
+            x1(0) → min
         end
 
         v = nothing
@@ -3007,7 +3007,7 @@ function test_onepass_fun()
             x ∈ R, state
             u ∈ R², control
             derivative(x[1])(t) == t * x(t) + u₁(t) # should also parse and be OK
-            1 → min
+            x1(0) → min
         end
 
         v = nothing
@@ -3023,7 +3023,7 @@ function test_onepass_fun()
             x ∈ R, state
             u ∈ R², control
             derivative(x[2])(t) == t * x(t) + u₁(t) # out of range
-            1 → min
+            x1(0) → min
         end
 
         @test_throws UnauthorizedCall @def begin
@@ -3031,7 +3031,7 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R², control
             derivative(x[1])(t) == t * x[1](t) + u₁(t) # incomplete
-            1 → min
+            x1(0) → min
         end
 
         @test_throws UnauthorizedCall @def begin
@@ -3039,7 +3039,7 @@ function test_onepass_fun()
             x ∈ R³, state
             u ∈ R², control
             derivative(x[1:2])(t) == t * x[1](t) + u₁(t) # incomplete 
-            1 → min
+            x1(0) → min
         end
 
         o = @def begin
@@ -3047,7 +3047,7 @@ function test_onepass_fun()
             x ∈ R, state
             u ∈ R², control
             derivative(x)(t) == t * x₁(t) + u₁(t)
-            1 → min
+            x1(0) → min
         end
 
         @test r == [t * x[1] + u[1]]
@@ -3057,7 +3057,7 @@ function test_onepass_fun()
             x ∈ R, state
             u ∈ R², control
             derivative(x)(t) == t * x1(t) + u₁(t)
-            1 → min
+            x1(0) → min
         end
 
         @test r == [t * x[1] + u[1]]
@@ -3067,7 +3067,7 @@ function test_onepass_fun()
             x ∈ R, state
             u ∈ R², control
             derivative(x)(t) == t * x[1](t) + u₁(t)
-            1 → min
+            x1(0) → min
         end
 
         @test r == [t * x[1] + u[1]]
@@ -3078,7 +3078,7 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R, control
             derivative(x)(t) == t * u(t) * x(t)
-            1 → min
+            x1(0) → min
         end
 
         v = nothing
@@ -3094,7 +3094,7 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R, control
             derivative(x)(t) == t * u₁(t) * x(t)
-            1 → min
+            x1(0) → min
         end
 
         dynamics(o)(r, t, x, u, v)
@@ -3105,7 +3105,7 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R, control
             derivative(x)(t) == t * u1(t) * x(t)
-            1 → min
+            x1(0) → min
         end
 
         dynamics(o)(r, t, x, u, v)
@@ -3116,7 +3116,7 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R, control
             derivative(x)(t) == t * u[1](t) * x(t)
-            1 → min
+            x1(0) → min
         end
 
         dynamics(o)(r, t, x, u, v)
@@ -3133,7 +3133,7 @@ function test_onepass_fun()
             x ∈ R², state
             u ∈ R, control
             derivative(x)(t) == t * u[1](t) * x(t)
-            1 → min
+            x1(0) → min
         end
         @test o isa CTModels.Model
     end

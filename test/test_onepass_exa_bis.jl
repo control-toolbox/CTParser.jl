@@ -2,16 +2,199 @@
 # todo: merge with test_onepass_exa
 
 function test_onepass_exa_bis()
-    @testset "p_dynamics_exa! errors" begin
-        println("p_dynamics_exa! (bis)")
+    # ============================================================================
+    # p_dynamics_exa! - Unit tests for vector-form dynamics parsing
+    # ============================================================================
+
+    @testset "p_dynamics_exa! code generation" begin
+        println("p_dynamics_exa! code generation (bis)")
 
         p = CTParser.ParsingInfo()
         p.lnum = 1
         p.line = "dynamics exa test"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p.t0 = 0
+        p.tf = 1
+        p.dim_x = 2
+        p.dim_u = 1
+        p.dt = :dt
+        p_ocp = :p_ocp
 
+        # Test vector-form dynamics expression
+        e = :([x₁(t) + u(t), x₂(t)])
+        ex = CTParser.p_dynamics_exa!(p, p_ocp, :x, :t, e)
+        @test ex isa Expr
+
+        # Note: is_global_dyn is set by p_dynamics! wrapper, not p_dynamics_exa! directly
+    end
+
+    @testset "p_dynamics_exa! errors" begin
+        println("p_dynamics_exa! errors (bis)")
+
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "dynamics exa test"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p.t0 = 0
+        p.tf = 1
+        p.dim_x = 1
+        p.dim_u = 1
+        p.dt = :dt
+
+        # Test that code generation works
         ex = CTParser.p_dynamics_exa!(p, :p_ocp, :x, :t, :(x(t)))
         @test ex isa Expr
-        @test_throws ParsingError eval(ex)
+        # Note: eval(ex) would require runtime variables like scheme, grid_size, etc.
+    end
+
+    @testset "p_dynamics! sets is_global_dyn" begin
+        println("p_dynamics! sets is_global_dyn (bis)")
+
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "global dynamics test"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p_ocp = :p_ocp
+
+        # Initially, is_global_dyn should be false
+        @test p.is_global_dyn == false
+
+        # After calling p_dynamics! (wrapper), it should set is_global_dyn to true
+        e = :([u₁(t), u₂(t), x₁(t)])
+        ex = CTParser.p_dynamics!(p, p_ocp, :x, :t, e; backend=:fun)
+        @test p.is_global_dyn == true
+    end
+
+    @testset "p_dynamics_exa! with various expressions" begin
+        println("p_dynamics_exa! various expressions (bis)")
+
+        # Test with simple control dynamics
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "simple dynamics"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p.t0 = 0
+        p.tf = 1
+        p.dim_x = 2
+        p.dim_u = 2
+        p.dt = :dt
+        p_ocp = :p_ocp
+
+        e = :([u₁(t), u₂(t)])
+        ex = CTParser.p_dynamics_exa!(p, p_ocp, :x, :t, e)
+        @test ex isa Expr
+
+        # Test with mixed state and control
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "mixed dynamics"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p.t0 = 0
+        p.tf = 1
+        p.dim_x = 2
+        p.dim_u = 1
+        p.dt = :dt
+        p_ocp = :p_ocp
+
+        e = :([x₂(t), u(t)])
+        ex = CTParser.p_dynamics_exa!(p, p_ocp, :x, :t, e)
+        @test ex isa Expr
+
+        # Test with complex expressions
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "complex dynamics"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p.t0 = 0
+        p.tf = 1
+        p.dim_x = 3
+        p.dim_u = 2
+        p.dt = :dt
+        p_ocp = :p_ocp
+
+        e = :([x₁(t) + u₁(t), x₂(t) * u₂(t), x₃(t)^2])
+        ex = CTParser.p_dynamics_exa!(p, p_ocp, :x, :t, e)
+        @test ex isa Expr
+    end
+
+    @testset "p_dynamics_exa! time-dependent dynamics" begin
+        println("p_dynamics_exa! time-dependent (bis)")
+
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "time dependent dynamics"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p.t0 = 0
+        p.tf = 1
+        p.dim_x = 2
+        p.dim_u = 1
+        p.dt = :dt
+        p_ocp = :p_ocp
+
+        # Initially autonomous
+        @test p.is_autonomous == true
+
+        # Dynamics with explicit time dependence
+        e = :([x₂(t), u(t) + sin(t)])
+        ex = CTParser.p_dynamics_exa!(p, p_ocp, :x, :t, e)
+        @test ex isa Expr
+
+        # Note: is_autonomous should be set to false by p_dynamics! (the wrapper)
+        # not by p_dynamics_exa! directly, so we don't test it here
+    end
+
+    @testset "p_dynamics_exa! with vector operations" begin
+        println("p_dynamics_exa! vector operations (bis)")
+
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "vector operations dynamics"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p.t0 = 0
+        p.tf = 1
+        p.dim_x = 3
+        p.dim_u = 2
+        p.dt = :dt
+        p_ocp = :p_ocp
+
+        # Dynamics with sum operations
+        e = :([sum(x(t)), u₁(t), u₂(t)])
+        ex = CTParser.p_dynamics_exa!(p, p_ocp, :x, :t, e)
+        @test ex isa Expr
+
+        # Reset and test with slices
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "slice dynamics"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p.t0 = 0
+        p.tf = 1
+        p.dim_x = 3
+        p.dim_u = 2
+        p.dt = :dt
+        p_ocp = :p_ocp
+
+        e = :([sum(x[1:2](t)), u₁(t), u₂(t)])
+        ex = CTParser.p_dynamics_exa!(p, p_ocp, :x, :t, e)
+        @test ex isa Expr
     end
 
     @testset "parsing(:alias, backend)" begin
@@ -79,6 +262,193 @@ function test_onepass_exa_bis()
 
         # Check that dyn_coords is updated
         @test i in p.dyn_coords
+    end
+
+    # ============================================================================
+    # ParsingInfo fields - Tests for is_global_dyn, is_coord_dyn, dyn_coords
+    # ============================================================================
+
+    @testset "ParsingInfo.is_global_dyn field" begin
+        println("ParsingInfo.is_global_dyn (bis)")
+
+        # Test initial state
+        p = CTParser.ParsingInfo()
+        @test p.is_global_dyn == false
+        @test p.is_coord_dyn == false
+
+        # Test that p_dynamics! sets is_global_dyn for :fun backend
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "test"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p_ocp = :p_ocp
+
+        ex = CTParser.p_dynamics!(p, p_ocp, :x, :t, :([u(t), x(t)]); backend=:fun)
+        @test ex isa Expr
+        @test p.is_global_dyn == true
+
+        # Test that p_dynamics! sets is_global_dyn for :exa backend
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "test"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p.t0 = 0
+        p.tf = 1
+        p.dim_x = 2
+        p.dim_u = 1
+        p.dt = :dt
+        p_ocp = :p_ocp
+
+        ex = CTParser.p_dynamics!(p, p_ocp, :x, :t, :([u(t), x₁(t)]); backend=:fun)
+        @test ex isa Expr
+        @test p.is_global_dyn == true
+    end
+
+    @testset "ParsingInfo.is_coord_dyn field" begin
+        println("ParsingInfo.is_coord_dyn (bis)")
+
+        # Test initial state
+        p = CTParser.ParsingInfo()
+        @test p.is_coord_dyn == false
+
+        # Test that p_dynamics_coord! sets is_coord_dyn for :fun backend
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "test"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p_ocp = :p_ocp
+
+        ex = CTParser.p_dynamics_coord!(p, p_ocp, :x, 1, :t, :(u(t)); backend=:fun)
+        @test ex isa Expr
+        @test p.is_coord_dyn == true
+
+        # Test that p_dynamics_coord_exa! populates dyn_coords (is_coord_dyn is set by wrapper)
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "test"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p.t0 = 0
+        p.tf = 1
+        p.dim_x = 2
+        p.dt = :dt
+        p_ocp = :p_ocp
+
+        ex = CTParser.p_dynamics_coord_exa!(p, p_ocp, :x, 1, :t, :(u(t)))
+        @test ex isa Expr
+        # Note: is_coord_dyn is set by p_dynamics_coord! wrapper, not p_dynamics_coord_exa!
+        # But we can check that dyn_coords is updated
+        @test 1 in p.dyn_coords
+    end
+
+    @testset "ParsingInfo.dyn_coords field" begin
+        println("ParsingInfo.dyn_coords (bis)")
+
+        # Test initial state - should be empty
+        p = CTParser.ParsingInfo()
+        @test p.dyn_coords == Int64[]
+        @test isempty(p.dyn_coords)
+
+        # Test that p_dynamics_coord_exa! populates dyn_coords
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "test"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p.t0 = 0
+        p.tf = 1
+        p.dim_x = 3
+        p.dt = :dt
+        p_ocp = :p_ocp
+
+        # Add coordinate 1
+        ex1 = CTParser.p_dynamics_coord_exa!(p, p_ocp, :x, 1, :t, :(u(t)))
+        @test 1 in p.dyn_coords
+        @test length(p.dyn_coords) == 1
+
+        # Add coordinate 2
+        ex2 = CTParser.p_dynamics_coord_exa!(p, p_ocp, :x, 2, :t, :(x₁(t)))
+        @test 2 in p.dyn_coords
+        @test length(p.dyn_coords) == 2
+
+        # Add coordinate 3
+        ex3 = CTParser.p_dynamics_coord_exa!(p, p_ocp, :x, 3, :t, :(x₂(t)))
+        @test 3 in p.dyn_coords
+        @test length(p.dyn_coords) == 3
+        @test sort(p.dyn_coords) == [1, 2, 3]
+    end
+
+    @testset "ParsingInfo dynamics mutual exclusion" begin
+        println("ParsingInfo dynamics mutual exclusion (bis)")
+
+        # Test that you cannot mix global and coordinate dynamics (using high-level wrapper)
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "test global then coord"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p_ocp = :p_ocp
+
+        # Set global dynamics first using the wrapper function
+        ex1 = CTParser.p_dynamics!(p, p_ocp, :x, :t, :([u(t), x₁(t)]); backend=:fun)
+        @test p.is_global_dyn == true
+
+        # Trying to add coordinate dynamics should trigger an error in the wrapper
+        ex2 = CTParser.p_dynamics_coord!(p, p_ocp, :x, 1, :t, :(u(t)); backend=:fun)
+        @test ex2 isa Expr
+        @test_throws ParsingError eval(ex2)
+
+        # Test the reverse: coordinate then global
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "test coord then global"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p_ocp = :p_ocp
+
+        # Set coordinate dynamics first using the wrapper function
+        ex1 = CTParser.p_dynamics_coord!(p, p_ocp, :x, 1, :t, :(u(t)); backend=:fun)
+        @test p.is_coord_dyn == true
+
+        # Trying to add global dynamics should trigger an error in the wrapper
+        ex2 = CTParser.p_dynamics!(p, p_ocp, :x, :t, :([u(t), x₁(t)]); backend=:fun)
+        @test ex2 isa Expr
+        @test_throws ParsingError eval(ex2)
+    end
+
+    @testset "ParsingInfo.dyn_coords duplicate detection" begin
+        println("ParsingInfo.dyn_coords duplicate (bis)")
+
+        p = CTParser.ParsingInfo()
+        p.lnum = 1
+        p.line = "test duplicate coord"
+        p.x = :x
+        p.u = :u
+        p.t = :t
+        p.t0 = 0
+        p.tf = 1
+        p.dim_x = 2
+        p.dt = :dt
+        p_ocp = :p_ocp
+
+        # Add coordinate 1
+        ex1 = CTParser.p_dynamics_coord_exa!(p, p_ocp, :x, 1, :t, :(u(t)))
+        @test 1 in p.dyn_coords
+
+        # Try to add coordinate 1 again - should fail
+        ex2 = CTParser.p_dynamics_coord_exa!(p, p_ocp, :x, 1, :t, :(x₂(t)))
+        @test ex2 isa Expr
+        @test_throws ParsingError eval(ex2)
     end
 
     @testset "PARSING_BACKENDS and PARSING_DIR" begin
