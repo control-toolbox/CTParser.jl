@@ -1,5 +1,7 @@
 # onepass
 # todo:
+# - add tests to compare runs of exa with scalar vs vec dynamics
+#
 # - as_range / as_vector for rg / lb, ub could be done here in p_constraint when calling constraint!
 # - cannot call solve if problem not fully defined (dynamics not defined...)
 # - doc: explain projections wrt to t0, tf, t; (...x1...x2...)(t) -> ...gensym1...gensym2... (most internal first)
@@ -118,7 +120,7 @@ $(TYPEDEF)
     lnum::Int = 0
     line::String = ""
     dt::Symbol = __symgen(:dt)
-    is_global_dyn::Bool = false # debug: add tests for this + next field
+    is_global_dyn::Bool = false
     is_coord_dyn::Bool = false
     dyn_coords::Vector{Int64} = Int64[]
     dyn_con::Union{Symbol,Nothing} = nothing
@@ -693,25 +695,34 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
     isnothing(e1) && (e1 = :(-Inf * ones(length($e3))))
     isnothing(e3) && (e3 = :(Inf * ones(length($e1))))
     code = @match c_type begin
-        :boundary || :variable_fun => begin # todo: vectorise
-            code = :(length($e1) == length($e3) == 1 || throw("this constraint must be scalar")) # (vs. __throw) since raised at runtime
+        :boundary || :variable_fun => begin
             x0 = __symgen(:x0)
             xf = __symgen(:xf)
             k = __symgen(:k)
+            l = __symgen(:l)
             e2 = replace_call(e2, p.x, p.t0, x0)
             e2 = replace_call(e2, p.x, p.tf, xf)
             e2 = subs2(e2, x0, p.x, 0)
             e2 = subs(e2, x0, :([$(p.x)[$k, 0] for $k ∈ 1:$(p.dim_x)]))
             e2 = subs2(e2, xf, p.x, :grid_size)
             e2 = subs(e2, xf, :([$(p.x)[$k, grid_size] for $k ∈ 1:$(p.dim_x)]))
-            concat(code, :($pref.constraint($p_ocp, $e2; lcon=($e1[1]), ucon=($e3[1])))) # todo: e1/3[1] will be e1/3[k] when vectorised over dim
+            quote
+                length($e1) == length($e3) || throw("wrong bound dimension") # (vs. __throw) since raised at runtime
+                if length($e1) == 1
+                    $pref.constraint($p_ocp, $e2; lcon=($e1[1]), ucon=($e3[1]))
+                else
+                    for $l ∈ 1:length($e1)
+                        $pref.constraint($p_ocp, $e2[$l]; lcon=($e1[$l]), ucon=($e3[$l]))
+                    end
+                end
+            end
         end
         (:initial, rg) => begin
             if isnothing(rg)
                 rg = :(1:($(p.dim_x))) # x(t0) implies rg == nothing but means x[1:p.dim_x](t0)
                 e2 = subs(e2, p.x, :($(p.x)[$rg]))
             else
-                rg = as_range(rg)
+                rg = as_range(rg) # case rg = i (vs i:j or i:p:j)
             end
             code = :(
                 length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
@@ -796,24 +807,28 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             p.box_u = concat(p.box_u, code_box) # not __wrapped since contains definition of l_u/u_u
             :()
         end
-        :state_fun || :control_fun || :mixed => begin # todo: vectorise
-            code = :(length($e1) == length($e3) == 1 || throw("this constraint must be scalar")) # (vs. __throw) since raised at runtime
+        :state_fun || :control_fun || :mixed => begin
             xt = __symgen(:xt)
             ut = __symgen(:ut)
-            e2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
             j = __symgen(:j)
             k = __symgen(:k)
+            l = __symgen(:l)
+            e2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
             e2 = subs2(e2, xt, p.x, j)
             e2 = subs(e2, xt, :([$(p.x)[$k, $j] for $k ∈ 1:$(p.dim_x)]))
             e2 = subs2(e2, ut, p.u, j)
             e2 = subs(e2, ut, :([$(p.u)[$k, $j] for $k ∈ 1:$(p.dim_u)]))
             e2 = subs(e2, p.t, :($(p.t0) + $j * $(p.dt)))
-            concat(
-                code,
-                :($pref.constraint(
-                    $p_ocp, $e2 for $j in 0:grid_size; lcon=($e1[1]), ucon=($e3[1])
-                )),
-            )
+            quote
+                length($e1) == length($e3) || throw("wrong bound dimension") # (vs. __throw) since raised at runtime
+                if length($e1) == 1
+                    $pref.constraint($p_ocp, $e2 for $j in 0:grid_size; lcon=($e1[1]), ucon=($e3[1]))
+                else
+                    for $l ∈ 1:length($e1)
+                        $pref.constraint($p_ocp, $e2[$l] for $j in 0:grid_size; lcon=($e1[$l]), ucon=($e3[$l]))
+                    end
+                end
+            end
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
     end
