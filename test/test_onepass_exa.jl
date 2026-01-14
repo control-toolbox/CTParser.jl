@@ -38,8 +38,8 @@ end
 # Tests
 
 function test_onepass_exa()
-    #l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
-    l_scheme = [:midpoint]
+    l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
+    #l_scheme = [:midpoint]
     for scheme ∈ l_scheme
         __test_onepass_exa(; scheme=scheme)
         CUDA.functional() && __test_onepass_exa(CUDABackend(); scheme=scheme)
