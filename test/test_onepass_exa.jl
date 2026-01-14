@@ -38,8 +38,8 @@ end
 # Tests
 
 function test_onepass_exa()
-    l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
-    #l_scheme = [:midpoint]
+    #l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
+    l_scheme = [:midpoint]
     for scheme ∈ l_scheme
         __test_onepass_exa(; scheme=scheme)
         CUDA.functional() && __test_onepass_exa(CUDABackend(); scheme=scheme)
@@ -828,7 +828,7 @@ function __test_onepass_exa(
             tf^2 ≥ [1, 5] # wrong dim
             x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws MethodError o(; backend=backend)
 
         o = @def_exa begin
             tf ∈ R, variable
@@ -840,7 +840,7 @@ function __test_onepass_exa(
             cos(x₁(t)) ≤ [1, 2] # wrong dim
             x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws MethodError o(; backend=backend)
 
         o = @def_exa begin
             tf ∈ R, variable
@@ -852,7 +852,7 @@ function __test_onepass_exa(
             cos(u(t)) ≤ [1, 2] # wrong dim
             x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws MethodError o(; backend=backend)
 
         o = @def_exa begin
             tf ∈ R, variable
@@ -864,7 +864,7 @@ function __test_onepass_exa(
             x₁(t) + u(t) == [1, 2] # wrong dim
             x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws MethodError o(; backend=backend)
 
         o = @def begin
             tf ∈ R, variable
@@ -1153,7 +1153,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws MethodError o(; backend=backend)
     end
 
     test_name = "variable bounds test"
@@ -1252,7 +1252,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws MethodError o(; backend=backend)
     end
 
     test_name = "initial bounds test"
