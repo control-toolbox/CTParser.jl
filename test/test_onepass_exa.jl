@@ -1,48 +1,9 @@
 # test onepass, exa parsing (aka parsing towards ExaModels)
 # tests with @def_exa are @test_throw's that bypass :fun parsing since parsing with :fun throws an error before one can be detected by :exa.
 
+using .ExaLinAlg # Load ExaLinAlg module for linear algebra operations on ExaModels.AbstractNode arrays
+
 activate_backend(:exa) # nota bene: needs to be executed before @def are expanded
-
-# Auxiliary functions
-# todo: add tests on these, and export them (both from CTParser and from OC)
-# try: just redefine Base.zero and Base.adjoint; may be add promote and convert 
-
-import Base: zero, adjoint, *
-import LinearAlgebra: dot, Adjoint
-
-zero(x::T) where {T <: ExaModels.AbstractNode} = 0
-
-adjoint(x::ExaModels.AbstractNode) = x
-
-## Convert Number to AbstractNode using Null
-Base.convert(::Type{ExaModels.AbstractNode}, x::Number) = ExaModels.Null(x)
-#
-## Also handle the identity conversion
-#Base.convert(::Type{T}, x::T) where {T<:ExaModels.AbstractNode} = x
-#
-## If you need more specific typing:
-#Base.convert(::Type{ExaModels.Null{T}}, x::Number) where {T} = 
-#    ExaModels.Null{typeof(x)}(x)
-
-# works to define matrices (of vectors) with symbolic entries
-Base.promote_rule(::Type{<:ExaModels.AbstractNode}, ::Type{<:Number}) = ExaModels.AbstractNode
-
-function dot(v::Vector{T}, x::Vector{S}) where {T, S <: ExaModels.AbstractNode}
-    @assert length(v) == length(x)
-    return sum(v .* x)
-end
-
-function *(A::Matrix{T}, x::Vector{S}) where {T, S <: ExaModels.AbstractNode}
-    m, n = size(A)
-    @assert n == length(x)
-    return [dot(A[i, :], x) for i in 1:m]
-end
-
-function *(p::Adjoint{T, Vector{T}}, A::Matrix{S}) where {T <: ExaModels.AbstractNode, S}
-    m, n = size(A)
-    @assert m == length(p)
-    return [p * A[:, j] for j in 1:n]'
-end
 
 # Mock up of CTDirect.discretise for tests
 
@@ -867,7 +828,7 @@ function __test_onepass_exa(
             tf^2 ≥ [1, 5] # wrong dim
             x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws MethodError o(; backend=backend)
 
         o = @def_exa begin
             tf ∈ R, variable
@@ -879,7 +840,7 @@ function __test_onepass_exa(
             cos(x₁(t)) ≤ [1, 2] # wrong dim
             x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws MethodError o(; backend=backend)
 
         o = @def_exa begin
             tf ∈ R, variable
@@ -891,7 +852,7 @@ function __test_onepass_exa(
             cos(u(t)) ≤ [1, 2] # wrong dim
             x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws MethodError o(; backend=backend)
 
         o = @def_exa begin
             tf ∈ R, variable
@@ -903,7 +864,7 @@ function __test_onepass_exa(
             x₁(t) + u(t) == [1, 2] # wrong dim
             x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws MethodError o(; backend=backend)
 
         o = @def begin
             tf ∈ R, variable
@@ -1090,14 +1051,14 @@ function __test_onepass_exa(
     @testset "$test_name" begin
         println(test_name)
 
-        o = @def_exa begin
+        o = @def begin
             t ∈ [0, 1], time
             x ∈ R⁴, state
             u ∈ R⁵, control
             ẋ(t) == u[1:4](t)
             x₁(0) + 2cos(x₂(1)) → min
         end
-        @test_throws ParsingError o(; backend=backend)
+        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel # legacy: this now passes!
 
         o = @def_exa begin
             t ∈ [0, 1], time
@@ -1192,7 +1153,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws MethodError o(; backend=backend)
     end
 
     test_name = "variable bounds test"
@@ -1291,7 +1252,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws MethodError o(; backend=backend)
     end
 
     test_name = "initial bounds test"

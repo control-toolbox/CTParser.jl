@@ -52,6 +52,9 @@ using CUDA
 using BenchmarkTools
 using Interpolations
 using NLPModels
+using LinearAlgebra
+
+include("exa_linalg.jl")
 
 macro ignore(e)
     return :()
@@ -64,6 +67,7 @@ const SHOWTIMING = true
 function default_tests()
     return OrderedDict(
         :aqua => true,
+        :exa_linalg => true,
         :initial_guess => true,
         :utils => true,
         :utils_bis => true,
@@ -73,6 +77,7 @@ function default_tests()
         :onepass_fun_bis => true,
         :onepass_exa => true,
         :onepass_exa_bis => true,
+        :dynamics_exa => true,
     )
 end
 
