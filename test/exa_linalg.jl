@@ -194,54 +194,54 @@ end
 
 # Scalar × Vector
 function *(a::T, v::Vector{<:Real}) where {T <: ExaModels.AbstractNode}
-    return [opt_mul(a, vi) for vi in v]
+    return Sym[opt_mul(a, vi) for vi in v]
 end
 
 function *(a::Number, v::Vector{<:Sym})
-    return [opt_mul(a, vi) for vi in v]
+    return Sym[opt_mul(a, vi) for vi in v]
 end
 
 function *(a::T, v::Vector{<:Sym}) where {T <: ExaModels.AbstractNode}
-    return [opt_mul(a, vi) for vi in v]
+    return Sym[opt_mul(a, vi) for vi in v]
 end
 
 # Vector × Scalar
 function *(v::Vector{<:Sym}, a::Number)
-    return [opt_mul(vi, a) for vi in v]
+    return Sym[opt_mul(vi, a) for vi in v]
 end
 
 function *(v::Vector{<:Real}, a::ExaModels.AbstractNode)
-    return [opt_mul(vi, a) for vi in v]
+    return Sym[opt_mul(vi, a) for vi in v]
 end
 
 function *(v::Vector{<:Sym}, a::ExaModels.AbstractNode)
-    return [opt_mul(vi, a) for vi in v]
+    return Sym[opt_mul(vi, a) for vi in v]
 end
 
 # Scalar × Matrix
 function *(a::T, A::Matrix{<:Real}) where {T <: ExaModels.AbstractNode}
-    return [opt_mul(a, A[i, j]) for i in axes(A, 1), j in axes(A, 2)]
+    return Sym[opt_mul(a, A[i, j]) for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function *(a::Number, A::Matrix{<:Sym})
-    return [opt_mul(a, A[i, j]) for i in axes(A, 1), j in axes(A, 2)]
+    return Sym[opt_mul(a, A[i, j]) for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function *(a::T, A::Matrix{<:Sym}) where {T <: ExaModels.AbstractNode}
-    return [opt_mul(a, A[i, j]) for i in axes(A, 1), j in axes(A, 2)]
+    return Sym[opt_mul(a, A[i, j]) for i in axes(A, 1), j in axes(A, 2)]
 end
 
 # Matrix × Scalar
 function *(A::Matrix{<:Sym}, a::Number)
-    return [opt_mul(A[i, j], a) for i in axes(A, 1), j in axes(A, 2)]
+    return Sym[opt_mul(A[i, j], a) for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function *(A::Matrix{<:Real}, a::ExaModels.AbstractNode)
-    return [opt_mul(A[i, j], a) for i in axes(A, 1), j in axes(A, 2)]
+    return Sym[opt_mul(A[i, j], a) for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function *(A::Matrix{<:Sym}, a::ExaModels.AbstractNode)
-    return [opt_mul(A[i, j], a) for i in axes(A, 1), j in axes(A, 2)]
+    return Sym[opt_mul(A[i, j], a) for i in axes(A, 1), j in axes(A, 2)]
 end
 
 # ============================================================================
@@ -251,19 +251,19 @@ end
 function *(A::Matrix{<:Real}, x::Vector{<:Sym})
     m, n = size(A)
     @assert n == length(x) "Dimension mismatch: matrix has $n columns but vector has $(length(x)) elements"
-    return [dot(A[i, :], x) for i in 1:m]
+    return Sym[dot(A[i, :], x) for i in 1:m]
 end
 
 function *(A::Matrix{<:Sym}, x::Vector{<:Real})
     m, n = size(A)
     @assert n == length(x) "Dimension mismatch: matrix has $n columns but vector has $(length(x)) elements"
-    return [dot(A[i, :], x) for i in 1:m]
+    return Sym[dot(A[i, :], x) for i in 1:m]
 end
 
 function *(A::Matrix{<:Sym}, x::Vector{<:Sym})
     m, n = size(A)
     @assert n == length(x) "Dimension mismatch: matrix has $n columns but vector has $(length(x)) elements"
-    return [dot(A[i, :], x) for i in 1:m]
+    return Sym[dot(A[i, :], x) for i in 1:m]
 end
 
 # ============================================================================
@@ -274,21 +274,21 @@ function *(A::Matrix{<:Real}, B::Matrix{<:Sym})
     m, n = size(A)
     p, q = size(B)
     @assert n == p "Dimension mismatch: A has $n columns but B has $p rows"
-    return [dot(A[i, :], B[:, j]) for i in 1:m, j in 1:q]
+    return Sym[dot(A[i, :], B[:, j]) for i in 1:m, j in 1:q]
 end
 
 function *(A::Matrix{<:Sym}, B::Matrix{<:Real})
     m, n = size(A)
     p, q = size(B)
     @assert n == p "Dimension mismatch: A has $n columns but B has $p rows"
-    return [dot(A[i, :], B[:, j]) for i in 1:m, j in 1:q]
+    return Sym[dot(A[i, :], B[:, j]) for i in 1:m, j in 1:q]
 end
 
 function *(A::Matrix{<:Sym}, B::Matrix{<:Sym})
     m, n = size(A)
     p, q = size(B)
     @assert n == p "Dimension mismatch: A has $n columns but B has $p rows"
-    return [dot(A[i, :], B[:, j]) for i in 1:m, j in 1:q]
+    return Sym[dot(A[i, :], B[:, j]) for i in 1:m, j in 1:q]
 end
 
 # ============================================================================
@@ -298,19 +298,19 @@ end
 function *(p::Adjoint{T, Vector{T}}, A::Matrix{<:Real}) where {T <: Sym}
     m, n = size(A)
     @assert m == length(p) "Dimension mismatch: vector has $(length(p)) elements but matrix has $m rows"
-    return [p * A[:, j] for j in 1:n]'
+    return Sym[p * A[:, j] for j in 1:n]'
 end
 
 function *(p::Adjoint{T, Vector{T}}, A::Matrix{<:Sym}) where {T <: Real}
     m, n = size(A)
     @assert m == length(p) "Dimension mismatch: vector has $(length(p)) elements but matrix has $m rows"
-    return [p * A[:, j] for j in 1:n]'
+    return Sym[p * A[:, j] for j in 1:n]'
 end
 
 function *(p::Adjoint{T, Vector{T}}, A::Matrix{<:Sym}) where {T <: Sym}
     m, n = size(A)
     @assert m == length(p) "Dimension mismatch: vector has $(length(p)) elements but matrix has $m rows"
-    return [p * A[:, j] for j in 1:n]'
+    return Sym[p * A[:, j] for j in 1:n]'
 end
 
 # ============================================================================
@@ -332,33 +332,33 @@ end
 # Vector + Vector
 function +(v::Vector{<:Sym}, w::Vector{<:Real})
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
-    return [opt_add(v[i], w[i]) for i in eachindex(v)]
+    return Sym[opt_add(v[i], w[i]) for i in eachindex(v)]
 end
 
 function +(v::Vector{<:Real}, w::Vector{<:Sym})
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
-    return [opt_add(v[i], w[i]) for i in eachindex(v)]
+    return Sym[opt_add(v[i], w[i]) for i in eachindex(v)]
 end
 
 function +(v::Vector{<:Sym}, w::Vector{<:Sym})
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
-    return [opt_add(v[i], w[i]) for i in eachindex(v)]
+    return Sym[opt_add(v[i], w[i]) for i in eachindex(v)]
 end
 
 # Matrix + Matrix
 function +(A::Matrix{<:Sym}, B::Matrix{<:Real})
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
-    return [opt_add(A[i, j], B[i, j]) for i in axes(A, 1), j in axes(A, 2)]
+    return Sym[opt_add(A[i, j], B[i, j]) for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function +(A::Matrix{<:Real}, B::Matrix{<:Sym})
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
-    return [opt_add(A[i, j], B[i, j]) for i in axes(A, 1), j in axes(A, 2)]
+    return Sym[opt_add(A[i, j], B[i, j]) for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function +(A::Matrix{<:Sym}, B::Matrix{<:Sym})
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
-    return [opt_add(A[i, j], B[i, j]) for i in axes(A, 1), j in axes(A, 2)]
+    return Sym[opt_add(A[i, j], B[i, j]) for i in axes(A, 1), j in axes(A, 2)]
 end
 
 # ============================================================================
@@ -368,33 +368,33 @@ end
 # Vector - Vector
 function -(v::Vector{<:Sym}, w::Vector{<:Real})
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
-    return [opt_sub(v[i], w[i]) for i in eachindex(v)]
+    return Sym[opt_sub(v[i], w[i]) for i in eachindex(v)]
 end
 
 function -(v::Vector{<:Real}, w::Vector{<:Sym})
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
-    return [opt_sub(v[i], w[i]) for i in eachindex(v)]
+    return Sym[opt_sub(v[i], w[i]) for i in eachindex(v)]
 end
 
 function -(v::Vector{<:Sym}, w::Vector{<:Sym})
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
-    return [opt_sub(v[i], w[i]) for i in eachindex(v)]
+    return Sym[opt_sub(v[i], w[i]) for i in eachindex(v)]
 end
 
 # Matrix - Matrix
 function -(A::Matrix{<:Sym}, B::Matrix{<:Real})
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
-    return [opt_sub(A[i, j], B[i, j]) for i in axes(A, 1), j in axes(A, 2)]
+    return Sym[opt_sub(A[i, j], B[i, j]) for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function -(A::Matrix{<:Real}, B::Matrix{<:Sym})
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
-    return [opt_sub(A[i, j], B[i, j]) for i in axes(A, 1), j in axes(A, 2)]
+    return Sym[opt_sub(A[i, j], B[i, j]) for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function -(A::Matrix{<:Sym}, B::Matrix{<:Sym})
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
-    return [opt_sub(A[i, j], B[i, j]) for i in axes(A, 1), j in axes(A, 2)]
+    return Sym[opt_sub(A[i, j], B[i, j]) for i in axes(A, 1), j in axes(A, 2)]
 end
 
 # ============================================================================
@@ -482,7 +482,7 @@ end
 function diag(A::Matrix{<:Sym})
     n, m = size(A)
     k = min(n, m)
-    return [A[i, i] for i in 1:k]
+    return Sym[A[i, i] for i in 1:k]
 end
 
 # Create diagonal matrix from vector

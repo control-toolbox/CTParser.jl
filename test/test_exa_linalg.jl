@@ -670,22 +670,22 @@ function test_exa_linalg()
             x, y, z, w = create_nodes()
 
             @testset "Scalar × Vector with zero scalar" begin
-                # 0 × numeric vector - returns numeric zeros
+                # 0 × numeric vector - returns Sym zeros (consistent return type)
                 result1 = 0 * [1.0, 2.0, 3.0]
                 @test all(iszero.(result1))
-                @test result1 isa Vector{<:Real}  # opt_mul returns numeric 0
+                @test result1 isa Vector{<:Sym}  # consistent return type
                 @test length(result1) == 3
 
-                # 0 (Number) × AbstractNode vector - returns numeric zeros
+                # 0 (Number) × AbstractNode vector - returns Sym zeros
                 vec_nodes = [x, y, z]
                 result2 = 0 * vec_nodes
                 @test all(iszero.(result2))
-                @test result2 isa Vector{<:Real}  # opt_mul returns numeric 0
+                @test result2 isa Vector{<:Sym}  # consistent return type
 
-                # 0.0 × AbstractNode vector - returns numeric zeros
+                # 0.0 × AbstractNode vector - returns Sym zeros
                 result3 = 0.0 * vec_nodes
                 @test all(iszero.(result3))
-                @test result3 isa Vector{<:Real}  # opt_mul returns numeric 0
+                @test result3 isa Vector{<:Sym}  # consistent return type
             end
 
             @testset "Scalar × Vector with zero elements" begin
@@ -700,20 +700,20 @@ function test_exa_linalg()
             @testset "Vector × Scalar with zero scalar" begin
                 vec_nodes = [x, y, z]
 
-                # AbstractNode vector × 0 - returns numeric zeros
+                # AbstractNode vector × 0 - returns Sym zeros (consistent return type)
                 result1 = vec_nodes * 0
                 @test all(iszero.(result1))
-                @test result1 isa Vector{<:Real}  # opt_mul returns numeric 0
+                @test result1 isa Vector{<:Sym}  # consistent return type
 
-                # AbstractNode vector × 0.0 - returns numeric zeros
+                # AbstractNode vector × 0.0 - returns Sym zeros
                 result2 = vec_nodes * 0.0
                 @test all(iszero.(result2))
-                @test result2 isa Vector{<:Real}  # opt_mul returns numeric 0
+                @test result2 isa Vector{<:Sym}  # consistent return type
 
-                # Numeric vector × 0 - returns numeric zeros
+                # Numeric vector × 0 - returns Sym zeros
                 result3 = [1.0, 2.0, 3.0] * 0
                 @test all(iszero.(result3))
-                @test result3 isa Vector{<:Real}  # opt_mul returns numeric 0
+                @test result3 isa Vector{<:Sym}  # consistent return type
             end
 
             @testset "Vector × Scalar with zero elements" begin
@@ -728,25 +728,25 @@ function test_exa_linalg()
             @testset "Scalar × Matrix with zero scalar" begin
                 mat_nodes = [x y; z w]
 
-                # 0 × AbstractNode matrix - returns numeric zeros
+                # 0 × AbstractNode matrix - returns Sym zeros (consistent return type)
                 result1 = 0 * mat_nodes
                 @test all(iszero.(result1))
-                @test result1 isa Matrix{<:Real}  # opt_mul returns numeric 0
+                @test result1 isa Matrix{<:Sym}  # consistent return type
                 @test size(result1) == (2, 2)
 
-                # 0 × numeric matrix - returns numeric zeros
+                # 0 × numeric matrix - returns Sym zeros
                 result2 = 0 * [1.0 2.0; 3.0 4.0]
                 @test all(iszero.(result2))
-                @test result2 isa Matrix{<:Real}  # opt_mul returns numeric 0
+                @test result2 isa Matrix{<:Sym}  # consistent return type
             end
 
             @testset "Matrix × Scalar with zero scalar" begin
                 mat_nodes = [x y; z w]
 
-                # AbstractNode matrix × 0.0 - returns numeric zeros
+                # AbstractNode matrix × 0.0 - returns Sym zeros (consistent return type)
                 result = mat_nodes * 0.0
                 @test all(iszero.(result))
-                @test result isa Matrix{<:Real}  # opt_mul returns numeric 0
+                @test result isa Matrix{<:Sym}  # consistent return type
             end
         end
 
@@ -761,7 +761,7 @@ function test_exa_linalg()
                 @test result1[1] === x  # Identity check
                 @test result1[2] === y
                 @test result1[3] === z
-                @test result1 isa Vector{<:ExaModels.AbstractNode}
+                @test result1 isa Vector{<:Sym}  # consistent return type
 
                 # Zeros + AbstractNode vector
                 result2 = [0.0, 0.0, 0.0] + vec_nodes
@@ -792,7 +792,7 @@ function test_exa_linalg()
                 @test result1[1,2] === y
                 @test result1[2,1] === z
                 @test result1[2,2] === w
-                @test result1 isa Matrix{<:ExaModels.AbstractNode}
+                @test result1 isa Matrix{<:Sym}  # consistent return type
 
                 # Zeros + AbstractNode matrix
                 result2 = [0.0 0.0; 0.0 0.0] + mat_nodes
@@ -819,7 +819,7 @@ function test_exa_linalg()
                 @test result1[1] === x  # Identity check
                 @test result1[2] === y
                 @test result1[3] === z
-                @test result1 isa Vector{<:ExaModels.AbstractNode}
+                @test result1 isa Vector{<:Sym}  # consistent return type
 
                 # Mixed: some zeros
                 result2 = vec_nodes - [0, 1.0, 0]
@@ -844,7 +844,7 @@ function test_exa_linalg()
                 @test result1[1,2] === y
                 @test result1[2,1] === z
                 @test result1[2,2] === w
-                @test result1 isa Matrix{<:ExaModels.AbstractNode}
+                @test result1 isa Matrix{<:Sym}  # consistent return type
 
                 # Mixed: some zeros
                 result2 = mat_nodes - [0 1.0; 0 0]
@@ -1047,6 +1047,87 @@ function test_exa_linalg()
 
                 @test result[1] === x
                 @test result[2] === z
+            end
+        end
+
+        @testset "Return type verification" begin
+            x, y, z, w = create_nodes()
+
+            @testset "Scalar operations return <:Sym" begin
+                vec_nodes = [x, y, z]
+                mat_nodes = [x y; z w]
+                v_num = [1.0, 2.0, 3.0]
+
+                # dot returns <:Sym
+                @test dot(v_num, vec_nodes) isa Sym
+                @test dot(vec_nodes, v_num) isa Sym
+                @test dot(vec_nodes, vec_nodes) isa Sym
+
+                # det returns <:Sym
+                @test det(mat_nodes) isa Sym
+
+                # tr returns <:Sym
+                @test tr(mat_nodes) isa Sym
+
+                # norm returns <:Sym
+                @test norm(vec_nodes) isa Sym
+                @test norm(vec_nodes, 1) isa Sym
+                @test norm(vec_nodes, 2) isa Sym
+                @test norm(mat_nodes) isa Sym
+            end
+
+            @testset "Array operations return Array{<:Sym}" begin
+                vec_nodes = [x, y, z]
+                mat_nodes = [x y; z w]
+                v_num = [1.0, 2.0, 3.0]
+                A_num = [1.0 2.0; 3.0 4.0]
+
+                # Scalar × Vector → Vector{<:Sym}
+                @test (x * v_num) isa Vector{<:Sym}
+                @test (2.0 * vec_nodes) isa Vector{<:Sym}
+
+                # Vector × Scalar → Vector{<:Sym}
+                @test (vec_nodes * 2.0) isa Vector{<:Sym}
+                @test (v_num * x) isa Vector{<:Sym}
+
+                # Matrix × Vector → Vector{<:Sym}
+                @test (A_num * [x, y]) isa Vector{<:Sym}
+                @test (mat_nodes * [1.0, 2.0]) isa Vector{<:Sym}
+
+                # Scalar × Matrix → Matrix{<:Sym}
+                @test (x * A_num) isa Matrix{<:Sym}
+                @test (2.0 * mat_nodes) isa Matrix{<:Sym}
+
+                # Matrix × Scalar → Matrix{<:Sym}
+                @test (mat_nodes * 2.0) isa Matrix{<:Sym}
+                @test (A_num * x) isa Matrix{<:Sym}
+
+                # Matrix × Matrix → Matrix{<:Sym}
+                @test (A_num * mat_nodes) isa Matrix{<:Sym}
+                @test (mat_nodes * A_num) isa Matrix{<:Sym}
+                @test (mat_nodes * mat_nodes) isa Matrix{<:Sym}
+
+                # Vector + Vector → Vector{<:Sym}
+                @test (vec_nodes + v_num) isa Vector{<:Sym}
+                @test (v_num + vec_nodes) isa Vector{<:Sym}
+
+                # Vector - Vector → Vector{<:Sym}
+                @test (vec_nodes - v_num) isa Vector{<:Sym}
+                @test (v_num - vec_nodes) isa Vector{<:Sym}
+
+                # Matrix + Matrix → Matrix{<:Sym}
+                @test (mat_nodes + A_num) isa Matrix{<:Sym}
+                @test (A_num + mat_nodes) isa Matrix{<:Sym}
+
+                # Matrix - Matrix → Matrix{<:Sym}
+                @test (mat_nodes - A_num) isa Matrix{<:Sym}
+                @test (A_num - mat_nodes) isa Matrix{<:Sym}
+
+                # diag → Vector{<:Sym}
+                @test diag(mat_nodes) isa Vector{<:Sym}
+
+                # diagm → Matrix{<:Sym}
+                @test diagm([x, y]) isa Matrix{<:Sym}
             end
         end
     end
