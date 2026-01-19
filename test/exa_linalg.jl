@@ -6,10 +6,10 @@ Extends Julia's standard Array interface without wrappers.
 
 # Key Design: Bottom-Up Optimization
 All operations are built on optimized scalar operations (opt_add, opt_sub, opt_mul)
-that properly handle zero and one values, avoiding unnecessary expression tree nodes.
+that properly handle Null nodes, avoiding unnecessary expression tree nodes.
 
 # Public API (Exported)
-- Detection: `is_zero`, `is_one`, `zero_node`, `one_node`
+- Canonical nodes: `zero_node`, `one_node`
 - Basic operations: `zero`, `adjoint`, `transpose`, `*`, `+`, `-`, `sum`
 - Linear algebra: `dot`, `det`, `tr`, `norm`, `diag`, `diagm`
 
@@ -26,63 +26,28 @@ import Base: zero, adjoint, *, promote_rule, convert, +, -, transpose, sum
 import LinearAlgebra: dot, Adjoint, det, tr, norm, diag, diagm
 
 export zero, adjoint, transpose, *, +, -, sum, dot, det, tr, norm, diag, diagm
-export is_zero, is_one, zero_node, one_node
+export zero_node, one_node
 
 # ============================================================================
-# Section 1: Detection Functions and Canonical Nodes
+# Section 1: Canonical Nodes
 # ============================================================================
 #
-# Canonical encodings (from ExaModels graph.jl):
-# - Zero: Null(nothing) evaluates to zero(T) [line 313]
-# - One:  Null(1) evaluates to T(1) = one(T) [line 314]
-#
-# Detection uses iszero() and isone() to handle all numeric types
-# (Int64, Float64, Float32, Complex, etc.)
+# Canonical encodings:
+# - Zero: Null(0) represents zero
+# - One:  Null(1) represents one
 # ============================================================================
 
 """
-    is_zero(x) -> Bool
+    zero_node() -> Null{Int}
 
-Check if a value represents zero. Works for Number and AbstractNode types.
-Returns true for: 0, 0.0, Null(nothing), Null(0), Null(0.0), etc.
+Return the canonical zero AbstractNode: Null(0).
 """
-is_zero(x::Number)::Bool = iszero(x)
-
-function is_zero(x::ExaModels.Null)::Bool
-    val = x.value
-    return val === nothing || iszero(val)
-end
-
-is_zero(x::ExaModels.AbstractNode)::Bool = false
-
-"""
-    is_one(x) -> Bool
-
-Check if a value represents one. Works for Number and AbstractNode types.
-Returns true for: 1, 1.0, Null(1), Null(1.0), etc.
-"""
-is_one(x::Number)::Bool = isone(x)
-
-function is_one(x::ExaModels.Null)::Bool
-    val = x.value
-    return val !== nothing && isone(val)
-end
-
-is_one(x::ExaModels.AbstractNode)::Bool = false
-
-"""
-    zero_node() -> Null{Nothing}
-
-Return the canonical zero AbstractNode: Null(nothing).
-This evaluates to zero(T) for any numeric type T.
-"""
-zero_node() = ExaModels.Null(nothing)
+zero_node() = ExaModels.Null(0)
 
 """
     one_node() -> Null{Int}
 
 Return the canonical one AbstractNode: Null(1).
-This evaluates to one(T) for any numeric type T.
 """
 one_node() = ExaModels.Null(1)
 
@@ -90,117 +55,73 @@ one_node() = ExaModels.Null(1)
 # Section 2: Optimized Scalar Operations
 # ============================================================================
 #
-# These rules apply for any concrete numeric type (Int64, Float64, etc.)
-# using iszero() and isone() for detection.
+# Rules for opt_add:
+#   Null(x) + Null(y) = Null(x + y)
+#   Null(x) + e = x + e
+#   e + Null(x) = e + x
+#   e + f = e + f (native from ExaModels)
 #
-# (i) Addition
-#     0 + x = x
-#     x + 0 = x
-#     Null(nothing) + x = x
-#     x + Null(nothing) = x
+# Rules for opt_sub:
+#   Null(x) - Null(y) = Null(x - y)
+#   Null(0) - e = -e
+#   Null(x) - e = x - e when !iszero(x)
+#   e - Null(x) = e - x
+#   e - f = e - f (native from ExaModels)
 #
-# (ii) Subtraction
-#     0 - x = Node1(-, x)   [unary minus]
-#     x - 0 = x
-#     Null(nothing) - x = Node1(-, x)
-#     x - Null(nothing) = x
-#
-# (iii) Multiplication by zero
-#     0 * x = Null(nothing)
-#     x * 0 = Null(nothing)
-#     Null(nothing) * x = Null(nothing)
-#     x * Null(nothing) = Null(nothing)
-#
-# (iv) Multiplication by one
-#     1 * x = x
-#     x * 1 = x
-#     Null(1) * x = x
-#     x * Null(1) = x
+# Rules for opt_mul:
+#   Null(x) * Null(y) = Null(x * y)
+#   Null(0) * e = Null(0)
+#   e * Null(0) = Null(0)
+#   Null(x) * e = x * e when !iszero(x)
+#   e * Null(x) = e * x when !iszero(x)
+#   e * f = e * f (native from ExaModels)
 # ============================================================================
 
-"""
-    opt_add(x, y)
+# opt_add: Null{T} cases
+opt_add(x::ExaModels.Null{T}, y::ExaModels.Null{S}) where {T<:Real, S<:Real} = ExaModels.Null(x.value + y.value)
+opt_add(x::ExaModels.Null{T}, y::ExaModels.AbstractNode) where {T<:Real} = x.value + y
+opt_add(x::ExaModels.AbstractNode, y::ExaModels.Null{T}) where {T<:Real} = x + y.value
+# opt_add: AbstractNode cases (non-Null)
+opt_add(x::ExaModels.AbstractNode, y::ExaModels.AbstractNode) = x + y
+# opt_add: Number cases (convert to Null)
+opt_add(x::Number, y::ExaModels.AbstractNode) = opt_add(ExaModels.Null(x), y)
+opt_add(x::ExaModels.AbstractNode, y::Number) = opt_add(x, ExaModels.Null(y))
+opt_add(x::Number, y::Number) = opt_add(ExaModels.Null(x), ExaModels.Null(y))
 
-Optimized addition that handles zero values.
-- 0 + x = x, x + 0 = x
-- Null(nothing) + x = x, x + Null(nothing) = x
-If both are numbers, wraps result in Null to maintain AbstractNode type.
-"""
-function opt_add(x, y)
-    # Check for zeros (identity element for addition)
-    if is_zero(x)
-        return y isa Number ? ExaModels.Null(y) : y
-    end
-    if is_zero(y)
-        return x isa Number ? ExaModels.Null(x) : x
-    end
-    # Both non-zero: perform addition
-    return x + y
-end
+# opt_sub: Null{T} cases
+opt_sub(x::ExaModels.Null{T}, y::ExaModels.Null{S}) where {T<:Real, S<:Real} = ExaModels.Null(x.value - y.value)
+opt_sub(x::ExaModels.Null{T}, y::ExaModels.AbstractNode) where {T<:Real} = iszero(x.value) ? (-y) : (x.value - y)
+opt_sub(x::ExaModels.AbstractNode, y::ExaModels.Null{T}) where {T<:Real} = x - y.value
+# opt_sub: AbstractNode cases (non-Null)
+opt_sub(x::ExaModels.AbstractNode, y::ExaModels.AbstractNode) = x - y
+# opt_sub: Number cases (convert to Null)
+opt_sub(x::Number, y::ExaModels.AbstractNode) = opt_sub(ExaModels.Null(x), y)
+opt_sub(x::ExaModels.AbstractNode, y::Number) = opt_sub(x, ExaModels.Null(y))
+opt_sub(x::Number, y::Number) = opt_sub(ExaModels.Null(x), ExaModels.Null(y))
 
-"""
-    opt_sub(x, y)
-
-Optimized subtraction that handles zero values.
-- x - 0 = x, x - Null(nothing) = x
-- 0 - x = -x (unary minus via Node1)
-"""
-function opt_sub(x, y)
-    # x - 0 = x
-    if is_zero(y)
-        return x isa Number ? ExaModels.Null(x) : x
-    end
-    # 0 - x = -x (unary minus)
-    if is_zero(x)
-        node = y isa Number ? ExaModels.Null(y) : y
-        return ExaModels.Node1(-, node)
-    end
-    # Both non-zero: perform subtraction
-    return x - y
-end
-
-"""
-    opt_mul(x, y)
-
-Optimized multiplication that handles zero and one values.
-- 0 * x = Null(nothing), x * 0 = Null(nothing)
-- 1 * x = x, x * 1 = x
-"""
-function opt_mul(x, y)
-    # Check for zeros (absorbing element for multiplication)
-    if is_zero(x) || is_zero(y)
-        return zero_node()
-    end
-    # Check for ones (identity element for multiplication)
-    if is_one(x)
-        return y isa Number ? ExaModels.Null(y) : y
-    end
-    if is_one(y)
-        return x isa Number ? ExaModels.Null(x) : x
-    end
-    # Neither zero nor one: perform multiplication
-    return x * y
-end
+# opt_mul: Null{T} cases
+opt_mul(x::ExaModels.Null{T}, y::ExaModels.Null{S}) where {T<:Real, S<:Real} = ExaModels.Null(x.value * y.value)
+opt_mul(x::ExaModels.Null{T}, y::ExaModels.AbstractNode) where {T<:Real} = iszero(x.value) ? ExaModels.Null(0) : (x.value * y)
+opt_mul(x::ExaModels.AbstractNode, y::ExaModels.Null{T}) where {T<:Real} = iszero(y.value) ? ExaModels.Null(0) : (x * y.value)
+# opt_mul: AbstractNode cases (non-Null)
+opt_mul(x::ExaModels.AbstractNode, y::ExaModels.AbstractNode) = x * y
+# opt_mul: Number cases (convert to Null)
+opt_mul(x::Number, y::ExaModels.AbstractNode) = opt_mul(ExaModels.Null(x), y)
+opt_mul(x::ExaModels.AbstractNode, y::Number) = opt_mul(x, ExaModels.Null(y))
+opt_mul(x::Number, y::Number) = opt_mul(ExaModels.Null(x), ExaModels.Null(y))
 
 """
     opt_sum(iter)
 
-Optimized sum that skips zero values entirely.
-Returns zero_node() if all elements are zero.
+Optimized sum using opt_add.
+Returns zero_node() if the iterator is empty.
 """
 function opt_sum(iter)
-    result = nothing  # Sentinel for "no non-zero terms yet"
+    result = zero_node()
     for x in iter
-        is_zero(x) && continue  # Skip zeros entirely
-        if result === nothing
-            # First non-zero term
-            result = x isa Number ? ExaModels.Null(x) : x
-        else
-            # Add to accumulator
-            result = opt_add(result, x)
-        end
+        result = opt_add(result, x)
     end
-    return result === nothing ? zero_node() : result
+    return result
 end
 
 # ============================================================================
