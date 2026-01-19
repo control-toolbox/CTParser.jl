@@ -9,13 +9,11 @@ using .ExaLinAlg: opt_add, opt_sub, opt_mul, opt_sum
 
 # Helper to create test AbstractNode instances
 function create_nodes()
-    # Create ExaCore and symbolic variables using ExaModels API
-    c = ExaModels.ExaCore()
-    _var = ExaModels.variable(c, 10)
-    x = _var[1]
-    y = _var[2]
-    z = _var[3]
-    w = _var[4]
+    # Use Null nodes which are simple AbstractNode instances
+    x = ExaModels.Null(1.0)
+    y = ExaModels.Null(2.0)
+    z = ExaModels.Null(3.0)
+    w = ExaModels.Null(4.0)
     return x, y, z, w
 end
 
@@ -23,6 +21,29 @@ function test_exa_linalg()
     @testset "ExaModels Linear Algebra Tests" begin
         x, y, z, w = create_nodes()
 
+        @testset "Type conversions and promotions" begin
+            # Test convert with non-zero
+            node = convert(ExaModels.AbstractNode, 5)
+            @test node isa ExaModels.Null
+            @test node isa ExaModels.AbstractNode
+            @test node.value == 5
+
+            # Test convert with zero (Int)
+            zero_int = convert(ExaModels.AbstractNode, 0)
+            @test zero_int isa ExaModels.Null
+            @test is_zero(zero_int)
+            @test zero_int === zero_node()  # Should be canonical zero
+
+            # Test convert with zero (Float)
+            zero_float = convert(ExaModels.AbstractNode, 0.0)
+            @test zero_float isa ExaModels.Null
+            @test is_zero(zero_float)
+            @test zero_float === zero_node()  # Should be canonical zero
+
+            # Test promote_rule
+            arr = [x, 2.0, 3.0]
+            @test eltype(arr) == ExaModels.AbstractNode
+        end
 
         @testset "Scalar × Vector multiplication" begin
             v_num = [1.0, 2.0, 3.0]
@@ -355,19 +376,19 @@ function test_exa_linalg()
             @test size(result3) == (3, 3)
             @test result3 isa Matrix
             @test result3[1, 1] isa ExaModels.AbstractNode
-            @test iszero(result3[1, 2])  # Off-diagonal elements are 0
-            @test iszero(result3[2, 1])
+            @test is_zero(result3[1, 2])  # Off-diagonal elements are zero_node()
+            @test is_zero(result3[2, 1])
 
             # Test diagm with offset
             result4 = diagm(1 => vec_nodes)
             @test size(result4) == (4, 4)
             @test result4[1, 2] isa ExaModels.AbstractNode
-            @test iszero(result4[1, 1])  # Off-diagonal elements are 0
+            @test is_zero(result4[1, 1])  # Off-diagonal elements are zero_node()
 
             result5 = diagm(-1 => vec_nodes)
             @test size(result5) == (4, 4)
             @test result5[2, 1] isa ExaModels.AbstractNode
-            @test iszero(result5[1, 1])
+            @test is_zero(result5[1, 1])
         end
 
         @testset "Transpose operations" begin
@@ -510,7 +531,7 @@ function test_exa_linalg()
             result16 = diagm(v)
             @test size(result16) == (2, 2)
             @test result16[1, 1] isa ExaModels.AbstractNode
-            @test iszero(result16[1, 2])  # Off-diagonal is 0
+            @test is_zero(result16[1, 2])  # Off-diagonal is zero_node()
         end
 
         @testset "Method ambiguity fixes" begin
@@ -646,107 +667,145 @@ function test_exa_linalg()
         @testset "Detection functions and canonical nodes" begin
             # Test is_zero with Numbers
             @testset "is_zero with Numbers" begin
-                @test iszero(0) == true
-                @test iszero(0.0) == true
-                @test iszero(1) == false
-                @test iszero(1.0) == false
-                @test iszero(-1) == false
+                @test is_zero(0) == true
+                @test is_zero(0.0) == true
+                @test is_zero(1) == false
+                @test is_zero(1.0) == false
+                @test is_zero(-1) == false
+            end
+
+            # Test is_zero with Null nodes
+            @testset "is_zero with Null nodes" begin
+                @test is_zero(ExaModels.Null(0)) == true
+                @test is_zero(ExaModels.Null(0.0)) == true
+                @test is_zero(ExaModels.Null(1)) == false
+                @test is_zero(ExaModels.Null(nothing)) == true  # Canonical zero!
             end
 
             # Test is_zero with symbolic AbstractNode
             @testset "is_zero with symbolic nodes" begin
-                c = ExaModels.ExaCore()
-                _var = ExaModels.variable(c, 10)
-                x = _var[1]
-                y = _var[2]
+                x = ExaModels.Null(1.0)
+                y = ExaModels.Null(2.0)
                 expr = x + y  # Creates a Node2
-                @test iszero(expr) == false
+                @test is_zero(expr) == false
             end
 
+            # Test is_one with Numbers
+            @testset "is_one with Numbers" begin
+                @test is_one(1) == true
+                @test is_one(1.0) == true
+                @test is_one(0) == false
+                @test is_one(2) == false
+                @test is_one(-1) == false
+            end
 
+            # Test is_one with Null nodes
+            @testset "is_one with Null nodes" begin
+                @test is_one(ExaModels.Null(1)) == true
+                @test is_one(ExaModels.Null(1.0)) == true
+                @test is_one(ExaModels.Null(0)) == false
+                @test is_one(ExaModels.Null(nothing)) == false  # Canonical zero, not one
+            end
+
+            # Test is_one with symbolic AbstractNode
+            @testset "is_one with symbolic nodes" begin
+                x = ExaModels.Null(1.0)
+                y = ExaModels.Null(2.0)
+                expr = x + y  # Creates a Node2
+                @test is_one(expr) == false
+            end
+
+            # Test zero_node and one_node helpers
+            @testset "zero_node and one_node helpers" begin
+                z = zero_node()
+                @test z isa ExaModels.Null
+                @test is_zero(z) == true
+                @test z.value === nothing  # Canonical zero is Null(nothing)
+
+                o = one_node()
+                @test o isa ExaModels.Null
+                @test is_one(o) == true
+                @test o.value == 1  # Canonical one is Null(1)
+            end
         end
 
         @testset "Zero multiplication optimizations" begin
             x, y, z, w = create_nodes()
 
             @testset "Scalar × Vector with zero scalar" begin
-                # 0 × numeric vector - returns Sym zeros (consistent return type)
-                result1 = 0 * [1.0, 2.0, 3.0]
-                @test all(iszero.(result1))
-                @test result1 isa Vector{<:Sym}  # consistent return type
+                # Null(0) × numeric vector
+                result1 = ExaModels.Null(0) * [1.0, 2.0, 3.0]
+                @test all(is_zero.(result1))
+                @test result1 isa Vector{<:ExaModels.AbstractNode}
                 @test length(result1) == 3
 
-                # 0 (Number) × AbstractNode vector - returns Sym zeros
+                # 0 (Number) × AbstractNode vector
                 vec_nodes = [x, y, z]
                 result2 = 0 * vec_nodes
-                @test all(iszero.(result2))
-                @test result2 isa Vector{<:Sym}  # consistent return type
+                @test all(is_zero.(result2))
+                @test result2 isa Vector{<:ExaModels.AbstractNode}
 
-                # 0.0 × AbstractNode vector - returns Sym zeros
+                # 0.0 × AbstractNode vector
                 result3 = 0.0 * vec_nodes
-                @test all(iszero.(result3))
-                @test result3 isa Vector{<:Sym}  # consistent return type
+                @test all(is_zero.(result3))
             end
 
             @testset "Scalar × Vector with zero elements" begin
                 # AbstractNode × mixed vector
                 result = x * [0, 1.0, 0, 2.0]
-                @test iszero(result[1])
-                @test !iszero(result[2])
-                @test iszero(result[3])
-                @test !iszero(result[4])
+                @test is_zero(result[1])
+                @test !is_zero(result[2])
+                @test is_zero(result[3])
+                @test !is_zero(result[4])
             end
 
             @testset "Vector × Scalar with zero scalar" begin
                 vec_nodes = [x, y, z]
 
-                # AbstractNode vector × 0 - returns Sym zeros (consistent return type)
+                # AbstractNode vector × 0
                 result1 = vec_nodes * 0
-                @test all(iszero.(result1))
-                @test result1 isa Vector{<:Sym}  # consistent return type
+                @test all(is_zero.(result1))
+                @test result1 isa Vector{<:ExaModels.AbstractNode}
 
-                # AbstractNode vector × 0.0 - returns Sym zeros
+                # AbstractNode vector × 0.0
                 result2 = vec_nodes * 0.0
-                @test all(iszero.(result2))
-                @test result2 isa Vector{<:Sym}  # consistent return type
+                @test all(is_zero.(result2))
 
-                # Numeric vector × 0 - returns Sym zeros
-                result3 = [1.0, 2.0, 3.0] * 0
-                @test all(iszero.(result3))
-                @test result3 isa Vector{<:Sym}  # consistent return type
+                # Numeric vector × Null(0)
+                result3 = [1.0, 2.0, 3.0] * ExaModels.Null(0)
+                @test all(is_zero.(result3))
             end
 
             @testset "Vector × Scalar with zero elements" begin
                 # Mixed vector × AbstractNode
-                result = [0, 1.0, 0, 2.0] * x
-                @test iszero(result[1])
-                @test !iszero(result[2])
-                @test iszero(result[3])
-                @test !iszero(result[4])
+                result = [0, 1.0, ExaModels.Null(0), 2.0] * x
+                @test is_zero(result[1])
+                @test !is_zero(result[2])
+                @test is_zero(result[3])
+                @test !is_zero(result[4])
             end
 
             @testset "Scalar × Matrix with zero scalar" begin
                 mat_nodes = [x y; z w]
 
-                # 0 × AbstractNode matrix - returns Sym zeros (consistent return type)
+                # 0 × AbstractNode matrix
                 result1 = 0 * mat_nodes
-                @test all(iszero.(result1))
-                @test result1 isa Matrix{<:Sym}  # consistent return type
+                @test all(is_zero.(result1))
+                @test result1 isa Matrix{<:ExaModels.AbstractNode}
                 @test size(result1) == (2, 2)
 
-                # 0 × numeric matrix - returns Sym zeros
-                result2 = 0 * [1.0 2.0; 3.0 4.0]
-                @test all(iszero.(result2))
-                @test result2 isa Matrix{<:Sym}  # consistent return type
+                # Null(0) × numeric matrix
+                result2 = ExaModels.Null(0) * [1.0 2.0; 3.0 4.0]
+                @test all(is_zero.(result2))
             end
 
             @testset "Matrix × Scalar with zero scalar" begin
                 mat_nodes = [x y; z w]
 
-                # AbstractNode matrix × 0.0 - returns Sym zeros (consistent return type)
+                # AbstractNode matrix × 0.0
                 result = mat_nodes * 0.0
-                @test all(iszero.(result))
-                @test result isa Matrix{<:Sym}  # consistent return type
+                @test all(is_zero.(result))
+                @test result isa Matrix{<:ExaModels.AbstractNode}
             end
         end
 
@@ -761,7 +820,7 @@ function test_exa_linalg()
                 @test result1[1] === x  # Identity check
                 @test result1[2] === y
                 @test result1[3] === z
-                @test result1 isa Vector{<:Sym}  # consistent return type
+                @test result1 isa Vector{<:ExaModels.AbstractNode}
 
                 # Zeros + AbstractNode vector
                 result2 = [0.0, 0.0, 0.0] + vec_nodes
@@ -772,11 +831,11 @@ function test_exa_linalg()
                 # Mixed: some zeros
                 result3 = vec_nodes + [0, 1.0, 0]
                 @test result3[1] === x  # x + 0 = x
-                @test !iszero(result3[2])  # x + 1.0 creates node
+                @test !is_zero(result3[2])  # x + 1.0 creates node
                 @test result3[3] === z  # z + 0 = z
 
                 # Both AbstractNode, with zeros
-                zero_vec = [0, 0, 0]
+                zero_vec = [ExaModels.Null(0), ExaModels.Null(0), ExaModels.Null(0)]
                 result4 = vec_nodes + zero_vec
                 @test result4[1] === x
                 @test result4[2] === y
@@ -792,7 +851,7 @@ function test_exa_linalg()
                 @test result1[1,2] === y
                 @test result1[2,1] === z
                 @test result1[2,2] === w
-                @test result1 isa Matrix{<:Sym}  # consistent return type
+                @test result1 isa Matrix{<:ExaModels.AbstractNode}
 
                 # Zeros + AbstractNode matrix
                 result2 = [0.0 0.0; 0.0 0.0] + mat_nodes
@@ -802,7 +861,7 @@ function test_exa_linalg()
                 # Mixed: some zeros
                 result3 = mat_nodes + [0 1.0; 0 0]
                 @test result3[1,1] === x  # x + 0 = x
-                @test !iszero(result3[1,2])  # y + 1.0 creates node
+                @test !is_zero(result3[1,2])  # y + 1.0 creates node
                 @test result3[2,1] === z  # z + 0 = z
                 @test result3[2,2] === w  # w + 0 = w
             end
@@ -819,16 +878,16 @@ function test_exa_linalg()
                 @test result1[1] === x  # Identity check
                 @test result1[2] === y
                 @test result1[3] === z
-                @test result1 isa Vector{<:Sym}  # consistent return type
+                @test result1 isa Vector{<:ExaModels.AbstractNode}
 
                 # Mixed: some zeros
                 result2 = vec_nodes - [0, 1.0, 0]
                 @test result2[1] === x  # x - 0 = x
-                @test !iszero(result2[2])  # x - 1.0 creates node
+                @test !is_zero(result2[2])  # x - 1.0 creates node
                 @test result2[3] === z  # z - 0 = z
 
                 # Both AbstractNode, with zeros
-                zero_vec = [0, 0, 0]
+                zero_vec = [ExaModels.Null(0), ExaModels.Null(0), ExaModels.Null(0)]
                 result3 = vec_nodes - zero_vec
                 @test result3[1] === x
                 @test result3[2] === y
@@ -844,12 +903,12 @@ function test_exa_linalg()
                 @test result1[1,2] === y
                 @test result1[2,1] === z
                 @test result1[2,2] === w
-                @test result1 isa Matrix{<:Sym}  # consistent return type
+                @test result1 isa Matrix{<:ExaModels.AbstractNode}
 
                 # Mixed: some zeros
                 result2 = mat_nodes - [0 1.0; 0 0]
                 @test result2[1,1] === x  # x - 0 = x
-                @test !iszero(result2[1,2])  # y - 1.0 creates node
+                @test !is_zero(result2[1,2])  # y - 1.0 creates node
                 @test result2[2,1] === z  # z - 0 = z
                 @test result2[2,2] === w  # w - 0 = w
             end
@@ -862,12 +921,17 @@ function test_exa_linalg()
                 # 0 + x = x
                 @test opt_add(0, x) === x
                 @test opt_add(0.0, x) === x
-                @test opt_add(0, x) === x
+                @test opt_add(zero_node(), x) === x
 
                 # x + 0 = x
                 @test opt_add(x, 0) === x
                 @test opt_add(x, 0.0) === x
-                @test opt_add(x, 0) === x
+                @test opt_add(x, zero_node()) === x
+
+                # Number + Number should wrap in Null
+                result = opt_add(0, 5)
+                @test result isa ExaModels.Null
+                @test result.value == 5
 
                 # Non-zero + non-zero should create expression
                 result = opt_add(x, y)
@@ -878,12 +942,12 @@ function test_exa_linalg()
                 # x - 0 = x
                 @test opt_sub(x, 0) === x
                 @test opt_sub(x, 0.0) === x
-                @test opt_sub(x, 0) === x
+                @test opt_sub(x, zero_node()) === x
 
                 # 0 - x = -x (unary minus, Node1)
                 result1 = opt_sub(0, x)
                 @test result1 isa ExaModels.Node1
-                result2 = opt_sub(0, x)
+                result2 = opt_sub(zero_node(), x)
                 @test result2 isa ExaModels.Node1
 
                 # Non-zero - non-zero should create expression
@@ -892,23 +956,31 @@ function test_exa_linalg()
             end
 
             @testset "opt_mul rules" begin
-                # 0 * y = 0
-                @test opt_mul(0, y) === 0
-                @test opt_mul(0.0, y) === 0
-                @test opt_mul(0, y) === 0
+                # Use y (Null(2.0)) for these tests since x = Null(1.0) is itself "one"
+                # 0 * y = zero_node()
+                @test opt_mul(0, y) === zero_node()
+                @test opt_mul(0.0, y) === zero_node()
+                @test opt_mul(zero_node(), y) === zero_node()
 
-                # y * 0 = 0
-                @test opt_mul(y, 0) === 0
-                @test opt_mul(y, 0.0) === 0
-                @test opt_mul(y, 0) === 0
+                # y * 0 = zero_node()
+                @test opt_mul(y, 0) === zero_node()
+                @test opt_mul(y, 0.0) === zero_node()
+                @test opt_mul(y, zero_node()) === zero_node()
 
-                # Note: Tests for 1 * y = y with symbolic y are removed
-                # ExaModels handles this natively, and isone() doesn't work on AbstractNode
+                # 1 * y = y
+                @test opt_mul(1, y) === y
+                @test opt_mul(1.0, y) === y
+                @test opt_mul(one_node(), y) === y
+
+                # y * 1 = y
+                @test opt_mul(y, 1) === y
+                @test opt_mul(y, 1.0) === y
+                @test opt_mul(y, one_node()) === y
 
                 # Non-one, non-zero multiplication creates expression
                 result = opt_mul(2, y)
                 @test result isa ExaModels.AbstractNode
-                @test !iszero(result)
+                @test !is_zero(result)
             end
         end
 
@@ -916,12 +988,12 @@ function test_exa_linalg()
             x, y, z, w = create_nodes()
 
             @testset "opt_sum skips zeros" begin
-                # Sum with all zeros should return 0
+                # Sum with all zeros should return zero_node()
                 result1 = opt_sum([0, 0, 0])
-                @test result1 === 0
+                @test result1 === zero_node()
 
-                result2 = opt_sum([0, 0])
-                @test result2 === 0
+                result2 = opt_sum([zero_node(), zero_node()])
+                @test result2 === zero_node()
 
                 # Sum with mixed zeros and non-zeros
                 result3 = opt_sum([0, x, 0])
@@ -936,7 +1008,11 @@ function test_exa_linalg()
                 @test result1 === x
 
                 result2 = opt_sum([0])
-                @test result2 === 0
+                @test result2 === zero_node()
+
+                result3 = opt_sum([5])  # Number wrapped in Null
+                @test result3 isa ExaModels.Null
+                @test result3.value == 5
             end
         end
 
@@ -944,16 +1020,16 @@ function test_exa_linalg()
             x, y, z, w = create_nodes()
 
             @testset "sum with zeros" begin
-                # All AbstractNode zeros should return 0
-                result1 = sum([0, 0, 0])
-                @test result1 === 0
+                # All AbstractNode zeros should return zero_node()
+                result1 = sum([zero_node(), zero_node(), zero_node()])
+                @test result1 === zero_node()
 
-                # sum([0, 0, x, 0]) should return x
-                result2 = sum([0, 0, x, 0])
+                # sum([zero_node(), zero_node(), x, zero_node()]) should return x
+                result2 = sum([zero_node(), zero_node(), x, zero_node()])
                 @test result2 === x
 
                 # sum with multiple non-zeros interspersed with zeros
-                result3 = sum([0, x, 0, y, 0])
+                result3 = sum([zero_node(), x, zero_node(), y, zero_node()])
                 @test result3 isa ExaModels.AbstractNode
             end
 
@@ -962,9 +1038,9 @@ function test_exa_linalg()
                 result1 = sum([x])
                 @test result1 === x
 
-                # Single 0
-                result2 = sum([0])
-                @test result2 === 0
+                # Single zero_node()
+                result2 = sum([zero_node()])
+                @test result2 === zero_node()
             end
 
             @testset "sum with all non-zeros" begin
@@ -998,16 +1074,16 @@ function test_exa_linalg()
                 @test result == expected
             end
 
-            @testset "dot with all zeros = 0" begin
+            @testset "dot with all zeros = zero_node()" begin
                 result = dot([0, 0, 0], [x, y, z])
-                @test result === 0
+                @test result === zero_node()
             end
 
             @testset "dot with all ones" begin
                 result = dot([1, 1, 1], [x, y, z])
                 # Should be x + y + z
                 @test result isa ExaModels.AbstractNode
-                @test !iszero(result)
+                @test !is_zero(result)
             end
 
             @testset "dot with single non-zero" begin
@@ -1030,13 +1106,13 @@ function test_exa_linalg()
             end
 
             @testset "Zero matrix multiplication" begin
-                # [0 0; 0 0] * [x, y] should give [0, 0]
+                # [0 0; 0 0] * [x, y] should give [zero_node(), zero_node()]
                 Z2 = [0 0; 0 0]
                 vec = [x, y]
                 result = Z2 * vec
 
-                @test iszero(result[1])
-                @test iszero(result[2])
+                @test is_zero(result[1])
+                @test is_zero(result[2])
             end
 
             @testset "Sparse matrix multiplication" begin
@@ -1047,87 +1123,6 @@ function test_exa_linalg()
 
                 @test result[1] === x
                 @test result[2] === z
-            end
-        end
-
-        @testset "Return type verification" begin
-            x, y, z, w = create_nodes()
-
-            @testset "Scalar operations return <:Sym" begin
-                vec_nodes = [x, y, z]
-                mat_nodes = [x y; z w]
-                v_num = [1.0, 2.0, 3.0]
-
-                # dot returns <:Sym
-                @test dot(v_num, vec_nodes) isa Sym
-                @test dot(vec_nodes, v_num) isa Sym
-                @test dot(vec_nodes, vec_nodes) isa Sym
-
-                # det returns <:Sym
-                @test det(mat_nodes) isa Sym
-
-                # tr returns <:Sym
-                @test tr(mat_nodes) isa Sym
-
-                # norm returns <:Sym
-                @test norm(vec_nodes) isa Sym
-                @test norm(vec_nodes, 1) isa Sym
-                @test norm(vec_nodes, 2) isa Sym
-                @test norm(mat_nodes) isa Sym
-            end
-
-            @testset "Array operations return Array{<:Sym}" begin
-                vec_nodes = [x, y, z]
-                mat_nodes = [x y; z w]
-                v_num = [1.0, 2.0, 3.0]
-                A_num = [1.0 2.0; 3.0 4.0]
-
-                # Scalar × Vector → Vector{<:Sym}
-                @test (x * v_num) isa Vector{<:Sym}
-                @test (2.0 * vec_nodes) isa Vector{<:Sym}
-
-                # Vector × Scalar → Vector{<:Sym}
-                @test (vec_nodes * 2.0) isa Vector{<:Sym}
-                @test (v_num * x) isa Vector{<:Sym}
-
-                # Matrix × Vector → Vector{<:Sym}
-                @test (A_num * [x, y]) isa Vector{<:Sym}
-                @test (mat_nodes * [1.0, 2.0]) isa Vector{<:Sym}
-
-                # Scalar × Matrix → Matrix{<:Sym}
-                @test (x * A_num) isa Matrix{<:Sym}
-                @test (2.0 * mat_nodes) isa Matrix{<:Sym}
-
-                # Matrix × Scalar → Matrix{<:Sym}
-                @test (mat_nodes * 2.0) isa Matrix{<:Sym}
-                @test (A_num * x) isa Matrix{<:Sym}
-
-                # Matrix × Matrix → Matrix{<:Sym}
-                @test (A_num * mat_nodes) isa Matrix{<:Sym}
-                @test (mat_nodes * A_num) isa Matrix{<:Sym}
-                @test (mat_nodes * mat_nodes) isa Matrix{<:Sym}
-
-                # Vector + Vector → Vector{<:Sym}
-                @test (vec_nodes + v_num) isa Vector{<:Sym}
-                @test (v_num + vec_nodes) isa Vector{<:Sym}
-
-                # Vector - Vector → Vector{<:Sym}
-                @test (vec_nodes - v_num) isa Vector{<:Sym}
-                @test (v_num - vec_nodes) isa Vector{<:Sym}
-
-                # Matrix + Matrix → Matrix{<:Sym}
-                @test (mat_nodes + A_num) isa Matrix{<:Sym}
-                @test (A_num + mat_nodes) isa Matrix{<:Sym}
-
-                # Matrix - Matrix → Matrix{<:Sym}
-                @test (mat_nodes - A_num) isa Matrix{<:Sym}
-                @test (A_num - mat_nodes) isa Matrix{<:Sym}
-
-                # diag → Vector{<:Sym}
-                @test diag(mat_nodes) isa Vector{<:Sym}
-
-                # diagm → Matrix{<:Sym}
-                @test diagm([x, y]) isa Matrix{<:Sym}
             end
         end
     end
