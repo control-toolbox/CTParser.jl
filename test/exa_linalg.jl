@@ -151,15 +151,19 @@ promote_rule(::Type{<:ExaModels.AbstractNode}, ::Type{<:Real}) = ExaModels.Abstr
 # ============================================================================
 # Section 4: Dot Product (using *, sum)
 # ============================================================================
+#
+# Note: We wrap Real values in Null before multiplication to ensure our
+# optimized * (with zero handling) is called instead of ExaModels' native *.
+# ============================================================================
 
 function dot(v::Vector{<:Real}, w::Vector{T}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
-    return sum(v[i] * w[i] for i in eachindex(v))
+    return sum(ExaModels.Null(v[i]) * w[i] for i in eachindex(v))
 end
 
 function dot(v::Vector{T}, w::Vector{<:Real}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
-    return sum(v[i] * w[i] for i in eachindex(v))
+    return sum(v[i] * ExaModels.Null(w[i]) for i in eachindex(v))
 end
 
 function dot(v::Vector{T}, w::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
@@ -170,6 +174,10 @@ end
 # ============================================================================
 # Section 5: Scalar × Vector/Matrix Multiplication (using *)
 # ============================================================================
+#
+# Note: We wrap Real values in Null before multiplication to ensure our
+# optimized * (with zero handling) is called instead of ExaModels' native *.
+# ============================================================================
 
 # Scalar × Vector
 function *(a::T, v::Vector{<:Real}) where {T <: ExaModels.AbstractNode}
@@ -177,7 +185,7 @@ function *(a::T, v::Vector{<:Real}) where {T <: ExaModels.AbstractNode}
 end
 
 function *(a::Real, v::Vector{T}) where {T <: ExaModels.AbstractNode}
-    return [a * vi for vi in v]
+    return [ExaModels.Null(a) * vi for vi in v]
 end
 
 function *(a::T, v::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
@@ -186,11 +194,11 @@ end
 
 # Vector × Scalar
 function *(v::Vector{T}, a::Real) where {T <: ExaModels.AbstractNode}
-    return [vi * a for vi in v]
+    return [vi * ExaModels.Null(a) for vi in v]
 end
 
 function *(v::Vector{T}, a::S) where {T <: Real, S <: ExaModels.AbstractNode}
-    return [vi * a for vi in v]
+    return [ExaModels.Null(vi) * a for vi in v]
 end
 
 function *(v::Vector{T}, a::S) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
@@ -203,7 +211,7 @@ function *(a::T, A::Matrix{<:Real}) where {T <: ExaModels.AbstractNode}
 end
 
 function *(a::Real, A::Matrix{T}) where {T <: ExaModels.AbstractNode}
-    return [a * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
+    return [ExaModels.Null(a) * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function *(a::T, A::Matrix{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
@@ -212,11 +220,11 @@ end
 
 # Matrix × Scalar
 function *(A::Matrix{T}, a::Real) where {T <: ExaModels.AbstractNode}
-    return [A[i, j] * a for i in axes(A, 1), j in axes(A, 2)]
+    return [A[i, j] * ExaModels.Null(a) for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function *(A::Matrix{T}, a::S) where {T <: Real, S <: ExaModels.AbstractNode}
-    return [A[i, j] * a for i in axes(A, 1), j in axes(A, 2)]
+    return [ExaModels.Null(A[i, j]) * a for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function *(A::Matrix{T}, a::S) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
