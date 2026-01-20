@@ -4,9 +4,6 @@
 
 using .ExaLinAlg
 
-# Import internal functions for testing purposes
-using .ExaLinAlg: opt_add, opt_sub, opt_mul, opt_sum
-
 # Helper to check if a Null node represents zero
 is_null_zero(x::ExaModels.Null) = iszero(x.value)
 is_null_zero(x::ExaModels.AbstractNode) = false
@@ -868,145 +865,93 @@ function test_exa_linalg()
             end
         end
 
-        @testset "Optimized scalar operations (opt_add, opt_sub, opt_mul)" begin
+        @testset "Scalar operations on Null nodes (+, -, *)" begin
             x, y, z, w = create_nodes()
 
-            # Create a non-Null node for testing (Node2 from addition)
-            e = x + y  # Creates a Node2
-            f = z + w  # Creates another Node2
+            # Create a non-Null node for testing (Node2 from addition via ExaModels)
+            e = x.value + y.value + 0.0  # Force ExaModels to create a non-Null expression
+            e = ExaModels.Node2(+, x, y)  # Creates a Node2 directly
+            f = ExaModels.Node2(+, z, w)  # Creates another Node2
 
-            @testset "opt_add rules" begin
+            @testset "+ operator rules" begin
                 # Null(x) + Null(y) = Null(x + y)
-                result1 = opt_add(ExaModels.Null(3), ExaModels.Null(5))
+                result1 = ExaModels.Null(3) + ExaModels.Null(5)
                 @test result1 isa ExaModels.Null
                 @test result1.value == 8
 
                 # Null(x) + e = x + e (unwraps Null, creates Node2)
-                result2 = opt_add(ExaModels.Null(3), e)
+                result2 = ExaModels.Null(3) + e
                 @test result2 isa ExaModels.AbstractNode
                 @test !(result2 isa ExaModels.Null)  # Should be Node2
 
                 # e + Null(x) = e + x (unwraps Null, creates Node2)
-                result3 = opt_add(e, ExaModels.Null(3))
+                result3 = e + ExaModels.Null(3)
                 @test result3 isa ExaModels.AbstractNode
                 @test !(result3 isa ExaModels.Null)  # Should be Node2
 
                 # e + f = e + f (native from ExaModels)
-                result4 = opt_add(e, f)
+                result4 = e + f
                 @test result4 isa ExaModels.AbstractNode
             end
 
-            @testset "opt_sub rules" begin
+            @testset "- operator rules" begin
                 # Null(x) - Null(y) = Null(x - y)
-                result1 = opt_sub(ExaModels.Null(5), ExaModels.Null(3))
+                result1 = ExaModels.Null(5) - ExaModels.Null(3)
                 @test result1 isa ExaModels.Null
                 @test result1.value == 2
 
                 # Null(0) - e = -e (unary minus)
-                result2 = opt_sub(ExaModels.Null(0), e)
+                result2 = ExaModels.Null(0) - e
                 @test result2 isa ExaModels.Node1  # Unary minus
 
                 # Null(x) - e = x - e when !iszero(x)
-                result3 = opt_sub(ExaModels.Null(3), e)
+                result3 = ExaModels.Null(3) - e
                 @test result3 isa ExaModels.AbstractNode
                 @test !(result3 isa ExaModels.Null)  # Should be Node2
 
                 # e - Null(x) = e - x (unwraps Null)
-                result4 = opt_sub(e, ExaModels.Null(3))
+                result4 = e - ExaModels.Null(3)
                 @test result4 isa ExaModels.AbstractNode
                 @test !(result4 isa ExaModels.Null)  # Should be Node2
 
                 # e - f = e - f (native from ExaModels)
-                result5 = opt_sub(e, f)
+                result5 = e - f
                 @test result5 isa ExaModels.AbstractNode
             end
 
-            @testset "opt_mul rules" begin
+            @testset "* operator rules" begin
                 # Null(x) * Null(y) = Null(x * y)
-                result1 = opt_mul(ExaModels.Null(3), ExaModels.Null(5))
+                result1 = ExaModels.Null(3) * ExaModels.Null(5)
                 @test result1 isa ExaModels.Null
                 @test result1.value == 15
 
-                # Null(0) * e = Null(0)
-                result2 = opt_mul(ExaModels.Null(0), e)
+                # Null(0) * e = Null(0) (zero optimization)
+                result2 = ExaModels.Null(0) * e
                 @test result2 isa ExaModels.Null
                 @test iszero(result2.value)
 
-                # e * Null(0) = Null(0)
-                result3 = opt_mul(e, ExaModels.Null(0))
+                # e * Null(0) = Null(0) (zero optimization)
+                result3 = e * ExaModels.Null(0)
                 @test result3 isa ExaModels.Null
                 @test iszero(result3.value)
 
                 # Null(x) * e = x * e when !iszero(x) (unwraps Null)
-                result4 = opt_mul(ExaModels.Null(3), e)
+                result4 = ExaModels.Null(3) * e
                 @test result4 isa ExaModels.AbstractNode
                 @test !(result4 isa ExaModels.Null)  # Should be Node2
 
                 # e * Null(x) = e * x when !iszero(x) (unwraps Null)
-                result5 = opt_mul(e, ExaModels.Null(3))
+                result5 = e * ExaModels.Null(3)
                 @test result5 isa ExaModels.AbstractNode
                 @test !(result5 isa ExaModels.Null)  # Should be Node2
 
                 # e * f = e * f (native from ExaModels)
-                result6 = opt_mul(e, f)
+                result6 = e * f
                 @test result6 isa ExaModels.AbstractNode
             end
-
-            @testset "opt_* with Number arguments" begin
-                # Numbers are converted to Null internally
-                result1 = opt_add(3, e)
-                @test result1 isa ExaModels.AbstractNode
-
-                result2 = opt_sub(e, 3)
-                @test result2 isa ExaModels.AbstractNode
-
-                result3 = opt_mul(2, e)
-                @test result3 isa ExaModels.AbstractNode
-
-                # 0 * e = Null(0) (via conversion)
-                result4 = opt_mul(0, e)
-                @test result4 isa ExaModels.Null
-                @test iszero(result4.value)
-            end
         end
 
-        @testset "Optimized sum (opt_sum)" begin
-            x, y, z, w = create_nodes()
-
-            @testset "opt_sum with Null nodes" begin
-                # Sum with all zeros should return zero_node()
-                result1 = opt_sum([ExaModels.Null(0), ExaModels.Null(0), ExaModels.Null(0)])
-                @test result1 isa ExaModels.Null
-                @test iszero(result1.value)
-
-                # Sum with mixed zeros and non-zeros
-                result2 = opt_sum([ExaModels.Null(0), x, ExaModels.Null(0)])
-                @test result2 isa ExaModels.Null
-                @test result2.value == x.value  # 0 + x + 0 = x
-
-                result3 = opt_sum([x, ExaModels.Null(0), y, ExaModels.Null(0)])
-                @test result3 isa ExaModels.Null
-                @test result3.value == x.value + y.value  # x + 0 + y + 0 = x + y
-            end
-
-            @testset "opt_sum with single element" begin
-                result1 = opt_sum([x])
-                @test result1 isa ExaModels.Null
-                @test result1.value == x.value  # 0 + x = x
-
-                result2 = opt_sum([ExaModels.Null(0)])
-                @test result2 isa ExaModels.Null
-                @test iszero(result2.value)  # 0 + 0 = 0
-            end
-
-            @testset "opt_sum with empty iterator" begin
-                result = opt_sum([])
-                @test result isa ExaModels.Null
-                @test iszero(result.value)  # Empty sum = 0
-            end
-        end
-
-        @testset "sum function (uses opt_sum)" begin
+        @testset "sum function" begin
             x, y, z, w = create_nodes()
 
             @testset "sum with zeros" begin
