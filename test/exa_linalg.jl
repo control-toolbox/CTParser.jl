@@ -10,8 +10,8 @@ These specialized methods properly handle Null nodes, preserving constants
 and avoiding unnecessary expression tree nodes.
 
 # Public API (Exported)
-- Canonical nodes: `zero_node`, `one_node`
-- Basic operations: `zero`, `adjoint`, `transpose`, `*`, `+`, `-`, `sum`
+- Canonical nodes: `zero`, `one`
+- Basic operations: `zero`, `one`, `adjoint`, `transpose`, `*`, `+`, `-`, `sum`
 - Linear algebra: `dot`, `det`, `tr`, `norm`, `diag`, `diagm`
 """
 module ExaLinAlg
@@ -19,34 +19,51 @@ module ExaLinAlg
 using ExaModels: ExaModels
 using LinearAlgebra
 
-import Base: zero, adjoint, *, promote_rule, convert, +, -, transpose, sum
+import Base: zero, one, adjoint, *, promote_rule, convert, +, -, transpose, sum
 import LinearAlgebra: dot, Adjoint, det, tr, norm, diag, diagm
 
-export zero, adjoint, transpose, *, +, -, sum, dot, det, tr, norm, diag, diagm
-export zero_node, one_node
+export zero, one, adjoint, transpose, *, +, -, sum, dot, det, tr, norm, diag, diagm
 
 # ============================================================================
-# Section 1: Canonical Nodes
+# Section 1: Canonical Nodes (zero and one)
 # ============================================================================
 #
 # Canonical encodings:
 # - Zero: Null(0) represents zero
 # - One:  Null(1) represents one
+#
+# We extend Base.zero and Base.one for both type-based and instance-based calls:
+# - zero(ExaModels.AbstractNode) or zero(::Type{<:ExaModels.AbstractNode})
+# - one(ExaModels.AbstractNode) or one(::Type{<:ExaModels.AbstractNode})
 # ============================================================================
 
 """
-    zero_node() -> Null{Int}
+    zero(::Type{<:ExaModels.AbstractNode}) -> Null{Int}
 
 Return the canonical zero AbstractNode: Null(0).
 """
-zero_node() = ExaModels.Null(0)
+zero(::Type{<:ExaModels.AbstractNode}) = ExaModels.Null(0)
 
 """
-    one_node() -> Null{Int}
+    zero(::ExaModels.AbstractNode) -> Null{Int}
+
+Return the canonical zero AbstractNode: Null(0).
+"""
+zero(::ExaModels.AbstractNode) = ExaModels.Null(0)
+
+"""
+    one(::Type{<:ExaModels.AbstractNode}) -> Null{Int}
 
 Return the canonical one AbstractNode: Null(1).
 """
-one_node() = ExaModels.Null(1)
+one(::Type{<:ExaModels.AbstractNode}) = ExaModels.Null(1)
+
+"""
+    one(::ExaModels.AbstractNode) -> Null{Int}
+
+Return the canonical one AbstractNode: Null(1).
+"""
+one(::ExaModels.AbstractNode) = ExaModels.Null(1)
 
 # ============================================================================
 # Section 2: Scalar Operations on Null Nodes
@@ -98,8 +115,8 @@ one_node() = ExaModels.Null(1)
 *(x::ExaModels.Null{T}, y::ExaModels.AbstractNode) where {T<:Real} = iszero(x.value) ? ExaModels.Null(0) : (x.value * y)
 *(x::ExaModels.AbstractNode, y::ExaModels.Null{T}) where {T<:Real} = iszero(y.value) ? ExaModels.Null(0) : (x * y.value)
 # Multiplication: Null{T} * Real → zero optimization, more specific than ExaModels' AbstractNode * Real
-*(x::ExaModels.Null{T}, y::Real) where {T<:Real} = iszero(x.value) ? ExaModels.Null(0) : ExaModels.Null(x.value * y)
-*(x::Real, y::ExaModels.Null{T}) where {T<:Real} = iszero(y.value) ? ExaModels.Null(0) : ExaModels.Null(x * y.value)
+*(x::ExaModels.Null{T}, y::Real) where {T<:Real} = ExaModels.Null(x.value * y)
+*(x::Real, y::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(x * y.value)
 
 # ============================================================================
 # Section 3: sum (using direct + operator)
@@ -109,10 +126,10 @@ one_node() = ExaModels.Null(1)
     sum(arr::AbstractArray{<:ExaModels.AbstractNode})
 
 Optimized sum for arrays of AbstractNode using the overloaded + operator.
-Returns zero_node() if the array is empty.
+Returns zero(ExaModels.AbstractNode) if the array is empty.
 """
 function sum(arr::AbstractArray{<:ExaModels.AbstractNode})
-    result = zero_node()
+    result = zero(ExaModels.AbstractNode)
     for x in arr
         result = result + x
     end
@@ -123,13 +140,11 @@ end
 # Section 4: Basic Type Conversions and Promotions
 # ============================================================================
 
-zero(x::T) where {T <: ExaModels.AbstractNode} = 0
-
 # Scalar operations
 adjoint(x::ExaModels.AbstractNode) = x
 transpose(x::ExaModels.AbstractNode) = x
 
-convert(::Type{ExaModels.AbstractNode}, x::Real) = iszero(x) ? zero_node() : ExaModels.Null(x)
+convert(::Type{ExaModels.AbstractNode}, x::Real) = iszero(x) ? zero(ExaModels.AbstractNode) : ExaModels.Null(x)
 
 promote_rule(::Type{<:ExaModels.AbstractNode}, ::Type{<:Real}) = ExaModels.AbstractNode
 
@@ -455,7 +470,7 @@ function diagm(v::Vector{T}) where {T <: ExaModels.AbstractNode}
     # Create a matrix with AbstractNode element type to allow mixed Null types
     D = Matrix{ExaModels.AbstractNode}(undef, n, n)
     for i in 1:n, j in 1:n
-        D[i, j] = (i == j) ? v[i] : zero_node()
+        D[i, j] = (i == j) ? v[i] : zero(ExaModels.AbstractNode)
     end
     return D
 end
@@ -467,7 +482,7 @@ function diagm(kv::Pair{<:Integer, <:Vector{T}}) where {T <: ExaModels.AbstractN
     # Create a matrix with AbstractNode element type to allow mixed Null types
     D = Matrix{ExaModels.AbstractNode}(undef, n, n)
     for i in 1:n, j in 1:n
-        D[i, j] = zero_node()
+        D[i, j] = zero(ExaModels.AbstractNode)
     end
     if k >= 0
         for i in 1:length(v)

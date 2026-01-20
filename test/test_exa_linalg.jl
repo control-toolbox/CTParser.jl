@@ -33,13 +33,13 @@ function test_exa_linalg()
             zero_int = convert(ExaModels.AbstractNode, 0)
             @test zero_int isa ExaModels.Null
             @test iszero(zero_int.value)
-            @test zero_int === zero_node()  # Should be canonical zero
+            @test zero_int === zero(ExaModels.AbstractNode)  # Should be canonical zero
 
             # Test convert with zero (Float)
             zero_float = convert(ExaModels.AbstractNode, 0.0)
             @test zero_float isa ExaModels.Null
             @test iszero(zero_float.value)
-            @test zero_float === zero_node()  # Should be canonical zero
+            @test zero_float === zero(ExaModels.AbstractNode)  # Should be canonical zero
 
             # Test promote_rule
             arr = [x, 2.0, 3.0]
@@ -377,14 +377,14 @@ function test_exa_linalg()
             @test size(result3) == (3, 3)
             @test result3 isa Matrix
             @test result3[1, 1] isa ExaModels.AbstractNode
-            @test is_null_zero(result3[1, 2])  # Off-diagonal elements are zero_node()
+            @test is_null_zero(result3[1, 2])  # Off-diagonal elements are zero(ExaModels.AbstractNode)
             @test is_null_zero(result3[2, 1])
 
             # Test diagm with offset
             result4 = diagm(1 => vec_nodes)
             @test size(result4) == (4, 4)
             @test result4[1, 2] isa ExaModels.AbstractNode
-            @test is_null_zero(result4[1, 1])  # Off-diagonal elements are zero_node()
+            @test is_null_zero(result4[1, 1])  # Off-diagonal elements are zero(ExaModels.AbstractNode)
 
             result5 = diagm(-1 => vec_nodes)
             @test size(result5) == (4, 4)
@@ -532,7 +532,7 @@ function test_exa_linalg()
             result16 = diagm(v)
             @test size(result16) == (2, 2)
             @test result16[1, 1] isa ExaModels.AbstractNode
-            @test is_null_zero(result16[1, 2])  # Off-diagonal is zero_node()
+            @test is_null_zero(result16[1, 2])  # Off-diagonal is zero(ExaModels.AbstractNode)
         end
 
         @testset "Method ambiguity fixes" begin
@@ -666,14 +666,14 @@ function test_exa_linalg()
         end
 
         @testset "Canonical nodes" begin
-            # Test zero_node and one_node helpers
-            @testset "zero_node and one_node helpers" begin
-                z = zero_node()
+            # Test zero and one helpers
+            @testset "zero and one helpers" begin
+                z = zero(ExaModels.AbstractNode)
                 @test z isa ExaModels.Null
                 @test iszero(z.value)
                 @test z.value == 0  # Canonical zero is Null(0)
 
-                o = one_node()
+                o = one(ExaModels.AbstractNode)
                 @test o isa ExaModels.Null
                 @test isone(o.value)
                 @test o.value == 1  # Canonical one is Null(1)
@@ -956,17 +956,17 @@ function test_exa_linalg()
 
             @testset "sum with zeros" begin
                 # All AbstractNode zeros: 0 + 0 + 0 = 0
-                result1 = sum([zero_node(), zero_node(), zero_node()])
+                result1 = sum([zero(ExaModels.AbstractNode), zero(ExaModels.AbstractNode), zero(ExaModels.AbstractNode)])
                 @test result1 isa ExaModels.Null
                 @test iszero(result1.value)
 
-                # sum([zero_node(), zero_node(), x, zero_node()]): 0 + 0 + x + 0 = x
-                result2 = sum([zero_node(), zero_node(), x, zero_node()])
+                # sum([zero(ExaModels.AbstractNode), zero(ExaModels.AbstractNode), x, zero(ExaModels.AbstractNode)]): 0 + 0 + x + 0 = x
+                result2 = sum([zero(ExaModels.AbstractNode), zero(ExaModels.AbstractNode), x, zero(ExaModels.AbstractNode)])
                 @test result2 isa ExaModels.Null
                 @test result2.value == x.value
 
                 # sum with multiple non-zeros interspersed with zeros
-                result3 = sum([zero_node(), x, zero_node(), y, zero_node()])
+                result3 = sum([zero(ExaModels.AbstractNode), x, zero(ExaModels.AbstractNode), y, zero(ExaModels.AbstractNode)])
                 @test result3 isa ExaModels.Null
                 @test result3.value == x.value + y.value
             end
@@ -977,8 +977,8 @@ function test_exa_linalg()
                 @test result1 isa ExaModels.Null
                 @test result1.value == x.value
 
-                # Single zero_node(): 0 + 0 = 0
-                result2 = sum([zero_node()])
+                # Single zero(ExaModels.AbstractNode): 0 + 0 = 0
+                result2 = sum([zero(ExaModels.AbstractNode)])
                 @test result2 isa ExaModels.Null
                 @test iszero(result2.value)
             end
@@ -992,7 +992,7 @@ function test_exa_linalg()
 
             @testset "sum on matrices" begin
                 # sum should work on matrices too
-                mat = [x zero_node(); zero_node() y]
+                mat = [x zero(ExaModels.AbstractNode); zero(ExaModels.AbstractNode) y]
                 result = sum(mat)
                 # Should sum all elements: x + 0 + 0 + y
                 @test result isa ExaModels.Null
