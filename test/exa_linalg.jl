@@ -215,7 +215,7 @@ function sum(arr::AbstractArray{<:ExaModels.AbstractNode})
 end
 
 # ============================================================================
-# Section 4: Basic Type Conversions and Promotions
+# Section 3.5: Basic Type Conversions and Promotions
 # ============================================================================
 
 # Scalar operations
@@ -259,7 +259,7 @@ end
 
 # Scalar × Vector
 function *(a::T, v::Vector{<:Real}) where {T <: ExaModels.AbstractNode}
-    return [a * vi for vi in v]
+    return [a * ExaModels.Null(vi) for vi in v]
 end
 
 function *(a::Real, v::Vector{T}) where {T <: ExaModels.AbstractNode}
@@ -285,7 +285,7 @@ end
 
 # Scalar × Matrix
 function *(a::T, A::Matrix{<:Real}) where {T <: ExaModels.AbstractNode}
-    return [a * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
+    return [a * ExaModels.Null(A[i, j]) for i in axes(A, 1), j in axes(A, 2)]
 end
 
 function *(a::Real, A::Matrix{T}) where {T <: ExaModels.AbstractNode}
