@@ -20,9 +20,19 @@ using ExaModels: ExaModels
 using LinearAlgebra
 
 import Base: zero, one, adjoint, *, promote_rule, convert, +, -, transpose, sum
+import Base: inv, abs, sqrt, cbrt, abs2, exp, exp2, exp10, log, log2, log10, log1p
+import Base: sin, cos, tan, csc, sec, cot, asin, acos, atan, acot
+import Base: sind, cosd, tand, cscd, secd, cotd, atand, acotd
+import Base: sinh, cosh, tanh, csch, sech, coth, asinh, acosh, atanh, acoth
+import Base: ^
 import LinearAlgebra: dot, Adjoint, det, tr, norm, diag, diagm
 
 export zero, one, adjoint, transpose, *, +, -, sum, dot, det, tr, norm, diag, diagm
+export inv, abs, sqrt, cbrt, abs2, exp, exp2, exp10, log, log2, log10, log1p
+export sin, cos, tan, csc, sec, cot, asin, acos, atan, acot
+export sind, cosd, tand, cscd, secd, cotd, atand, acotd
+export sinh, cosh, tanh, csch, sech, coth, asinh, acosh, atanh, acoth
+export ^
 
 # ============================================================================
 # Section 1: Canonical Nodes (zero and one)
@@ -117,6 +127,74 @@ one(::ExaModels.AbstractNode) = ExaModels.Null(1)
 # Multiplication: Null{T} * Real → zero optimization, more specific than ExaModels' AbstractNode * Real
 *(x::ExaModels.Null{T}, y::Real) where {T<:Real} = ExaModels.Null(x.value * y)
 *(x::Real, y::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(x * y.value)
+
+# ============================================================================
+# Section 2.5: Unary Functions on Null Nodes
+# ============================================================================
+#
+# Apply unary functions to the inner value of Null nodes.
+# This fixes broadcasting: cos.([Null(x)]) → [Null(cos(x))] instead of [cos(Null(x))]
+#
+# Pattern: f(x::Null{T}) = Null(f(x.value))
+# ============================================================================
+
+# Unary operators
+-(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(-x.value)
++(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(+x.value)
+
+# Basic functions
+inv(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(inv(x.value))
+abs(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(abs(x.value))
+sqrt(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(sqrt(x.value))
+cbrt(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(cbrt(x.value))
+abs2(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(abs2(x.value))
+
+# Exponential and logarithmic functions
+exp(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(exp(x.value))
+exp2(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(exp2(x.value))
+exp10(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(exp10(x.value))
+log(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(log(x.value))
+log2(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(log2(x.value))
+log10(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(log10(x.value))
+log1p(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(log1p(x.value))
+
+# Trigonometric functions
+sin(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(sin(x.value))
+cos(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(cos(x.value))
+tan(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(tan(x.value))
+csc(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(csc(x.value))
+sec(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(sec(x.value))
+cot(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(cot(x.value))
+asin(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(asin(x.value))
+acos(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(acos(x.value))
+atan(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(atan(x.value))
+acot(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(acot(x.value))
+
+# Degree-based trigonometric functions
+sind(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(sind(x.value))
+cosd(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(cosd(x.value))
+tand(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(tand(x.value))
+cscd(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(cscd(x.value))
+secd(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(secd(x.value))
+cotd(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(cotd(x.value))
+atand(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(atand(x.value))
+acotd(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(acotd(x.value))
+
+# Hyperbolic functions
+sinh(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(sinh(x.value))
+cosh(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(cosh(x.value))
+tanh(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(tanh(x.value))
+csch(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(csch(x.value))
+sech(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(sech(x.value))
+coth(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(coth(x.value))
+asinh(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(asinh(x.value))
+acosh(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(acosh(x.value))
+atanh(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(atanh(x.value))
+acoth(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(acoth(x.value))
+
+# Power function (unary form: x^n is actually binary, but we handle Null^Real)
+^(x::ExaModels.Null{T}, n::Real) where {T<:Real} = ExaModels.Null(x.value^n)
+^(x::ExaModels.Null{T}, n::Integer) where {T<:Real} = ExaModels.Null(x.value^n)
 
 # ============================================================================
 # Section 3: sum (using direct + operator)
