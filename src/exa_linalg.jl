@@ -10,7 +10,7 @@ These specialized methods properly handle Null nodes, preserving constants
 and avoiding unnecessary expression tree nodes.
 
 # Public API (Exported)
-- Canonical nodes: `zero`, `one`
+- Canonical nodes: `zero`, `one`, `zeros`, `ones`
 - Basic operations: `zero`, `one`, `adjoint`, `transpose`, `*`, `+`, `-`, `sum`
 - Linear algebra: `dot`, `det`, `tr`, `norm`, `diag`, `diagm`
 """
@@ -24,10 +24,10 @@ import Base: inv, abs, sqrt, cbrt, abs2, exp, exp2, exp10, log, log2, log10, log
 import Base: sin, cos, tan, csc, sec, cot, asin, acos, atan, acot
 import Base: sind, cosd, tand, cscd, secd, cotd, atand, acotd
 import Base: sinh, cosh, tanh, csch, sech, coth, asinh, acosh, atanh, acoth
-import Base: ^
+import Base: ^, zeros, ones
 import LinearAlgebra: dot, Adjoint, det, tr, norm, diag, diagm
 
-export zero, one, adjoint, transpose, *, +, -, sum, dot, det, tr, norm, diag, diagm
+export zero, one, zeros, ones, adjoint, transpose, *, +, -, sum, dot, det, tr, norm, diag, diagm
 export inv, abs, sqrt, cbrt, abs2, exp, exp2, exp10, log, log2, log10, log1p
 export sin, cos, tan, csc, sec, cot, asin, acos, atan, acot
 export sind, cosd, tand, cscd, secd, cotd, atand, acotd
@@ -74,6 +74,26 @@ one(::Type{<:ExaModels.AbstractNode}) = ExaModels.Null(1)
 Return the canonical one AbstractNode: Null(1).
 """
 one(::ExaModels.AbstractNode) = ExaModels.Null(1)
+
+"""
+    zeros(::Type{T}, dims...) where {T <: ExaModels.AbstractNode}
+
+Create an array of AbstractNode zeros with the specified dimensions.
+Uses fill with the canonical zero node: Null(0).
+"""
+function zeros(::Type{T}, dims::Integer...) where {T <: ExaModels.AbstractNode}
+    return fill(zero(T), dims...)
+end
+
+"""
+    ones(::Type{T}, dims...) where {T <: ExaModels.AbstractNode}
+
+Create an array of AbstractNode ones with the specified dimensions.
+Uses fill with the canonical one node: Null(1).
+"""
+function ones(::Type{T}, dims::Integer...) where {T <: ExaModels.AbstractNode}
+    return fill(one(T), dims...)
+end
 
 # ============================================================================
 # Section 2: Scalar Operations on Null Nodes
