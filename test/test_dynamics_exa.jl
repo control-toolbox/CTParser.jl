@@ -1,8 +1,6 @@
 # test vector-form dynamics for exa backend
 # Tests for p_dynamics_exa! which allows defining all state dynamics in one expression: ∂(x)(t) == [e1, e2, ...]
 
-using .ExaLinAlg # Load ExaLinAlg module for linear algebra operations on ExaModels.AbstractNode arrays
-
 activate_backend(:exa)
 
 # Mock up of CTDirect.discretise for tests

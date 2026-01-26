@@ -2,8 +2,6 @@
 # Pure unit tests for ExaModels linear algebra extensions
 # No dependencies on CTParser - only ExaModels and LinearAlgebra
 
-using .ExaLinAlg
-
 # Helper to check if a Null node represents zero
 is_null_zero(x::ExaModels.Null) = iszero(x.value)
 is_null_zero(x::ExaModels.AbstractNode) = false
