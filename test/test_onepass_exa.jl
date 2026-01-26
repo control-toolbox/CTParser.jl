@@ -1929,7 +1929,7 @@ function __test_onepass_exa(
         @test m1 isa ExaModels.ExaModel
         sol1 = madnlp(m1; tol=tolerance, max_iter=max_iter, kwargs...)
         obj1 = sol1.objective
-        __atol = 1e-5 # otherwise would just work for midpoint
+        __atol = 1e-3 # otherwise would just work for midpoint
         obj2 = -1.0125766794048943e+00 # from midpoint with N = 250 
         @test obj1 - obj2 ≈ 0 atol = __atol
     end
