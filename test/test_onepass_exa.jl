@@ -36,8 +36,8 @@ end
 # Tests
 
 function test_onepass_exa()
-    #debug l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
-    l_scheme = [:midpoint]
+    l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
+    #l_scheme = [:midpoint]
     for scheme ∈ l_scheme
         __test_onepass_exa(; scheme=scheme)
         CUDA.functional() && __test_onepass_exa(CUDABackend(); scheme=scheme)
@@ -49,7 +49,6 @@ function __test_onepass_exa(
 )
     backend_name = isnothing(backend) ? "CPU" : "GPU"
 
-    @ignore begin # debug
     test_name = "min ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
@@ -1779,8 +1778,6 @@ function __test_onepass_exa(
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
     end end
-
-    end # debug
 
     test_name = "use case no. 8: vectorised dynamics ($backend_name, $scheme)"
     @testset "$test_name" begin
