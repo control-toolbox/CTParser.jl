@@ -54,8 +54,6 @@ using Interpolations
 using NLPModels
 using LinearAlgebra
 
-include("exa_linalg.jl")
-
 macro ignore(e)
     return :()
 end

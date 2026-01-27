@@ -2,8 +2,6 @@
 # Pure unit tests for ExaModels linear algebra extensions
 # No dependencies on CTParser - only ExaModels and LinearAlgebra
 
-using .ExaLinAlg
-
 # Helper to check if a Null node represents zero
 is_null_zero(x::ExaModels.Null) = iszero(x.value)
 is_null_zero(x::ExaModels.AbstractNode) = false
@@ -677,6 +675,87 @@ function test_exa_linalg()
                 @test o isa ExaModels.Null
                 @test isone(o.value)
                 @test o.value == 1  # Canonical one is Null(1)
+            end
+
+            @testset "zeros and ones array creation" begin
+                # Test zeros with different dimensions
+                z1 = zeros(ExaModels.AbstractNode, 3)
+                @test length(z1) == 3
+                @test z1 isa Vector{<:ExaModels.AbstractNode}
+                @test all(is_null_zero.(z1))
+                @test all(x -> x isa ExaModels.Null, z1)
+
+                z2 = zeros(ExaModels.AbstractNode, 2, 3)
+                @test size(z2) == (2, 3)
+                @test z2 isa Matrix{<:ExaModels.AbstractNode}
+                @test all(is_null_zero.(z2))
+
+                z3 = zeros(ExaModels.AbstractNode, 2, 2, 2)
+                @test size(z3) == (2, 2, 2)
+                @test z3 isa Array{<:ExaModels.AbstractNode, 3}
+                @test all(is_null_zero.(z3))
+
+                # Test ones with different dimensions
+                o1 = ones(ExaModels.AbstractNode, 3)
+                @test length(o1) == 3
+                @test o1 isa Vector{<:ExaModels.AbstractNode}
+                @test all(x -> x isa ExaModels.Null && isone(x.value), o1)
+
+                o2 = ones(ExaModels.AbstractNode, 2, 3)
+                @test size(o2) == (2, 3)
+                @test o2 isa Matrix{<:ExaModels.AbstractNode}
+                @test all(x -> x isa ExaModels.Null && isone(x.value), o2)
+
+                o3 = ones(ExaModels.AbstractNode, 2, 2, 2)
+                @test size(o3) == (2, 2, 2)
+                @test o3 isa Array{<:ExaModels.AbstractNode, 3}
+                @test all(x -> x isa ExaModels.Null && isone(x.value), o3)
+
+                # Test with specific ExaModels types (Variable <: AbstractNode)
+                # Note: Variable is an alias/subtype, zeros/ones with AbstractNode works for all subtypes
+                z_var = zeros(ExaModels.AbstractNode, 3)
+                @test length(z_var) == 3
+                @test eltype(z_var) <: ExaModels.AbstractNode
+                @test all(is_null_zero.(z_var))
+
+                o_var = ones(ExaModels.AbstractNode, 2, 2)
+                @test size(o_var) == (2, 2)
+                @test eltype(o_var) <: ExaModels.AbstractNode
+                @test all(x -> x isa ExaModels.Null && isone(x.value), o_var)
+            end
+
+            @testset "zeros and ones in operations" begin
+                x, y, z, w = create_nodes()
+
+                # Test operations with zeros array
+                z_vec = zeros(ExaModels.AbstractNode, 3)
+                vec_nodes = [x, y, z]
+
+                # Addition with zeros
+                result1 = vec_nodes + z_vec
+                @test result1[1].value == x.value
+                @test result1[2].value == y.value
+                @test result1[3].value == z.value
+
+                # Multiplication with zeros (all zeros)
+                result2 = [ExaModels.Null(2), ExaModels.Null(3), ExaModels.Null(4)] .* z_vec
+                @test all(is_null_zero.(result2))
+
+                # Test operations with ones array
+                o_vec = ones(ExaModels.AbstractNode, 3)
+
+                # Multiplication with ones
+                result3 = vec_nodes .* o_vec
+                @test result3[1].value == x.value
+                @test result3[2].value == y.value
+                @test result3[3].value == z.value
+
+                # Matrix-vector with identity-like structure
+                I_like = diagm(ones(ExaModels.AbstractNode, 2))
+                vec2 = [x, y]
+                result4 = I_like * vec2
+                @test result4[1].value == x.value
+                @test result4[2].value == y.value
             end
         end
 
