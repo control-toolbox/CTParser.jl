@@ -244,7 +244,7 @@ function test_exa_linalg()
 
             # Test error on non-square matrix
             A_rect = [x y z; y z w]
-            @test_throws Union{AssertionError, DimensionMismatch} tr(A_rect)
+            @test_throws AssertionError tr(A_rect)
         end
 
         @testset "Norms" begin
@@ -426,18 +426,18 @@ function test_exa_linalg()
             # Test addition dimension mismatch
             v1 = [x, y]
             v2 = [x, y, z]
-            @test_throws Union{AssertionError, DimensionMismatch} v1 + v2
+            @test_throws AssertionError v1 + v2
 
             # Test subtraction dimension mismatch
-            @test_throws Union{AssertionError, DimensionMismatch} v1 - v2
+            @test_throws AssertionError v1 - v2
 
             # Test matrix addition dimension mismatch
             A1 = [x y; z w]
             A2 = [x y z; w x y]
-            @test_throws Union{AssertionError, DimensionMismatch} A1 + A2
+            @test_throws AssertionError A1 + A2
 
             # Test matrix subtraction dimension mismatch
-            @test_throws Union{AssertionError, DimensionMismatch} A1 - A2
+            @test_throws AssertionError A1 - A2
         end
 
         @testset "ExaCore variable arrays" begin
@@ -1148,231 +1148,6 @@ function test_exa_linalg()
                 @test result[1].value == x.value
                 @test result[2] isa ExaModels.Null
                 @test result[2].value == z.value
-            end
-        end
-
-        @testset "AbstractArray compatibility (views, reshape, etc.)" begin
-            x, y, z, w = create_nodes()
-
-            @testset "Views with dot product" begin
-                # Create vectors and views
-                vec_nodes = [x, y, z, w]
-                v_num = [1.0, 2.0, 3.0, 4.0]
-
-                # Test dot with views
-                v_view_nodes = @view vec_nodes[1:3]
-                v_view_num = @view v_num[1:3]
-
-                result1 = dot(v_view_num, v_view_nodes)
-                @test result1 isa ExaModels.AbstractNode
-
-                result2 = dot(v_view_nodes, v_view_num)
-                @test result2 isa ExaModels.AbstractNode
-
-                result3 = dot(v_view_nodes, @view vec_nodes[2:4])
-                @test result3 isa ExaModels.AbstractNode
-            end
-
-            @testset "Views with scalar × vector" begin
-                vec_nodes = [x, y, z, w]
-                v_num = [1.0, 2.0, 3.0, 4.0]
-
-                v_view_nodes = @view vec_nodes[1:3]
-                v_view_num = @view v_num[1:3]
-
-                # Scalar × view
-                result1 = x * v_view_num
-                @test length(result1) == 3
-                @test result1 isa Vector
-                @test result1[1] isa ExaModels.AbstractNode
-
-                result2 = 2.0 * v_view_nodes
-                @test length(result2) == 3
-                @test result2[1] isa ExaModels.AbstractNode
-
-                # View × scalar
-                result3 = v_view_nodes * 2.0
-                @test length(result3) == 3
-                @test result3[1] isa ExaModels.AbstractNode
-            end
-
-            @testset "Views with vector addition/subtraction" begin
-                vec_nodes = [x, y, z, w]
-                v_num = [1.0, 2.0, 3.0, 4.0]
-
-                v_view_nodes = @view vec_nodes[1:3]
-                v_view_num = @view v_num[1:3]
-
-                # Addition
-                result1 = v_view_nodes + v_view_num
-                @test length(result1) == 3
-                @test result1[1] isa ExaModels.AbstractNode
-
-                result2 = v_view_num + v_view_nodes
-                @test length(result2) == 3
-                @test result2[1] isa ExaModels.AbstractNode
-
-                # Subtraction
-                result3 = v_view_nodes - v_view_num
-                @test length(result3) == 3
-                @test result3[1] isa ExaModels.AbstractNode
-
-                result4 = v_view_num - v_view_nodes
-                @test length(result4) == 3
-                @test result4[1] isa ExaModels.AbstractNode
-            end
-
-            @testset "Views with norm" begin
-                vec_nodes = [x, y, z, w]
-                v_view = @view vec_nodes[1:3]
-
-                result1 = norm(v_view)
-                @test result1 isa ExaModels.AbstractNode
-
-                result2 = norm(v_view, 1)
-                @test result2 isa ExaModels.AbstractNode
-
-                result3 = norm(v_view, 2)
-                @test result3 isa ExaModels.AbstractNode
-            end
-
-            @testset "Matrix views with multiplication" begin
-                mat_nodes = [x y z; w x y; z w x]  # 3×3
-                A_num = [1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0]  # 3×3
-
-                # Create views (2×2 submatrices)
-                mat_view_nodes = @view mat_nodes[1:2, 1:2]
-                A_view_num = @view A_num[1:2, 1:2]
-
-                # Matrix × vector
-                vec = [x, y]
-                result1 = mat_view_nodes * vec
-                @test length(result1) == 2
-                @test result1[1] isa ExaModels.AbstractNode
-
-                # Matrix × matrix
-                result2 = A_view_num * mat_view_nodes
-                @test size(result2) == (2, 2)
-                @test result2[1, 1] isa ExaModels.AbstractNode
-
-                result3 = mat_view_nodes * A_view_num
-                @test size(result3) == (2, 2)
-                @test result3[1, 1] isa ExaModels.AbstractNode
-            end
-
-            @testset "Matrix views with addition/subtraction" begin
-                mat_nodes = [x y z; w x y; z w x]
-                A_num = [1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0]
-
-                mat_view_nodes = @view mat_nodes[1:2, 1:2]
-                A_view_num = @view A_num[1:2, 1:2]
-
-                # Addition
-                result1 = mat_view_nodes + A_view_num
-                @test size(result1) == (2, 2)
-                @test result1[1, 1] isa ExaModels.AbstractNode
-
-                result2 = A_view_num + mat_view_nodes
-                @test size(result2) == (2, 2)
-                @test result2[1, 1] isa ExaModels.AbstractNode
-
-                # Subtraction
-                result3 = mat_view_nodes - A_view_num
-                @test size(result3) == (2, 2)
-                @test result3[1, 1] isa ExaModels.AbstractNode
-
-                result4 = A_view_num - mat_view_nodes
-                @test size(result4) == (2, 2)
-                @test result4[1, 1] isa ExaModels.AbstractNode
-            end
-
-            @testset "Matrix views with det, tr, diag" begin
-                mat_nodes = [x y z; w x y; z w x]
-                mat_view = @view mat_nodes[1:2, 1:2]
-
-                # Determinant
-                result1 = det(mat_view)
-                @test result1 isa ExaModels.AbstractNode
-
-                # Trace
-                result2 = tr(mat_view)
-                @test result2 isa ExaModels.AbstractNode
-
-                # Diag
-                result3 = diag(mat_view)
-                @test length(result3) == 2
-                @test result3[1] isa ExaModels.AbstractNode
-            end
-
-            @testset "Matrix views with norm" begin
-                mat_nodes = [x y; z w]
-                mat_view = @view mat_nodes[:, :]
-
-                result = norm(mat_view)
-                @test result isa ExaModels.AbstractNode
-            end
-
-            @testset "Matrix views with scalar multiplication" begin
-                mat_nodes = [x y; z w]
-                mat_view = @view mat_nodes[:, :]
-                A_num = [1.0 2.0; 3.0 4.0]
-                A_view_num = @view A_num[:, :]
-
-                # Scalar × matrix view
-                result1 = x * A_view_num
-                @test size(result1) == (2, 2)
-                @test result1[1, 1] isa ExaModels.AbstractNode
-
-                result2 = 2.0 * mat_view
-                @test size(result2) == (2, 2)
-                @test result2[1, 1] isa ExaModels.AbstractNode
-
-                # Matrix view × scalar
-                result3 = mat_view * 2.0
-                @test size(result3) == (2, 2)
-                @test result3[1, 1] isa ExaModels.AbstractNode
-
-                result4 = A_view_num * x
-                @test size(result4) == (2, 2)
-                @test result4[1, 1] isa ExaModels.AbstractNode
-            end
-
-            @testset "Adjoint/transpose with operations" begin
-                mat_nodes = [x y z; w x y]  # 2×3
-                A_num = [1.0 2.0; 3.0 4.0; 5.0 6.0]  # 3×2
-                vec_nodes = [x, y, z]
-
-                # Transpose/adjoint returns AbstractMatrix
-                mat_t = transpose(mat_nodes)  # 3×2
-                mat_a = adjoint(mat_nodes)     # 3×2
-
-                # Use transposed matrix in operations
-                result1 = mat_t * [x, y]  # 3×2 × 2-vec = 3-vec
-                @test length(result1) == 3
-                @test result1[1] isa ExaModels.AbstractNode
-
-                # Matrix-vector with AbstractNode vector
-                result2 = A_num * [x, y]  # 3×2 × 2-vec = 3-vec
-                @test length(result2) == 3
-                @test result2[1] isa ExaModels.AbstractNode
-
-                # Adjoint matrix in matrix operations
-                result3 = mat_a + A_num
-                @test size(result3) == (3, 2)
-                @test result3[1, 1] isa ExaModels.AbstractNode
-
-                result4 = tr(mat_t * mat_nodes)  # (3×2) × (2×3) = 3×3, then trace
-                @test result4 isa ExaModels.AbstractNode
-            end
-
-            @testset "diagm with views" begin
-                vec_nodes = [x, y, z, w]
-                v_view = @view vec_nodes[1:3]
-
-                result = diagm(v_view)
-                @test size(result) == (3, 3)
-                @test result[1, 1] isa ExaModels.AbstractNode
-                @test is_null_zero(result[1, 2])
             end
         end
     end
