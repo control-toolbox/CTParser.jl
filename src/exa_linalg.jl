@@ -4,6 +4,11 @@
 Module providing trait-based linear algebra extensions for Array{<:ExaModels.AbstractNode}.
 Extends Julia's standard Array interface without wrappers.
 
+Supports operations on Vector, Matrix, and their standard wrappers:
+- SubArray (views created by @view or slicing)
+- ReshapedArray (created by reshape)
+- ReinterpretArray (created by reinterpret, only for Real element types)
+
 # Key Design: Direct Operator Overloading on Null Nodes
 All operations use direct operator overloads (+, -, *) on Null types.
 These specialized methods properly handle Null nodes, preserving constants
@@ -33,6 +38,31 @@ export sin, cos, tan, csc, sec, cot, asin, acos, atan, acot
 export sind, cosd, tand, cscd, secd, cotd, atand, acotd
 export sinh, cosh, tanh, csch, sech, coth, asinh, acosh, atanh, acoth
 export ^
+
+# ============================================================================
+# Type Aliases for Array Wrappers
+# ============================================================================
+#
+# Union types enumerating concrete array wrapper types we support.
+# This avoids ambiguities with Base methods (including SparseArrays) while
+# being more general than plain Vector/Matrix types.
+#
+# We restrict SubArray to views of DenseArray to avoid conflicts with sparse arrays.
+#
+# Vec1DReal: 1D arrays of Real (includes ReinterpretArray from Complex)
+# Vec1DNode: 1D arrays of AbstractNode (no ReinterpretArray)
+# Mat2D: 2D arrays (both Real and AbstractNode)
+# ============================================================================
+
+# SubArray where parent is a DenseArray (excludes sparse arrays)
+const DenseSubArray{T,N} = SubArray{T,N,<:DenseArray}
+
+# ReshapedArray where parent is a DenseArray (excludes sparse arrays)
+const DenseReshapedArray{T,N} = Base.ReshapedArray{T,N,<:DenseArray}
+
+const Vec1DReal{T} = Union{Vector{T}, DenseSubArray{T,1}, DenseReshapedArray{T,1}, Base.ReinterpretArray{T,1}}
+const Vec1DNode{T} = Union{Vector{T}, DenseSubArray{T,1}, DenseReshapedArray{T,1}}
+const Mat2D{T} = Union{Matrix{T}, DenseSubArray{T,2}, DenseReshapedArray{T,2}}
 
 # ============================================================================
 # Section 1: Canonical Nodes (zero and one)
@@ -254,17 +284,17 @@ promote_rule(::Type{<:ExaModels.AbstractNode}, ::Type{<:Real}) = ExaModels.Abstr
 # optimized * (with zero handling) is called instead of ExaModels' native *.
 # ============================================================================
 
-function dot(v::Vector{<:Real}, w::Vector{T}) where {T <: ExaModels.AbstractNode}
+function dot(v::Vec1DReal{<:Real}, w::Vec1DNode{T}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
     return sum(ExaModels.Null(v[i]) * w[i] for i in eachindex(v))
 end
 
-function dot(v::Vector{T}, w::Vector{<:Real}) where {T <: ExaModels.AbstractNode}
+function dot(v::Vec1DNode{T}, w::Vec1DReal{<:Real}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
     return sum(v[i] * ExaModels.Null(w[i]) for i in eachindex(v))
 end
 
-function dot(v::Vector{T}, w::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+function dot(v::Vec1DNode{T}, w::Vec1DNode{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
     return sum(v[i] * w[i] for i in eachindex(v))
 end
@@ -278,54 +308,54 @@ end
 # ============================================================================
 
 # Scalar × Vector
-function *(a::T, v::Vector{<:Real}) where {T <: ExaModels.AbstractNode}
+function *(a::T, v::Vec1DReal{<:Real}) where {T <: ExaModels.AbstractNode}
     return [a * ExaModels.Null(vi) for vi in v]
 end
 
-function *(a::Real, v::Vector{T}) where {T <: ExaModels.AbstractNode}
+function *(a::Real, v::Vec1DNode{T}) where {T <: ExaModels.AbstractNode}
     return [ExaModels.Null(a) * vi for vi in v]
 end
 
-function *(a::T, v::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+function *(a::T, v::Vec1DNode{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     return [a * vi for vi in v]
 end
 
 # Vector × Scalar
-function *(v::Vector{T}, a::Real) where {T <: ExaModels.AbstractNode}
+function *(v::Vec1DNode{T}, a::Real) where {T <: ExaModels.AbstractNode}
     return [vi * ExaModels.Null(a) for vi in v]
 end
 
-function *(v::Vector{T}, a::S) where {T <: Real, S <: ExaModels.AbstractNode}
+function *(v::Vec1DReal{T}, a::S) where {T <: Real, S <: ExaModels.AbstractNode}
     return [ExaModels.Null(vi) * a for vi in v]
 end
 
-function *(v::Vector{T}, a::S) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+function *(v::Vec1DNode{T}, a::S) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     return [vi * a for vi in v]
 end
 
 # Scalar × Matrix
-function *(a::T, A::Matrix{<:Real}) where {T <: ExaModels.AbstractNode}
+function *(a::T, A::Mat2D{<:Real}) where {T <: ExaModels.AbstractNode}
     return [a * ExaModels.Null(A[i, j]) for i in axes(A, 1), j in axes(A, 2)]
 end
 
-function *(a::Real, A::Matrix{T}) where {T <: ExaModels.AbstractNode}
+function *(a::Real, A::Mat2D{T}) where {T <: ExaModels.AbstractNode}
     return [ExaModels.Null(a) * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
-function *(a::T, A::Matrix{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+function *(a::T, A::Mat2D{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     return [a * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
 # Matrix × Scalar
-function *(A::Matrix{T}, a::Real) where {T <: ExaModels.AbstractNode}
+function *(A::Mat2D{T}, a::Real) where {T <: ExaModels.AbstractNode}
     return [A[i, j] * ExaModels.Null(a) for i in axes(A, 1), j in axes(A, 2)]
 end
 
-function *(A::Matrix{T}, a::S) where {T <: Real, S <: ExaModels.AbstractNode}
+function *(A::Mat2D{T}, a::S) where {T <: Real, S <: ExaModels.AbstractNode}
     return [ExaModels.Null(A[i, j]) * a for i in axes(A, 1), j in axes(A, 2)]
 end
 
-function *(A::Matrix{T}, a::S) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+function *(A::Mat2D{T}, a::S) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     return [A[i, j] * a for i in axes(A, 1), j in axes(A, 2)]
 end
 
@@ -333,19 +363,19 @@ end
 # Section 6: Matrix × Vector Product (uses dot)
 # ============================================================================
 
-function *(A::Matrix{<:Real}, x::Vector{T}) where {T <: ExaModels.AbstractNode}
+function *(A::Mat2D{<:Real}, x::Vec1DNode{T}) where {T <: ExaModels.AbstractNode}
     m, n = size(A)
     @assert n == length(x) "Dimension mismatch: matrix has $n columns but vector has $(length(x)) elements"
     return [dot(A[i, :], x) for i in 1:m]
 end
 
-function *(A::Matrix{T}, x::Vector{<:Real}) where {T <: ExaModels.AbstractNode}
+function *(A::Mat2D{T}, x::Vec1DReal{<:Real}) where {T <: ExaModels.AbstractNode}
     m, n = size(A)
     @assert n == length(x) "Dimension mismatch: matrix has $n columns but vector has $(length(x)) elements"
     return [dot(A[i, :], x) for i in 1:m]
 end
 
-function *(A::Matrix{T}, x::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+function *(A::Mat2D{T}, x::Vec1DNode{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     m, n = size(A)
     @assert n == length(x) "Dimension mismatch: matrix has $n columns but vector has $(length(x)) elements"
     return [dot(A[i, :], x) for i in 1:m]
@@ -355,21 +385,21 @@ end
 # Section 7: Matrix × Matrix Product (uses dot)
 # ============================================================================
 
-function *(A::Matrix{<:Real}, B::Matrix{T}) where {T <: ExaModels.AbstractNode}
+function *(A::Mat2D{<:Real}, B::Mat2D{T}) where {T <: ExaModels.AbstractNode}
     m, n = size(A)
     p, q = size(B)
     @assert n == p "Dimension mismatch: A has $n columns but B has $p rows"
     return [dot(A[i, :], B[:, j]) for i in 1:m, j in 1:q]
 end
 
-function *(A::Matrix{T}, B::Matrix{<:Real}) where {T <: ExaModels.AbstractNode}
+function *(A::Mat2D{T}, B::Mat2D{<:Real}) where {T <: ExaModels.AbstractNode}
     m, n = size(A)
     p, q = size(B)
     @assert n == p "Dimension mismatch: A has $n columns but B has $p rows"
     return [dot(A[i, :], B[:, j]) for i in 1:m, j in 1:q]
 end
 
-function *(A::Matrix{T}, B::Matrix{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+function *(A::Mat2D{T}, B::Mat2D{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     m, n = size(A)
     p, q = size(B)
     @assert n == p "Dimension mismatch: A has $n columns but B has $p rows"
@@ -380,19 +410,19 @@ end
 # Section 8: Adjoint Vector × Matrix Product
 # ============================================================================
 
-function *(p::Adjoint{T, Vector{T}}, A::Matrix{<:Real}) where {T <: ExaModels.AbstractNode}
+function *(p::Adjoint{T, <:Vec1DNode{T}}, A::Mat2D{<:Real}) where {T <: ExaModels.AbstractNode}
     m, n = size(A)
     @assert m == length(p) "Dimension mismatch: vector has $(length(p)) elements but matrix has $m rows"
     return [p * A[:, j] for j in 1:n]'
 end
 
-function *(p::Adjoint{T, Vector{T}}, A::Matrix{S}) where {T <: Real, S <: ExaModels.AbstractNode}
+function *(p::Adjoint{T, <:Vec1DReal{T}}, A::Mat2D{S}) where {T <: Real, S <: ExaModels.AbstractNode}
     m, n = size(A)
     @assert m == length(p) "Dimension mismatch: vector has $(length(p)) elements but matrix has $m rows"
     return [p * A[:, j] for j in 1:n]'
 end
 
-function *(p::Adjoint{T, Vector{T}}, A::Matrix{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+function *(p::Adjoint{T, <:Vec1DNode{T}}, A::Mat2D{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     m, n = size(A)
     @assert m == length(p) "Dimension mismatch: vector has $(length(p)) elements but matrix has $m rows"
     return [p * A[:, j] for j in 1:n]'
@@ -402,11 +432,11 @@ end
 # Section 9: Adjoint and Transpose for Matrices
 # ============================================================================
 
-function adjoint(A::Matrix{T}) where {T <: ExaModels.AbstractNode}
+function adjoint(A::Mat2D{T}) where {T <: ExaModels.AbstractNode}
     return permutedims(A)
 end
 
-function transpose(A::Matrix{T}) where {T <: ExaModels.AbstractNode}
+function transpose(A::Mat2D{T}) where {T <: ExaModels.AbstractNode}
     return permutedims(A)
 end
 
@@ -415,33 +445,33 @@ end
 # ============================================================================
 
 # Vector + Vector
-function +(v::Vector{T}, w::Vector{<:Real}) where {T <: ExaModels.AbstractNode}
+function +(v::Vec1DNode{T}, w::Vec1DReal{<:Real}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
     return [v[i] + w[i] for i in eachindex(v)]
 end
 
-function +(v::Vector{<:Real}, w::Vector{T}) where {T <: ExaModels.AbstractNode}
+function +(v::Vec1DReal{<:Real}, w::Vec1DNode{T}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
     return [v[i] + w[i] for i in eachindex(v)]
 end
 
-function +(v::Vector{T}, w::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+function +(v::Vec1DNode{T}, w::Vec1DNode{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
     return [v[i] + w[i] for i in eachindex(v)]
 end
 
 # Matrix + Matrix
-function +(A::Matrix{T}, B::Matrix{<:Real}) where {T <: ExaModels.AbstractNode}
+function +(A::Mat2D{T}, B::Mat2D{<:Real}) where {T <: ExaModels.AbstractNode}
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
     return [A[i, j] + B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
-function +(A::Matrix{<:Real}, B::Matrix{T}) where {T <: ExaModels.AbstractNode}
+function +(A::Mat2D{<:Real}, B::Mat2D{T}) where {T <: ExaModels.AbstractNode}
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
     return [A[i, j] + B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
-function +(A::Matrix{T}, B::Matrix{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+function +(A::Mat2D{T}, B::Mat2D{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
     return [A[i, j] + B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
@@ -451,33 +481,33 @@ end
 # ============================================================================
 
 # Vector - Vector
-function -(v::Vector{T}, w::Vector{<:Real}) where {T <: ExaModels.AbstractNode}
+function -(v::Vec1DNode{T}, w::Vec1DReal{<:Real}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
     return [v[i] - w[i] for i in eachindex(v)]
 end
 
-function -(v::Vector{<:Real}, w::Vector{T}) where {T <: ExaModels.AbstractNode}
+function -(v::Vec1DReal{<:Real}, w::Vec1DNode{T}) where {T <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
     return [v[i] - w[i] for i in eachindex(v)]
 end
 
-function -(v::Vector{T}, w::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+function -(v::Vec1DNode{T}, w::Vec1DNode{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
     return [v[i] - w[i] for i in eachindex(v)]
 end
 
 # Matrix - Matrix
-function -(A::Matrix{T}, B::Matrix{<:Real}) where {T <: ExaModels.AbstractNode}
+function -(A::Mat2D{T}, B::Mat2D{<:Real}) where {T <: ExaModels.AbstractNode}
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
     return [A[i, j] - B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
-function -(A::Matrix{<:Real}, B::Matrix{T}) where {T <: ExaModels.AbstractNode}
+function -(A::Mat2D{<:Real}, B::Mat2D{T}) where {T <: ExaModels.AbstractNode}
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
     return [A[i, j] - B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
-function -(A::Matrix{T}, B::Matrix{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+function -(A::Mat2D{T}, B::Mat2D{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
     return [A[i, j] - B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
@@ -486,7 +516,8 @@ end
 # Section 12: Determinant (using +, -, *)
 # ============================================================================
 
-function det(A::Matrix{T}) where {T <: ExaModels.AbstractNode}
+# Helper function to compute determinant (shared implementation)
+function _det_impl(A)
     n, m = size(A)
     @assert n == m "Determinant is only defined for square matrices, got $(n)×$(m)"
 
@@ -518,11 +549,33 @@ function det(A::Matrix{T}) where {T <: ExaModels.AbstractNode}
     end
 end
 
+# Separate methods for each wrapper type
+function det(A::Matrix{T}) where {T <: ExaModels.AbstractNode}
+    return _det_impl(A)
+end
+
+# Note: We don't define det for SubArray to avoid potential ambiguities.
+# Users should collect/copy the view first if needed.
+
+function det(A::DenseReshapedArray{T,2}) where {T <: ExaModels.AbstractNode}
+    return _det_impl(A)
+end
+
 # ============================================================================
 # Section 13: Trace (using sum)
 # ============================================================================
 
+# Need separate methods to avoid ambiguity with LinearAlgebra.tr(::StridedMatrix)
 function tr(A::Matrix{T}) where {T <: ExaModels.AbstractNode}
+    n, m = size(A)
+    @assert n == m "Trace is only defined for square matrices, got $(n)×$(m)"
+    return sum(A[i, i] for i in 1:n)
+end
+
+# Note: We don't define tr for SubArray because it creates unavoidable ambiguity
+# with LinearAlgebra.tr(::StridedMatrix). Users should collect/copy the view first.
+
+function tr(A::DenseReshapedArray{T,2}) where {T <: ExaModels.AbstractNode}
     n, m = size(A)
     @assert n == m "Trace is only defined for square matrices, got $(n)×$(m)"
     return sum(A[i, i] for i in 1:n)
@@ -533,12 +586,12 @@ end
 # ============================================================================
 
 # Euclidean norm (2-norm) for vectors
-function norm(v::Vector{T}) where {T <: ExaModels.AbstractNode}
+function norm(v::Vec1DNode{T}) where {T <: ExaModels.AbstractNode}
     return sqrt(sum(vi * vi for vi in v))
 end
 
 # p-norm for vectors
-function norm(v::Vector{T}, p::Real) where {T <: ExaModels.AbstractNode}
+function norm(v::Vec1DNode{T}, p::Real) where {T <: ExaModels.AbstractNode}
     if p == Inf
         # Infinity norm: max|vᵢ|
         error("Infinity norm not supported for symbolic AbstractNode vectors")
@@ -555,7 +608,7 @@ function norm(v::Vector{T}, p::Real) where {T <: ExaModels.AbstractNode}
 end
 
 # Frobenius norm for matrices
-function norm(A::Matrix{T}) where {T <: ExaModels.AbstractNode}
+function norm(A::Mat2D{T}) where {T <: ExaModels.AbstractNode}
     return sqrt(sum(A[i, j] * A[i, j] for i in axes(A, 1), j in axes(A, 2)))
 end
 
@@ -564,14 +617,14 @@ end
 # ============================================================================
 
 # Extract diagonal from matrix
-function diag(A::Matrix{T}) where {T <: ExaModels.AbstractNode}
+function diag(A::Mat2D{T}) where {T <: ExaModels.AbstractNode}
     n, m = size(A)
     k = min(n, m)
     return [A[i, i] for i in 1:k]
 end
 
 # Create diagonal matrix from vector
-function diagm(v::Vector{T}) where {T <: ExaModels.AbstractNode}
+function diagm(v::Vec1DNode{T}) where {T <: ExaModels.AbstractNode}
     n = length(v)
     # Create a matrix with AbstractNode element type to allow mixed Null types
     D = Matrix{ExaModels.AbstractNode}(undef, n, n)
@@ -582,7 +635,7 @@ function diagm(v::Vector{T}) where {T <: ExaModels.AbstractNode}
 end
 
 # diagm with pairs (more general form)
-function diagm(kv::Pair{<:Integer, <:Vector{T}}) where {T <: ExaModels.AbstractNode}
+function diagm(kv::Pair{<:Integer, <:Vec1DNode{T}}) where {T <: ExaModels.AbstractNode}
     k, v = kv
     n = length(v) + abs(k)
     # Create a matrix with AbstractNode element type to allow mixed Null types
