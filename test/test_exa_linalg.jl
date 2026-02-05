@@ -1150,5 +1150,340 @@ function test_exa_linalg()
                 @test result[2].value == z.value
             end
         end
+
+        @testset "SubArray, ReshapedArray, ReinterpretArray" begin
+            x, y, z, w = create_nodes()
+
+            @testset "SubArray (views) - vectors of Real" begin
+                v_num = [1.0, 2.0, 3.0, 4.0]
+                vec_nodes = [x, y, z, w]
+
+                # Test view of Real vector
+                v_view = @view v_num[1:3]
+                @test v_view isa SubArray
+
+                # dot with view
+                result1 = dot(v_view, vec_nodes[1:3])
+                @test result1 isa ExaModels.AbstractNode
+
+                result2 = dot(vec_nodes[1:3], v_view)
+                @test result2 isa ExaModels.AbstractNode
+
+                # scalar × view
+                result3 = x * v_view
+                @test length(result3) == 3
+                @test result3[1] isa ExaModels.AbstractNode
+
+                result4 = 2.0 * vec_nodes[1:3]
+                @test length(result4) == 3
+
+                # view × scalar
+                result5 = v_view * x
+                @test length(result5) == 3
+                @test result5[1] isa ExaModels.AbstractNode
+
+                # vector addition with view
+                result6 = vec_nodes[1:3] + v_view
+                @test length(result6) == 3
+                @test result6[1] isa ExaModels.AbstractNode
+
+                result7 = v_view + vec_nodes[1:3]
+                @test length(result7) == 3
+
+                # vector subtraction with view
+                result8 = vec_nodes[1:3] - v_view
+                @test length(result8) == 3
+                @test result8[1] isa ExaModels.AbstractNode
+
+                result9 = v_view - vec_nodes[1:3]
+                @test length(result9) == 3
+
+                # norm of view
+                result10 = norm(@view vec_nodes[1:3])
+                @test result10 isa ExaModels.AbstractNode
+            end
+
+            @testset "SubArray (views) - vectors of AbstractNode" begin
+                vec_nodes = [x, y, z, w]
+
+                # Test view of AbstractNode vector
+                v_view = @view vec_nodes[1:3]
+                @test v_view isa SubArray
+
+                # Operations between two views
+                v_view2 = @view vec_nodes[2:4]
+                result1 = v_view + v_view2
+                @test length(result1) == 3
+                @test result1[1] isa ExaModels.AbstractNode
+
+                result2 = v_view - v_view2
+                @test length(result2) == 3
+
+                result3 = dot(v_view, v_view2)
+                @test result3 isa ExaModels.AbstractNode
+
+                # scalar × view of nodes
+                result4 = 2.5 * v_view
+                @test length(result4) == 3
+                @test result4[1] isa ExaModels.AbstractNode
+
+                result5 = x * v_view
+                @test length(result5) == 3
+            end
+
+            @testset "SubArray (views) - matrices of Real" begin
+                A_num = [1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0]
+                mat_nodes = [x y z; w x y; z w x]
+
+                # Test view of Real matrix
+                A_view = @view A_num[1:2, 1:2]
+                @test A_view isa SubArray
+                @test size(A_view) == (2, 2)
+
+                # scalar × matrix view
+                result1 = x * A_view
+                @test size(result1) == (2, 2)
+                @test result1[1, 1] isa ExaModels.AbstractNode
+
+                result2 = 3.0 * (@view mat_nodes[1:2, 1:2])
+                @test size(result2) == (2, 2)
+
+                # matrix × scalar
+                result3 = A_view * x
+                @test size(result3) == (2, 2)
+                @test result3[1, 1] isa ExaModels.AbstractNode
+
+                # matrix × vector with views
+                vec_nodes = [x, y]
+                result4 = A_view * vec_nodes
+                @test length(result4) == 2
+                @test result4[1] isa ExaModels.AbstractNode
+
+                # matrix + matrix with views
+                result5 = (@view mat_nodes[1:2, 1:2]) + A_view
+                @test size(result5) == (2, 2)
+                @test result5[1, 1] isa ExaModels.AbstractNode
+
+                # Note: det and tr not supported for SubArray due to ambiguity with LinearAlgebra
+                # Users should collect/copy the view first if needed
+            end
+
+            @testset "SubArray (views) - matrices of AbstractNode" begin
+                mat_nodes = [x y z; w x y; z w x]
+
+                # Test view of AbstractNode matrix
+                A_view = @view mat_nodes[1:2, 1:2]
+                @test A_view isa SubArray
+                @test size(A_view) == (2, 2)
+
+                # matrix × matrix with views
+                B_view = @view mat_nodes[2:3, 2:3]
+                result1 = A_view * B_view
+                @test size(result1) == (2, 2)
+                @test result1[1, 1] isa ExaModels.AbstractNode
+
+                # matrix operations
+                result2 = A_view + B_view
+                @test size(result2) == (2, 2)
+
+                result3 = A_view - B_view
+                @test size(result3) == (2, 2)
+
+                # adjoint of view
+                result4 = adjoint(A_view)
+                @test size(result4) == (2, 2)
+
+                # transpose of view
+                result5 = transpose(A_view)
+                @test size(result5) == (2, 2)
+            end
+
+            @testset "ReshapedArray - vectors to matrices" begin
+                v_num = [1.0, 2.0, 3.0, 4.0]
+                vec_nodes = [x, y, z, w]
+
+                # Reshape Real vector to matrix
+                A_reshaped = reshape(v_num, 2, 2)
+                @test A_reshaped isa Union{Matrix, Base.ReshapedArray}
+
+                # Operations with reshaped array
+                result1 = x * A_reshaped
+                @test size(result1) == (2, 2)
+                @test result1[1, 1] isa ExaModels.AbstractNode
+
+                # Reshape AbstractNode vector to matrix
+                mat_reshaped = reshape(vec_nodes, 2, 2)
+                @test mat_reshaped isa Union{Matrix, Base.ReshapedArray}
+
+                result2 = 2.0 * mat_reshaped
+                @test size(result2) == (2, 2)
+                @test result2[1, 1] isa ExaModels.AbstractNode
+
+                result3 = det(mat_reshaped)
+                @test result3 isa ExaModels.AbstractNode
+
+                result4 = tr(mat_reshaped)
+                @test result4 isa ExaModels.AbstractNode
+            end
+
+            @testset "ReshapedArray - matrices to vectors" begin
+                A_num = [1.0 2.0; 3.0 4.0]
+                mat_nodes = [x y; z w]
+
+                # Reshape Real matrix to vector
+                v_reshaped = reshape(A_num, 4)
+                @test v_reshaped isa Union{Vector, Base.ReshapedArray}
+
+                # Operations with reshaped array
+                result1 = x * v_reshaped
+                @test length(result1) == 4
+                @test result1[1] isa ExaModels.AbstractNode
+
+                # Reshape AbstractNode matrix to vector
+                vec_reshaped = reshape(mat_nodes, 4)
+                @test vec_reshaped isa Union{Vector, Base.ReshapedArray}
+
+                result2 = 2.0 * vec_reshaped
+                @test length(result2) == 4
+                @test result2[1] isa ExaModels.AbstractNode
+
+                result3 = norm(vec_reshaped)
+                @test result3 isa ExaModels.AbstractNode
+
+                # dot product with reshaped
+                result4 = dot(v_reshaped, vec_reshaped)
+                @test result4 isa ExaModels.AbstractNode
+            end
+
+            @testset "ReinterpretArray - Complex to Real" begin
+                # Create a vector of Complex numbers
+                complex_vec = ComplexF64[1.0 + 2.0im, 3.0 + 4.0im, 5.0 + 6.0im]
+
+                # Reinterpret as Float64 (this creates a ReinterpretArray)
+                real_reinterp = reinterpret(Float64, complex_vec)
+                @test real_reinterp isa Base.ReinterpretArray
+                @test length(real_reinterp) == 6  # 2 × 3
+
+                vec_nodes = [x, y, z, w, ExaModels.Null(5), ExaModels.Null(6)]
+
+                # dot product with reinterpreted array
+                result1 = dot(real_reinterp, vec_nodes)
+                @test result1 isa ExaModels.AbstractNode
+
+                result2 = dot(vec_nodes, real_reinterp)
+                @test result2 isa ExaModels.AbstractNode
+
+                # scalar × reinterpreted array
+                result3 = x * real_reinterp
+                @test length(result3) == 6
+                @test result3[1] isa ExaModels.AbstractNode
+
+                # reinterpreted array × scalar
+                result4 = real_reinterp * x
+                @test length(result4) == 6
+                @test result4[1] isa ExaModels.AbstractNode
+
+                # addition with reinterpreted array
+                result5 = vec_nodes + real_reinterp
+                @test length(result5) == 6
+                @test result5[1] isa ExaModels.AbstractNode
+
+                result6 = real_reinterp + vec_nodes
+                @test length(result6) == 6
+
+                # subtraction with reinterpreted array
+                result7 = vec_nodes - real_reinterp
+                @test length(result7) == 6
+                @test result7[1] isa ExaModels.AbstractNode
+
+                result8 = real_reinterp - vec_nodes
+                @test length(result8) == 6
+            end
+
+            @testset "Mixed wrapper combinations" begin
+                v_num = [1.0, 2.0, 3.0, 4.0]
+                vec_nodes = [x, y, z, w]
+
+                # view + reshaped
+                v_view = @view v_num[1:3]
+                v_reshaped = reshape([x, y, z], 3)
+                result1 = v_view + v_reshaped
+                @test length(result1) == 3
+                @test result1[1] isa ExaModels.AbstractNode
+
+                # Matrix view × reshaped vector
+                A_num = [1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0]
+                A_view = @view A_num[1:3, 1:3]
+                vec_reshaped = reshape([x, y, z], 3)
+                result2 = A_view * vec_reshaped
+                @test length(result2) == 3
+                @test result2[1] isa ExaModels.AbstractNode
+
+                # Reinterpreted + view
+                complex_vec = ComplexF64[1.0 + 2.0im, 3.0 + 4.0im]
+                real_reinterp = reinterpret(Float64, complex_vec)
+                vec_view = @view vec_nodes[1:4]
+                result3 = real_reinterp + vec_view
+                @test length(result3) == 4
+                @test result3[1] isa ExaModels.AbstractNode
+            end
+
+            @testset "diagm with views and reshaped arrays" begin
+                vec_nodes = [x, y, z]
+
+                # diagm with view
+                v_view = @view vec_nodes[1:2]
+                result1 = diagm(v_view)
+                @test size(result1) == (2, 2)
+                @test result1[1, 1] isa ExaModels.AbstractNode
+                @test is_null_zero(result1[1, 2])
+
+                # diagm with reshaped array
+                v_reshaped = reshape([x, y], 2)
+                result2 = diagm(v_reshaped)
+                @test size(result2) == (2, 2)
+                @test result2[1, 1] isa ExaModels.AbstractNode
+
+                # diagm with offset and view
+                result3 = diagm(1 => v_view)
+                @test size(result3) == (3, 3)
+                @test result3[1, 2] isa ExaModels.AbstractNode
+            end
+
+            @testset "diag with views and reshaped arrays" begin
+                mat_nodes = [x y z; w x y; z w x]
+
+                # diag with view
+                A_view = @view mat_nodes[1:2, 1:2]
+                result1 = diag(A_view)
+                @test length(result1) == 2
+                @test result1[1] isa ExaModels.AbstractNode
+
+                # diag with reshaped array
+                vec = [x, y, z, w]
+                A_reshaped = reshape(vec, 2, 2)
+                result2 = diag(A_reshaped)
+                @test length(result2) == 2
+                @test result2[1] isa ExaModels.AbstractNode
+            end
+
+            @testset "Adjoint operations with views" begin
+                vec_nodes = [x, y, z]
+                A_num = [1.0 2.0; 3.0 4.0; 5.0 6.0]
+
+                # Adjoint of view × matrix
+                v_view = @view vec_nodes[1:3]
+                result1 = v_view' * A_num
+                @test size(result1) == (1, 2)
+                @test result1 isa LinearAlgebra.Adjoint
+
+                # Test with matrix view
+                mat_nodes = [x y z; w x y; z w x]
+                A_view = @view mat_nodes[1:2, 1:2]
+                v_num = [1.0, 2.0]
+                result2 = v_num' * A_view
+                @test size(result2) == (1, 2)
+            end
+        end
     end
 end
