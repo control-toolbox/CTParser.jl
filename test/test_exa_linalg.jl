@@ -168,7 +168,7 @@ function test_exa_linalg()
 
             result = adjoint(mat_nodes)
             @test size(result) == (3, 2)
-            @test result isa AbstractMatrix  # adjoint returns Adjoint wrapper, not plain Matrix
+            @test result isa Matrix
         end
 
         @testset "Determinant" begin
@@ -244,7 +244,7 @@ function test_exa_linalg()
 
             # Test error on non-square matrix
             A_rect = [x y z; y z w]
-            @test_throws DimensionMismatch tr(A_rect)
+            @test_throws AssertionError tr(A_rect)
         end
 
         @testset "Norms" begin
@@ -399,7 +399,7 @@ function test_exa_linalg()
             mat_nodes = [x y z; w x y]
             result2 = transpose(mat_nodes)
             @test size(result2) == (3, 2)
-            @test result2 isa AbstractMatrix  # transpose returns Transpose wrapper, not plain Matrix
+            @test result2 isa Matrix
             @test result2[1, 1] isa ExaModels.AbstractNode
         end
 
@@ -407,17 +407,17 @@ function test_exa_linalg()
             # Test dot product dimension mismatch
             v1 = [1.0, 2.0]
             vec_nodes = [x, y, z]
-            @test_throws DimensionMismatch dot(v1, vec_nodes)
+            @test_throws AssertionError dot(v1, vec_nodes)
 
             # Test matrix-vector dimension mismatch
             A = [1.0 2.0; 3.0 4.0]  # 2×2
             v = [x, y, z]  # length 3
-            @test_throws DimensionMismatch A * v
+            @test_throws AssertionError A * v
 
             # Test matrix-matrix dimension mismatch
             A1 = [1.0 2.0; 3.0 4.0]  # 2×2
             A2_nodes = [x y; z w; y x]  # 3×2
-            @test_throws DimensionMismatch A1 * A2_nodes
+            @test_throws AssertionError A1 * A2_nodes
 
             # Test determinant on non-square matrix
             A_rect = [x y z; y z x]  # 2×3
@@ -426,18 +426,18 @@ function test_exa_linalg()
             # Test addition dimension mismatch
             v1 = [x, y]
             v2 = [x, y, z]
-            @test_throws DimensionMismatch v1 + v2
+            @test_throws AssertionError v1 + v2
 
             # Test subtraction dimension mismatch
-            @test_throws DimensionMismatch v1 - v2
+            @test_throws AssertionError v1 - v2
 
             # Test matrix addition dimension mismatch
             A1 = [x y; z w]
             A2 = [x y z; w x y]
-            @test_throws DimensionMismatch A1 + A2
+            @test_throws AssertionError A1 + A2
 
             # Test matrix subtraction dimension mismatch
-            @test_throws DimensionMismatch A1 - A2
+            @test_throws AssertionError A1 - A2
         end
 
         @testset "ExaCore variable arrays" begin
@@ -524,7 +524,7 @@ function test_exa_linalg()
 
             result15 = transpose(A)
             @test size(result15) == (4, 2)
-            @test result15 isa AbstractMatrix  # transpose returns Transpose wrapper, not plain Matrix
+            @test result15 isa Matrix
 
             # diagm from variable array
             result16 = diagm(v)
@@ -1148,254 +1148,6 @@ function test_exa_linalg()
                 @test result[1].value == x.value
                 @test result[2] isa ExaModels.Null
                 @test result[2].value == z.value
-            end
-        end
-
-        @testset "Iterate protocol for scalar behavior" begin
-            x, y, z, w = create_nodes()
-
-            @testset "Basic iterate protocol" begin
-                # Test first iteration
-                result = iterate(x)
-                @test result !== nothing
-                @test result[1] === x
-                @test result[2] === nothing
-
-                # Test second iteration (should be done)
-                result2 = iterate(x, nothing)
-                @test result2 === nothing
-
-                # Test collect
-                collected = collect(x)
-                @test length(collected) == 1
-                @test collected[1] === x
-            end
-
-            @testset "Splatting behavior" begin
-                # Splatting a scalar should pass it as single argument
-                f(a) = a * ExaModels.Null(2)
-                @test f(x...) isa ExaModels.AbstractNode
-            end
-        end
-
-        @testset "SubArray (view) support" begin
-            vec_nodes = [x, y, z, w]
-            v_num = [1.0, 2.0, 3.0, 4.0]
-
-            @testset "dot with SubArray" begin
-                # View of AbstractNode vector with numeric vector
-                view_nodes = view(vec_nodes, 1:2)
-                @test view_nodes isa SubArray
-                result = dot([1.0, 2.0], view_nodes)
-                @test result isa ExaModels.AbstractNode
-
-                # View of numeric vector with AbstractNode vector
-                view_num = view(v_num, 2:3)
-                result2 = dot(view_num, [y, z])
-                @test result2 isa ExaModels.AbstractNode
-
-                # Both views
-                view_nodes2 = view(vec_nodes, 3:4)
-                view_num2 = view(v_num, 3:4)
-                result3 = dot(view_num2, view_nodes2)
-                @test result3 isa ExaModels.AbstractNode
-            end
-
-            # Matrix-vector with SubArray removed - not supported with current implementation
-            # (would require AbstractMatrix/AbstractVector which creates ambiguities)
-
-            @testset "Vector addition with SubArray" begin
-                view_nodes = view(vec_nodes, 1:3)
-                result = view_nodes + [1.0, 2.0, 3.0]
-                @test length(result) == 3
-                @test result[1] isa ExaModels.AbstractNode
-            end
-
-            @testset "Scalar multiplication with SubArray" begin
-                view_nodes = view(vec_nodes, 2:4)
-                result = 2.0 * view_nodes
-                @test length(result) == 3
-                @test result[1] isa ExaModels.AbstractNode
-            end
-
-            @testset "norm with SubArray" begin
-                view_nodes = view(vec_nodes, 1:3)
-                result = norm(view_nodes)
-                @test result isa ExaModels.AbstractNode
-            end
-        end
-
-        @testset "ReshapedArray support" begin
-            # Create a vector and reshape to matrix
-            vec_nodes = [x, y, z, w]
-            mat_reshaped = reshape(vec_nodes, 2, 2)
-
-            @testset "Reshape type check" begin
-                @test mat_reshaped isa AbstractMatrix  # reshape may return Matrix or ReshapedArray
-                @test size(mat_reshaped) == (2, 2)
-            end
-
-            # Matrix-vector with ReshapedArray removed - not supported with current implementation
-            # (would require AbstractMatrix/AbstractVector which creates ambiguities)
-
-            @testset "det with ReshapedArray" begin
-                result = det(mat_reshaped)
-                @test result isa ExaModels.AbstractNode
-            end
-
-            @testset "tr with ReshapedArray" begin
-                result = tr(mat_reshaped)
-                @test result isa ExaModels.AbstractNode
-            end
-
-            @testset "Matrix multiplication with ReshapedArray" begin
-                A_num = [1.0 2.0; 3.0 4.0]
-                result = A_num * mat_reshaped
-                @test size(result) == (2, 2)
-                @test result[1, 1] isa ExaModels.AbstractNode
-            end
-
-            # Reshape numeric to multiply with nodes removed - matrix-vector not supported
-            # with ReshapedArray (would require AbstractMatrix which creates ambiguities)
-
-            @testset "norm with ReshapedArray" begin
-                result = norm(mat_reshaped)
-                @test result isa ExaModels.AbstractNode
-            end
-        end
-
-        @testset "ReinterpretArray support" begin
-            @testset "Reinterpret Complex to Real (numeric)" begin
-                # Create complex vector and reinterpret to real
-                c = [1.0 + 2.0im, 3.0 + 4.0im]
-                r = reinterpret(Float64, c)
-                @test r isa Base.ReinterpretArray
-                @test length(r) == 4  # 2 complex numbers = 4 reals
-
-                # dot with reinterpreted real and AbstractNode
-                vec_nodes = [x, y, z, w]
-                result = dot(r, vec_nodes)
-                @test result isa ExaModels.AbstractNode
-            end
-
-            @testset "Reinterpret with different element sizes" begin
-                # Int64 to Int32 (works on little-endian)
-                if Base.ENDIAN_BOM == 0x04030201  # Little-endian
-                    i64 = Int64[1, 2]
-                    i32 = reinterpret(Int32, i64)
-                    @test i32 isa Base.ReinterpretArray
-
-                    # Create AbstractNode vector of matching length
-                    nodes = [ExaModels.Null(Float64(i)) for i in 1:length(i32)]
-                    # Convert Int32 to Float64 for dot product
-                    result = dot(Float64.(collect(i32)), nodes)
-                    @test result isa ExaModels.AbstractNode
-                end
-            end
-
-            # Scalar multiplication with ReinterpretArray removed - not supported
-            # (would require AbstractVector which creates ambiguities)
-        end
-
-        @testset "Combined wrapper types" begin
-            # Test combinations of view, reshape, etc.
-            vec_nodes = [x, y, z, w, x, y]  # 6 elements
-
-            @testset "View then reshape" begin
-                v = view(vec_nodes, 1:4)
-                m = reshape(v, 2, 2)
-                @test m isa Base.ReshapedArray
-
-                result = det(m)
-                @test result isa ExaModels.AbstractNode
-            end
-
-            @testset "Reshape then view" begin
-                mat = reshape(vec_nodes, 2, 3)
-                v = view(mat, :, 1)  # First column
-                @test v isa SubArray
-                @test length(v) == 2
-
-                result = dot([1.0, 2.0], v)
-                @test result isa ExaModels.AbstractNode
-            end
-
-            @testset "Complex operations with views" begin
-                A = reshape(vec_nodes, 2, 3)
-                v1 = view(A, :, 1)  # Column 1
-                v2 = view(A, :, 2)  # Column 2
-
-                # Both are SubArrays
-                result = dot(v1, v2)
-                @test result isa ExaModels.AbstractNode
-
-                # Addition
-                result2 = v1 + v2
-                @test length(result2) == 2
-                @test result2[1] isa ExaModels.AbstractNode
-            end
-        end
-
-        @testset "Compatibility with existing specialized methods" begin
-            # Ensure our iterate doesn't break the optimized Vector/Matrix paths
-            vec_nodes = [x, y, z]
-            mat_nodes = [x y; z w]
-            v_num = [1.0, 2.0, 3.0]
-            A_num = [1.0 2.0; 3.0 4.0]
-
-            @testset "Vector methods still work" begin
-                # These should use the specialized ExaLinAlg methods
-                result1 = dot(v_num, vec_nodes)
-                @test result1 isa ExaModels.AbstractNode
-
-                result2 = v_num + vec_nodes
-                @test result2 isa Vector
-                @test length(result2) == 3
-
-                result3 = 2.0 * vec_nodes
-                @test result3 isa Vector
-            end
-
-            @testset "Matrix methods still work" begin
-                result1 = A_num * [x, y]
-                @test result1 isa Vector
-                @test length(result1) == 2
-
-                result2 = det(mat_nodes)
-                @test result2 isa ExaModels.AbstractNode
-
-                result3 = tr(mat_nodes)
-                @test result3 isa ExaModels.AbstractNode
-            end
-        end
-
-        @testset "Edge cases with wrapper types" begin
-            @testset "Empty views" begin
-                vec_nodes = [x, y, z]
-                empty_view = view(vec_nodes, 1:0)
-                @test length(empty_view) == 0
-
-                # dot with empty arrays should work
-                result = dot(Float64[], empty_view)
-                @test result isa ExaModels.AbstractNode
-            end
-
-            @testset "Single element views" begin
-                vec_nodes = [x, y, z]
-                single_view = view(vec_nodes, 2:2)
-                @test length(single_view) == 1
-
-                result = dot([1.0], single_view)
-                @test result isa ExaModels.AbstractNode
-            end
-
-            @testset "Strided views" begin
-                vec_nodes = [x, y, z, w]
-                strided_view = view(vec_nodes, 1:2:4)  # Elements 1 and 3
-                @test length(strided_view) == 2
-
-                result = dot([1.0, 2.0], strided_view)
-                @test result isa ExaModels.AbstractNode
             end
         end
     end

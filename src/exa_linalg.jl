@@ -9,93 +9,9 @@ All operations use direct operator overloads (+, -, *) on Null types.
 These specialized methods properly handle Null nodes, preserving constants
 and avoiding unnecessary expression tree nodes.
 
-# Scalar Iteration Protocol
-AbstractNode implements the iteration protocol to behave as a 0-dimensional
-scalar iterable (like Number types in Julia). This enables compatibility with
-ALL AbstractArray wrapper types (SubArray, ReshapedArray, ReinterpretArray, etc.)
-and generic LinearAlgebra operations, without requiring explicit method definitions
-for each array type.
-
-# The 6 Minimal Operations for Linear Algebra Extension
-To extend linear algebra operations to arrays of a custom scalar type T
-(where T is not a subtype of Number), you must define:
-
-1. **Arithmetic Operations**: `+`, `-`, `*`
-   - Binary operations between T and T
-   - Binary operations between T and Real
-   - Unary operations: `-T`, `+T`
-
-2. **Identity Elements**: `zero(T)`, `one(T)`
-   - Return canonical zero and one values of type T
-   - Also: `zeros(Type{T}, dims...)`, `ones(Type{T}, dims...)`
-
-3. **Type Promotion**: `promote_rule`, `convert`
-   - `promote_rule(::Type{T}, ::Type{<:Real})` → T
-   - `convert(::Type{T}, ::Real)` → T
-
-4. **Scalar Iteration Protocol**: `iterate`, `length`, `eltype`
-   - `iterate(x::T)` → (x, nothing)  # First call returns value
-   - `iterate(x::T, ::Nothing)` → nothing  # Second call indicates done
-   - `length(x::T)` → 1  # Scalars have length 1
-   - `eltype(::Type{T})` → T  # Element type is itself
-   - `IteratorSize(::Type{T})` → Base.HasLength()
-   - `IteratorEltype(::Type{T})` → Base.HasEltype()
-
-5. **Scalar Dot Product**: `dot(::Number, ::T)`, `dot(::T, ::Number)`, `dot(::T, ::T)`
-   - Required because T is not a Number, so dot(::Number, ::Number) doesn't match
-   - Prevents falling back to generic iterable dot which has recursion protection
-   - Implementation: `dot(x, y) = conj(x) * y` (standard definition)
-
-6. **Complex Conjugate**: `conj(::T)`
-   - For real-valued types: `conj(x) = x` (identity)
-   - For complex-valued types: `conj(x)` should return complex conjugate
-   - Note: ExaModels.AbstractNode only deals with Real values
-
-With these 6 categories defined, ALL LinearAlgebra operations work automatically
-with ALL AbstractArray types (Vector, Matrix, SubArray, ReshapedArray, etc.)
-through Julia's generic implementations.
-
-# Custom Implementations for Optimization
-While the 6 minimal operations make linear algebra WORK, this module provides
-custom implementations that make it FAST:
-
-- **Zero optimization**: `0 * x` → `Null(0)` (not a Node2 expression tree)
-- **Constant folding**: `Null(2) * Null(3)` → `Null(6)` (computed at definition time)
-- **Null wrapping**: Wraps Real coefficients in `Null()` before multiplication to trigger optimizations
-- **Simpler expression trees**: Custom methods produce `Null` results instead of deep `Node2` trees
-
-Example optimization impact:
-```julia
-# Native (with only 6 minimal ops): returns complex Node2 tree
-dot([1, 0, 2], [x, y, z])  # →  Node2{+, Node2{+, Null(0), Node2{*, 0, y}}, Node2{*, 2, z}}
-
-# Custom (optimized): returns simplified Null
-dot([1, 0, 2], [x, y, z])  # →  Null(1*x.value + 0 + 2*z.value)
-```
-
-Thus: **6 minimal operations = correctness, custom implementations = performance**
-
-# What Must Be Custom vs What Works Natively
-With the 6 minimal operations defined:
-
-**Works natively (custom versions are optimizations):**
-- `dot` for all array types - works but creates Node2 trees
-- `sum` - works but less efficient
-- `tr` (trace) - works fine natively
-- Vector/Matrix addition - works but less optimized
-- Scalar × Vector/Matrix - works but less optimized
-
-**Must be custom (native fails or is problematic):**
-- `norm` - native causes stack overflow (tries to iterate over result nodes)
-- `det` (for Matrix{AbstractNode}) - native uses LU which needs type conversions
-- Matrix × Vector (for certain type combinations) - native may fail
-
-**Recommended**: Keep all custom implementations for performance, but understand
-that the 6 minimal operations provide the foundation that makes everything possible.
-
 # Public API (Exported)
 - Canonical nodes: `zero`, `one`, `zeros`, `ones`
-- Basic operations: `zero`, `one`, `adjoint`, `transpose`, `*`, `+`, `-`, `sum`, `conj`
+- Basic operations: `zero`, `one`, `adjoint`, `transpose`, `*`, `+`, `-`, `sum`
 - Linear algebra: `dot`, `det`, `tr`, `norm`, `diag`, `diagm`
 """
 module ExaLinAlg
@@ -103,15 +19,15 @@ module ExaLinAlg
 using ExaModels: ExaModels
 using LinearAlgebra
 
-import Base: zero, one, adjoint, *, promote_rule, convert, +, -, transpose, sum, conj
+import Base: zero, one, adjoint, *, promote_rule, convert, +, -, transpose, sum
 import Base: inv, abs, sqrt, cbrt, abs2, exp, exp2, exp10, log, log2, log10, log1p
 import Base: sin, cos, tan, csc, sec, cot, asin, acos, atan, acot
 import Base: sind, cosd, tand, cscd, secd, cotd, atand, acotd
 import Base: sinh, cosh, tanh, csch, sech, coth, asinh, acosh, atanh, acoth
-import Base: ^, zeros, ones, iterate, length, eltype, IteratorSize, IteratorEltype
+import Base: ^, zeros, ones
 import LinearAlgebra: dot, Adjoint, det, tr, norm, diag, diagm
 
-export zero, one, zeros, ones, adjoint, transpose, *, +, -, sum, dot, det, tr, norm, diag, diagm, conj
+export zero, one, zeros, ones, adjoint, transpose, *, +, -, sum, dot, det, tr, norm, diag, diagm
 export inv, abs, sqrt, cbrt, abs2, exp, exp2, exp10, log, log2, log10, log1p
 export sin, cos, tan, csc, sec, cot, asin, acos, atan, acot
 export sind, cosd, tand, cscd, secd, cotd, atand, acotd
@@ -178,107 +94,6 @@ Uses fill with the canonical one node: Null(1).
 function ones(::Type{T}, dims::Integer...) where {T <: ExaModels.AbstractNode}
     return fill(one(T), dims...)
 end
-
-# ============================================================================
-# Section 1.5: Iteration Protocol for Scalar Behavior
-# ============================================================================
-#
-# AbstractNode represents a scalar value (a node in an expression tree).
-# To enable compatibility with generic LinearAlgebra functions and all
-# AbstractArray subtypes (SubArray, ReshapedArray, ReinterpretArray, etc.),
-# we implement the iteration protocol to make AbstractNode behave like
-# a 0-dimensional scalar collection (similar to how Number types work).
-#
-# This allows AbstractNode to work seamlessly with:
-# - Views: view(x, 1:2)
-# - Reshaped arrays: reshape(x, dims)
-# - Reinterpreted arrays: reinterpret(T, x)
-# - Any other AbstractArray wrapper types
-#
-# Without this, operations like dot([1,2], view(x, 1:2)) would fall back
-# to LinearAlgebra's generic methods which expect scalars to be iterable.
-# ============================================================================
-
-"""
-    iterate(x::ExaModels.AbstractNode)
-
-Make AbstractNode iterable as a 0-dimensional scalar (like Number types).
-Returns (x, nothing) to indicate a single-element iteration.
-"""
-iterate(x::ExaModels.AbstractNode) = (x, nothing)
-
-"""
-    iterate(x::ExaModels.AbstractNode, ::Nothing)
-
-Second call to iterate returns nothing, indicating iteration is complete.
-"""
-iterate(x::ExaModels.AbstractNode, ::Nothing) = nothing
-
-"""
-    length(x::ExaModels.AbstractNode)
-
-Return length 1 for scalar AbstractNode (0-dimensional iterable).
-"""
-length(x::ExaModels.AbstractNode) = 1
-
-"""
-    eltype(::Type{<:ExaModels.AbstractNode})
-
-Return the element type when iterating over an AbstractNode (returns itself).
-"""
-eltype(::Type{T}) where {T <: ExaModels.AbstractNode} = T
-
-"""
-    IteratorSize(::Type{<:ExaModels.AbstractNode})
-
-AbstractNode has known size (length 1).
-"""
-IteratorSize(::Type{<:ExaModels.AbstractNode}) = Base.HasLength()
-
-"""
-    IteratorEltype(::Type{<:ExaModels.AbstractNode})
-
-AbstractNode has known eltype.
-"""
-IteratorEltype(::Type{<:ExaModels.AbstractNode}) = Base.HasEltype()
-
-# ============================================================================
-# Section 1.6: Scalar dot product for AbstractNode
-# ============================================================================
-#
-# Define scalar dot product to prevent falling back to generic iterable dot.
-# This is needed because AbstractNode is not a Number, so dot(::Number, ::Number)
-# doesn't match. Without this, LinearAlgebra's generic dot for iterables is used,
-# which has a recursive protection check that fails for our case.
-# ============================================================================
-
-"""
-    dot(x::Number, y::ExaModels.AbstractNode)
-
-Scalar dot product: Number · AbstractNode = Null(Number) * AbstractNode
-
-Note: We wrap Number in Null to trigger our optimized * operator which does:
-- Zero elimination: Null(0) * anything → Null(0)
-- One elimination: Null(1) * x → x
-- Constant folding for Null operands
-
-Since AbstractNode only deals with Real values, conj(x) = x, so we don't need conj.
-"""
-dot(x::Number, y::ExaModels.AbstractNode) = ExaModels.Null(x) * y
-
-"""
-    dot(x::ExaModels.AbstractNode, y::Number)
-
-Scalar dot product: AbstractNode · Number = AbstractNode * Null(Number)
-"""
-dot(x::ExaModels.AbstractNode, y::Number) = x * ExaModels.Null(y)
-
-"""
-    dot(x::ExaModels.AbstractNode, y::ExaModels.AbstractNode)
-
-Scalar dot product: AbstractNode · AbstractNode = AbstractNode * AbstractNode
-"""
-dot(x::ExaModels.AbstractNode, y::ExaModels.AbstractNode) = x * y
 
 # ============================================================================
 # Section 2: Scalar Operations on Null Nodes
@@ -401,33 +216,23 @@ acoth(x::ExaModels.Null{T}) where {T<:Real} = ExaModels.Null(acoth(x.value))
 ^(x::ExaModels.Null{T}, n::Real) where {T<:Real} = ExaModels.Null(x.value^n)
 ^(x::ExaModels.Null{T}, n::Integer) where {T<:Real} = ExaModels.Null(x.value^n)
 
-# Complex conjugate (ExaModels.AbstractNode only deals with Real values, so conj is identity)
-conj(x::ExaModels.AbstractNode) = x  # For real-valued nodes, conj(x) = x
+# ============================================================================
+# Section 3: sum (using direct + operator)
+# ============================================================================
 
-# ============================================================================
-# IMPLEMENTATION NOTE: Redundant Operations Removed
-# ============================================================================
-#
-# With the 6 minimal operations + optimized scalar dot (with Null wrapping),
-# many array-level operations now work natively through Julia's generic
-# LinearAlgebra implementations. The following have been REMOVED as redundant:
-#
-# - Array-level dot for all Vector/Matrix combinations (native works!)
-# - Vector/Matrix addition and subtraction (native works!)
-# - Scalar × Vector/Matrix multiplication (native works!)
-# - sum (native works!)
-# - tr (trace - native works!)
-# - Matrix × Matrix multiplication (native works!)
-# - Adjoint/transpose wrapper operations (native works!)
-#
-# KEPT custom implementations only for:
-# - Matrix × Vector (native has MethodError)
-# - norm (native causes stack overflow)
-# - det (native LU factorization fails)
-# - diag, diagm (specialized implementations)
-#
-# This dramatically simplifies the code from ~800 lines to ~400 lines!
-# ============================================================================
+"""
+    sum(arr::AbstractArray{<:ExaModels.AbstractNode})
+
+Optimized sum for arrays of AbstractNode using the overloaded + operator.
+Returns zero(ExaModels.AbstractNode) if the array is empty.
+"""
+function sum(arr::AbstractArray{<:ExaModels.AbstractNode})
+    result = zero(ExaModels.AbstractNode)
+    for x in arr
+        result = result + x
+    end
+    return result
+end
 
 # ============================================================================
 # Section 3.5: Basic Type Conversions and Promotions
@@ -439,102 +244,249 @@ transpose(x::ExaModels.AbstractNode) = x
 
 convert(::Type{ExaModels.AbstractNode}, x::Real) = iszero(x) ? zero(ExaModels.AbstractNode) : ExaModels.Null(x)
 
-# Convert between Null types with different numeric types (e.g., Null{Int64} to Null{Float64})
-convert(::Type{ExaModels.Null{T}}, x::ExaModels.Null{S}) where {T,S} = ExaModels.Null(T(x.value))
-
-# Convert Null to Real types (needed for some LinearAlgebra operations like lu/det)
-convert(::Type{T}, x::ExaModels.Null{S}) where {T<:Real, S} = T(x.value)
-
 promote_rule(::Type{<:ExaModels.AbstractNode}, ::Type{<:Real}) = ExaModels.AbstractNode
+
+# ============================================================================
+# Section 4: Dot Product (using *, sum)
+# ============================================================================
+#
+# Note: We wrap Real values in Null before multiplication to ensure our
+# optimized * (with zero handling) is called instead of ExaModels' native *.
+# ============================================================================
+
+function dot(v::Vector{<:Real}, w::Vector{T}) where {T <: ExaModels.AbstractNode}
+    @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
+    return sum(ExaModels.Null(v[i]) * w[i] for i in eachindex(v))
+end
+
+function dot(v::Vector{T}, w::Vector{<:Real}) where {T <: ExaModels.AbstractNode}
+    @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
+    return sum(v[i] * ExaModels.Null(w[i]) for i in eachindex(v))
+end
+
+function dot(v::Vector{T}, w::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+    @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
+    return sum(v[i] * w[i] for i in eachindex(v))
+end
+
+# ============================================================================
+# Section 5: Scalar × Vector/Matrix Multiplication (using *)
+# ============================================================================
+#
+# Note: We wrap Real values in Null before multiplication to ensure our
+# optimized * (with zero handling) is called instead of ExaModels' native *.
+# ============================================================================
+
+# Scalar × Vector
+function *(a::T, v::Vector{<:Real}) where {T <: ExaModels.AbstractNode}
+    return [a * ExaModels.Null(vi) for vi in v]
+end
+
+function *(a::Real, v::Vector{T}) where {T <: ExaModels.AbstractNode}
+    return [ExaModels.Null(a) * vi for vi in v]
+end
+
+function *(a::T, v::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+    return [a * vi for vi in v]
+end
+
+# Vector × Scalar
+function *(v::Vector{T}, a::Real) where {T <: ExaModels.AbstractNode}
+    return [vi * ExaModels.Null(a) for vi in v]
+end
+
+function *(v::Vector{T}, a::S) where {T <: Real, S <: ExaModels.AbstractNode}
+    return [ExaModels.Null(vi) * a for vi in v]
+end
+
+function *(v::Vector{T}, a::S) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+    return [vi * a for vi in v]
+end
+
+# Scalar × Matrix
+function *(a::T, A::Matrix{<:Real}) where {T <: ExaModels.AbstractNode}
+    return [a * ExaModels.Null(A[i, j]) for i in axes(A, 1), j in axes(A, 2)]
+end
+
+function *(a::Real, A::Matrix{T}) where {T <: ExaModels.AbstractNode}
+    return [ExaModels.Null(a) * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
+end
+
+function *(a::T, A::Matrix{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+    return [a * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
+end
+
+# Matrix × Scalar
+function *(A::Matrix{T}, a::Real) where {T <: ExaModels.AbstractNode}
+    return [A[i, j] * ExaModels.Null(a) for i in axes(A, 1), j in axes(A, 2)]
+end
+
+function *(A::Matrix{T}, a::S) where {T <: Real, S <: ExaModels.AbstractNode}
+    return [ExaModels.Null(A[i, j]) * a for i in axes(A, 1), j in axes(A, 2)]
+end
+
+function *(A::Matrix{T}, a::S) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+    return [A[i, j] * a for i in axes(A, 1), j in axes(A, 2)]
+end
 
 # ============================================================================
 # Section 6: Matrix × Vector Product (uses dot)
 # ============================================================================
-#
-# KEPT: Native LinearAlgebra fails with MethodError for some combinations
-# ============================================================================
 
 function *(A::Matrix{<:Real}, x::Vector{T}) where {T <: ExaModels.AbstractNode}
     m, n = size(A)
-    n == length(x) || throw(DimensionMismatch("matrix A has dimensions ($m,$n), vector B has length $(length(x))"))
+    @assert n == length(x) "Dimension mismatch: matrix has $n columns but vector has $(length(x)) elements"
     return [dot(A[i, :], x) for i in 1:m]
 end
 
 function *(A::Matrix{T}, x::Vector{<:Real}) where {T <: ExaModels.AbstractNode}
     m, n = size(A)
-    n == length(x) || throw(DimensionMismatch("matrix A has dimensions ($m,$n), vector B has length $(length(x))"))
+    @assert n == length(x) "Dimension mismatch: matrix has $n columns but vector has $(length(x)) elements"
     return [dot(A[i, :], x) for i in 1:m]
 end
 
 function *(A::Matrix{T}, x::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
     m, n = size(A)
-    n == length(x) || throw(DimensionMismatch("matrix A has dimensions ($m,$n), vector B has length $(length(x))"))
+    @assert n == length(x) "Dimension mismatch: matrix has $n columns but vector has $(length(x)) elements"
     return [dot(A[i, :], x) for i in 1:m]
 end
 
 # ============================================================================
-# Section 7: Scalar-Array Multiplication (both AbstractNode)
-# ============================================================================
-#
-# When BOTH operands are AbstractNode types, we need explicit broadcasting
-# methods since Julia doesn't automatically handle this case
+# Section 7: Matrix × Matrix Product (uses dot)
 # ============================================================================
 
-# Scalar × Vector (both AbstractNode)
-function *(scalar::ExaModels.AbstractNode, v::Vector{T}) where {T <: ExaModels.AbstractNode}
-    return [scalar * vi for vi in v]
+function *(A::Matrix{<:Real}, B::Matrix{T}) where {T <: ExaModels.AbstractNode}
+    m, n = size(A)
+    p, q = size(B)
+    @assert n == p "Dimension mismatch: A has $n columns but B has $p rows"
+    return [dot(A[i, :], B[:, j]) for i in 1:m, j in 1:q]
 end
 
-# Vector × Scalar (both AbstractNode)
-function *(v::Vector{T}, scalar::ExaModels.AbstractNode) where {T <: ExaModels.AbstractNode}
-    return [vi * scalar for vi in v]
+function *(A::Matrix{T}, B::Matrix{<:Real}) where {T <: ExaModels.AbstractNode}
+    m, n = size(A)
+    p, q = size(B)
+    @assert n == p "Dimension mismatch: A has $n columns but B has $p rows"
+    return [dot(A[i, :], B[:, j]) for i in 1:m, j in 1:q]
 end
 
-# Scalar × Matrix (both AbstractNode)
-function *(scalar::ExaModels.AbstractNode, A::Matrix{T}) where {T <: ExaModels.AbstractNode}
-    return [scalar * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
-end
-
-# Matrix × Scalar (both AbstractNode)
-function *(A::Matrix{T}, scalar::ExaModels.AbstractNode) where {T <: ExaModels.AbstractNode}
-    return [A[i, j] * scalar for i in axes(A, 1), j in axes(A, 2)]
+function *(A::Matrix{T}, B::Matrix{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+    m, n = size(A)
+    p, q = size(B)
+    @assert n == p "Dimension mismatch: A has $n columns but B has $p rows"
+    return [dot(A[i, :], B[:, j]) for i in 1:m, j in 1:q]
 end
 
 # ============================================================================
-# Section 8: Scalar-Array Multiplication (mixed types)
-# ============================================================================
-#
-# When one operand is AbstractNode and the other is an array of Real
+# Section 8: Adjoint Vector × Matrix Product
 # ============================================================================
 
-# AbstractNode × Vector{Real}
-function *(scalar::ExaModels.AbstractNode, v::Vector{<:Real})
-    return [scalar * vi for vi in v]
+function *(p::Adjoint{T, Vector{T}}, A::Matrix{<:Real}) where {T <: ExaModels.AbstractNode}
+    m, n = size(A)
+    @assert m == length(p) "Dimension mismatch: vector has $(length(p)) elements but matrix has $m rows"
+    return [p * A[:, j] for j in 1:n]'
 end
 
-# Vector{Real} × AbstractNode
-function *(v::Vector{<:Real}, scalar::ExaModels.AbstractNode)
-    return [vi * scalar for vi in v]
+function *(p::Adjoint{T, Vector{T}}, A::Matrix{S}) where {T <: Real, S <: ExaModels.AbstractNode}
+    m, n = size(A)
+    @assert m == length(p) "Dimension mismatch: vector has $(length(p)) elements but matrix has $m rows"
+    return [p * A[:, j] for j in 1:n]'
 end
 
-# AbstractNode × Matrix{Real}
-function *(scalar::ExaModels.AbstractNode, A::Matrix{<:Real})
-    return [scalar * A[i, j] for i in axes(A, 1), j in axes(A, 2)]
+function *(p::Adjoint{T, Vector{T}}, A::Matrix{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+    m, n = size(A)
+    @assert m == length(p) "Dimension mismatch: vector has $(length(p)) elements but matrix has $m rows"
+    return [p * A[:, j] for j in 1:n]'
 end
 
-# Matrix{Real} × AbstractNode
-function *(A::Matrix{<:Real}, scalar::ExaModels.AbstractNode)
-    return [A[i, j] * scalar for i in axes(A, 1), j in axes(A, 2)]
+# ============================================================================
+# Section 9: Adjoint and Transpose for Matrices
+# ============================================================================
+
+function adjoint(A::Matrix{T}) where {T <: ExaModels.AbstractNode}
+    return permutedims(A)
+end
+
+function transpose(A::Matrix{T}) where {T <: ExaModels.AbstractNode}
+    return permutedims(A)
+end
+
+# ============================================================================
+# Section 10: Vector/Matrix Addition (using +)
+# ============================================================================
+
+# Vector + Vector
+function +(v::Vector{T}, w::Vector{<:Real}) where {T <: ExaModels.AbstractNode}
+    @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
+    return [v[i] + w[i] for i in eachindex(v)]
+end
+
+function +(v::Vector{<:Real}, w::Vector{T}) where {T <: ExaModels.AbstractNode}
+    @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
+    return [v[i] + w[i] for i in eachindex(v)]
+end
+
+function +(v::Vector{T}, w::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+    @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
+    return [v[i] + w[i] for i in eachindex(v)]
+end
+
+# Matrix + Matrix
+function +(A::Matrix{T}, B::Matrix{<:Real}) where {T <: ExaModels.AbstractNode}
+    @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
+    return [A[i, j] + B[i, j] for i in axes(A, 1), j in axes(A, 2)]
+end
+
+function +(A::Matrix{<:Real}, B::Matrix{T}) where {T <: ExaModels.AbstractNode}
+    @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
+    return [A[i, j] + B[i, j] for i in axes(A, 1), j in axes(A, 2)]
+end
+
+function +(A::Matrix{T}, B::Matrix{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+    @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
+    return [A[i, j] + B[i, j] for i in axes(A, 1), j in axes(A, 2)]
+end
+
+# ============================================================================
+# Section 11: Vector/Matrix Subtraction (using -)
+# ============================================================================
+
+# Vector - Vector
+function -(v::Vector{T}, w::Vector{<:Real}) where {T <: ExaModels.AbstractNode}
+    @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
+    return [v[i] - w[i] for i in eachindex(v)]
+end
+
+function -(v::Vector{<:Real}, w::Vector{T}) where {T <: ExaModels.AbstractNode}
+    @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
+    return [v[i] - w[i] for i in eachindex(v)]
+end
+
+function -(v::Vector{T}, w::Vector{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+    @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
+    return [v[i] - w[i] for i in eachindex(v)]
+end
+
+# Matrix - Matrix
+function -(A::Matrix{T}, B::Matrix{<:Real}) where {T <: ExaModels.AbstractNode}
+    @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
+    return [A[i, j] - B[i, j] for i in axes(A, 1), j in axes(A, 2)]
+end
+
+function -(A::Matrix{<:Real}, B::Matrix{T}) where {T <: ExaModels.AbstractNode}
+    @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
+    return [A[i, j] - B[i, j] for i in axes(A, 1), j in axes(A, 2)]
+end
+
+function -(A::Matrix{T}, B::Matrix{S}) where {T <: ExaModels.AbstractNode, S <: ExaModels.AbstractNode}
+    @assert size(A) == size(B) "Matrices must have the same size: got $(size(A)) and $(size(B))"
+    return [A[i, j] - B[i, j] for i in axes(A, 1), j in axes(A, 2)]
 end
 
 # ============================================================================
 # Section 12: Determinant (using +, -, *)
 # ============================================================================
-#
-# KEPT: Native LinearAlgebra det uses LU factorization which fails with type conversions
-# ============================================================================
 
-function det(A::AbstractMatrix{T}) where {T <: ExaModels.AbstractNode}
+function det(A::Matrix{T}) where {T <: ExaModels.AbstractNode}
     n, m = size(A)
     @assert n == m "Determinant is only defined for square matrices, got $(n)×$(m)"
 
@@ -567,21 +519,26 @@ function det(A::AbstractMatrix{T}) where {T <: ExaModels.AbstractNode}
 end
 
 # ============================================================================
-# Section 13: Norms (using sum, *)
+# Section 13: Trace (using sum)
 # ============================================================================
-#
-# KEPT: Native LinearAlgebra norm causes stack overflow when AbstractNode is iterable
+
+function tr(A::Matrix{T}) where {T <: ExaModels.AbstractNode}
+    n, m = size(A)
+    @assert n == m "Trace is only defined for square matrices, got $(n)×$(m)"
+    return sum(A[i, i] for i in 1:n)
+end
+
+# ============================================================================
+# Section 14: Norms (using sum, *)
 # ============================================================================
 
 # Euclidean norm (2-norm) for vectors
-# Uses AbstractVector to support SubArray, ReshapedArray, etc.
-function norm(v::AbstractVector{T}) where {T <: ExaModels.AbstractNode}
+function norm(v::Vector{T}) where {T <: ExaModels.AbstractNode}
     return sqrt(sum(vi * vi for vi in v))
 end
 
 # p-norm for vectors
-# Uses AbstractVector to support SubArray, ReshapedArray, etc.
-function norm(v::AbstractVector{T}, p::Real) where {T <: ExaModels.AbstractNode}
+function norm(v::Vector{T}, p::Real) where {T <: ExaModels.AbstractNode}
     if p == Inf
         # Infinity norm: max|vᵢ|
         error("Infinity norm not supported for symbolic AbstractNode vectors")
@@ -598,8 +555,7 @@ function norm(v::AbstractVector{T}, p::Real) where {T <: ExaModels.AbstractNode}
 end
 
 # Frobenius norm for matrices
-# Uses AbstractMatrix to support ReshapedArray, etc.
-function norm(A::AbstractMatrix{T}) where {T <: ExaModels.AbstractNode}
+function norm(A::Matrix{T}) where {T <: ExaModels.AbstractNode}
     return sqrt(sum(A[i, j] * A[i, j] for i in axes(A, 1), j in axes(A, 2)))
 end
 
