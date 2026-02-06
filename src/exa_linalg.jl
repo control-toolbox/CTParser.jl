@@ -280,13 +280,24 @@ promote_rule(::Type{<:ExaModels.AbstractNode}, ::Type{<:Real}) = ExaModels.Abstr
 # Section 4: Dot Product (delegates to __dot)
 # ============================================================================
 #
-# Public dot API delegates to __dot (defined below).
+# Public dot API validates inputs and delegates to __dot (defined below).
 # __dot handles wrapping Real values in Null nodes internally.
 # ============================================================================
 
-dot(v::VecReal{T}, w::VecNode{S}) where {T<:Real, S<:ExaModels.AbstractNode} = __dot(v, w)
-dot(v::VecNode{T}, w::VecReal{S}) where {T<:ExaModels.AbstractNode, S<:Real} = __dot(v, w)
-dot(v::VecNode{T}, w::VecNode{S}) where {T<:ExaModels.AbstractNode, S<:ExaModels.AbstractNode} = __dot(v, w)
+function dot(v::VecReal{T}, w::VecNode{S}) where {T<:Real, S<:ExaModels.AbstractNode}
+    @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
+    return __dot(v, w)
+end
+
+function dot(v::VecNode{T}, w::VecReal{S}) where {T<:ExaModels.AbstractNode, S<:Real}
+    @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
+    return __dot(v, w)
+end
+
+function dot(v::VecNode{T}, w::VecNode{S}) where {T<:ExaModels.AbstractNode, S<:ExaModels.AbstractNode}
+    @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
+    return __dot(v, w)
+end
 
 # ============================================================================
 # Section 4.5: Internal __dot function (core building block)
@@ -294,21 +305,21 @@ dot(v::VecNode{T}, w::VecNode{S}) where {T<:ExaModels.AbstractNode, S<:ExaModels
 #
 # __dot uses AbstractVector for maximum flexibility (safe since private/not exported).
 # This is the core implementation that handles wrapping Real values in Null nodes.
-# Public dot() delegates to __dot, and matrix operations use __dot with views.
+# Public dot() validates and delegates to __dot, matrix operations validate and use __dot with views.
+#
+# PERFORMANCE: No dimension checks here - callers are trusted to validate before calling.
+# This eliminates redundant checks in hot loops (e.g., 100 checks for 100×100 matrix×vector).
 # ============================================================================
 
 function __dot(v::AbstractVector{T}, w::AbstractVector{S}) where {T<:Real, S<:ExaModels.AbstractNode}
-    @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
     return sum(ExaModels.Null(v[i]) * w[i] for i in eachindex(v))
 end
 
 function __dot(v::AbstractVector{T}, w::AbstractVector{S}) where {T<:ExaModels.AbstractNode, S<:Real}
-    @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
     return sum(v[i] * ExaModels.Null(w[i]) for i in eachindex(v))
 end
 
 function __dot(v::AbstractVector{T}, w::AbstractVector{S}) where {T<:ExaModels.AbstractNode, S<:ExaModels.AbstractNode}
-    @assert length(v) == length(w) "Vectors must have the same length: got $(length(v)) and $(length(w))"
     return sum(v[i] * w[i] for i in eachindex(v))
 end
 
@@ -448,9 +459,20 @@ end
 # Section 8.5: Adjoint Vector × Vector Product
 # ============================================================================
 
-*(p::Adjoint{T, <:VecNode{T}}, w::VecReal{S}) where {T<:ExaModels.AbstractNode, S<:Real} = __dot(parent(p), w)
-*(p::Adjoint{T, <:VecReal{T}}, w::VecNode{S}) where {T<:Real, S<:ExaModels.AbstractNode} = __dot(parent(p), w)
-*(p::Adjoint{T, <:VecNode{T}}, w::VecNode{S}) where {T<:ExaModels.AbstractNode, S<:ExaModels.AbstractNode} = __dot(parent(p), w)
+function *(p::Adjoint{T, <:VecNode{T}}, w::VecReal{S}) where {T<:ExaModels.AbstractNode, S<:Real}
+    @assert length(p) == length(w) "Vectors must have the same length: got $(length(p)) and $(length(w))"
+    return __dot(parent(p), w)
+end
+
+function *(p::Adjoint{T, <:VecReal{T}}, w::VecNode{S}) where {T<:Real, S<:ExaModels.AbstractNode}
+    @assert length(p) == length(w) "Vectors must have the same length: got $(length(p)) and $(length(w))"
+    return __dot(parent(p), w)
+end
+
+function *(p::Adjoint{T, <:VecNode{T}}, w::VecNode{S}) where {T<:ExaModels.AbstractNode, S<:ExaModels.AbstractNode}
+    @assert length(p) == length(w) "Vectors must have the same length: got $(length(p)) and $(length(w))"
+    return __dot(parent(p), w)
+end
 
 # ============================================================================
 # Section 9: Adjoint and Transpose for Matrices
