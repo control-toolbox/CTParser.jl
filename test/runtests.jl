@@ -54,9 +54,7 @@ using Interpolations
 using NLPModels
 using LinearAlgebra
 
-macro ignore(e)
-    return :()
-end
+include("utils.jl")
 
 const VERBOSE = true
 const SHOWTIMING = true
