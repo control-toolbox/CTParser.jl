@@ -311,6 +311,10 @@ end
 # This eliminates redundant checks in hot loops (e.g., 100 checks for 100×100 matrix×vector).
 # ============================================================================
 
+function __dot(v::AbstractVector{T}, w::AbstractVector{S}) where {T<:Real, S<:Real} # fallback to ensure __dot also accepts vectors of reals
+    return sum(v[i] * w[i] for i in eachindex(v))
+end
+
 function __dot(v::AbstractVector{T}, w::AbstractVector{S}) where {T<:Real, S<:ExaModels.AbstractNode}
     return sum(ExaModels.Null(v[i]) * w[i] for i in eachindex(v))
 end
