@@ -125,6 +125,44 @@ function test_exa_linalg()
             @test result2 isa ExaModels.AbstractNode
         end
 
+        @testset "Dot product (Real × Real fallback)" begin
+            v1 = [1.0, 2.0, 3.0]
+            v2 = [4.0, 5.0, 6.0]
+
+            # Real vector · Real vector (public dot API)
+            result1 = dot(v1, v2)
+            @test result1 isa Real
+            @test result1 ≈ 32.0  # 1*4 + 2*5 + 3*6 = 32
+
+            # Test with views (SubArray)
+            v1_view = @view v1[1:3]
+            v2_view = @view v2[1:3]
+            result2 = dot(v1_view, v2_view)
+            @test result2 isa Real
+            @test result2 ≈ 32.0
+
+            # Test with reshaped arrays
+            v1_reshaped = reshape([1.0, 2.0, 3.0], 3)
+            v2_reshaped = reshape([4.0, 5.0, 6.0], 3)
+            result3 = dot(v1_reshaped, v2_reshaped)
+            @test result3 isa Real
+            @test result3 ≈ 32.0
+
+            # Test with reinterpreted arrays (Complex to Real)
+            complex_vec1 = ComplexF64[1.0 + 2.0im, 3.0 + 4.0im]
+            complex_vec2 = ComplexF64[5.0 + 6.0im, 7.0 + 8.0im]
+            real_reinterp1 = reinterpret(Float64, complex_vec1)
+            real_reinterp2 = reinterpret(Float64, complex_vec2)
+            result4 = dot(real_reinterp1, real_reinterp2)
+            @test result4 isa Real
+            @test result4 ≈ 1*5 + 2*6 + 3*7 + 4*8  # 70.0
+
+            # Test mixed wrapper types
+            result5 = dot(v1_view, v2_reshaped)
+            @test result5 isa Real
+            @test result5 ≈ 32.0
+        end
+
         @testset "Matrix × Vector product" begin
             A_num = [1.0 2.0 3.0; 4.0 5.0 6.0]  # 2×3
             vec_nodes = [x, y, z]
