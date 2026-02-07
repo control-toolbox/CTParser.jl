@@ -153,6 +153,24 @@ function test_exa_linalg()
             @test result2[1, 1] isa ExaModels.AbstractNode
         end
 
+        @testset "Adjoint Vector × Vector product" begin
+            vec_nodes = [x, y, z]
+            v_num = [1.0, 2.0, 3.0]
+
+            # Node' * Real
+            result1 = vec_nodes' * v_num
+            @test result1 isa ExaModels.AbstractNode
+
+            # Real' * Node
+            result2 = v_num' * vec_nodes
+            @test result2 isa ExaModels.AbstractNode
+
+            # Node' * Node
+            vec_nodes2 = [y, z, x]
+            result3 = vec_nodes' * vec_nodes2
+            @test result3 isa ExaModels.AbstractNode
+        end
+
         @testset "Adjoint Vector × Matrix product" begin
             vec_nodes = [x, y, z]
             A_num = [1.0 2.0; 3.0 4.0; 5.0 6.0]  # 3×2
@@ -1471,8 +1489,22 @@ function test_exa_linalg()
                 vec_nodes = [x, y, z]
                 A_num = [1.0 2.0; 3.0 4.0; 5.0 6.0]
 
-                # Adjoint of view × matrix
+                # Adjoint of view × vector (new test)
                 v_view = @view vec_nodes[1:3]
+                v_num = [1.0, 2.0, 3.0]
+                result0 = v_view' * v_num
+                @test result0 isa ExaModels.AbstractNode
+
+                # Real' × view(Node)
+                result0b = v_num' * v_view
+                @test result0b isa ExaModels.AbstractNode
+
+                # view(Node)' × view(Node)
+                v_view2 = @view vec_nodes[1:3]
+                result0c = v_view' * v_view2
+                @test result0c isa ExaModels.AbstractNode
+
+                # Adjoint of view × matrix
                 result1 = v_view' * A_num
                 @test size(result1) == (1, 2)
                 @test result1 isa LinearAlgebra.Adjoint
@@ -1480,9 +1512,17 @@ function test_exa_linalg()
                 # Test with matrix view
                 mat_nodes = [x y z; w x y; z w x]
                 A_view = @view mat_nodes[1:2, 1:2]
-                v_num = [1.0, 2.0]
-                result2 = v_num' * A_view
+                v_num2 = [1.0, 2.0]
+                result2 = v_num2' * A_view
                 @test size(result2) == (1, 2)
+
+                # Adjoint of reshaped × vector
+                vec_reshaped = reshape([x, y, z], 3)
+                result3 = vec_reshaped' * v_num
+                @test result3 isa ExaModels.AbstractNode
+
+                result4 = v_num' * vec_reshaped
+                @test result4 isa ExaModels.AbstractNode
             end
         end
     end
