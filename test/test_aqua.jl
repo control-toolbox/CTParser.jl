@@ -2,14 +2,12 @@ function test_aqua()
     @testset "Aqua.jl" begin
         Aqua.test_all(
             CTParser;
-            ambiguities=true, # also tests submodules
+            ambiguities=false,
             #stale_deps=(ignore=[:MLStyle],),
             deps_compat=(ignore=[:LinearAlgebra, :Unicode],),
             piracies=true,
         )
-        # Test ExaLinAlg submodule for type piracy
-        #@testset "ExaLinAlg piracy" begin
-        #    Aqua.test_piracies(CTParser.ExaLinAlg)
-        #end
+        # do not warn about ambiguities in dependencies
+        Aqua.test_ambiguities(CTParser)
     end
 end

@@ -1,7 +1,5 @@
 # onepass
 # todo:
-# - add tests to compare runs of exa with scalar vs vec dynamics
-#
 # - as_range / as_vector for rg / lb, ub could be done here in p_constraint when calling constraint!
 # - cannot call solve if problem not fully defined (dynamics not defined...)
 # - doc: explain projections wrt to t0, tf, t; (...x1...x2...)(t) -> ...gensym1...gensym2... (most internal first)
@@ -120,10 +118,7 @@ $(TYPEDEF)
     lnum::Int = 0
     line::String = ""
     dt::Symbol = __symgen(:dt)
-    is_global_dyn::Bool = false
-    is_coord_dyn::Bool = false
     dyn_coords::Vector{Int64} = Int64[]
-    dyn_con::Union{Symbol,Nothing} = nothing
     l_v::Symbol = __symgen(:l_v)
     u_v::Symbol = __symgen(:u_v)
     box_v::Expr = :(LineNumberNode(0, "box constraints: variable"))
@@ -548,10 +543,10 @@ function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
         start=init[2],
     ))
     code = __wrap(code, p.lnum, p.line)
-    p.dyn_con = __symgen(:dyn_con) # name for the constraints associated with the dynamics
+    dyn_con = Symbol(:dyn_con, x) # name for the constraints associated with the dynamics
     code = quote
         $x = $code
-        $(p.dyn_con) = Vector{$pref.Constraint}(undef, $n) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
+        $dyn_con = Vector{$pref.Constraint}(undef, $n) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
     end
     return code
 end
@@ -696,33 +691,24 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
     isnothing(e3) && (e3 = :(Inf * ones(length($e1))))
     code = @match c_type begin
         :boundary || :variable_fun => begin
+            code = :(length($e1) == length($e3) == 1 || throw("this constraint must be scalar")) # (vs. __throw) since raised at runtime
             x0 = __symgen(:x0)
             xf = __symgen(:xf)
             k = __symgen(:k)
-            l = __symgen(:l)
             e2 = replace_call(e2, p.x, p.t0, x0)
             e2 = replace_call(e2, p.x, p.tf, xf)
             e2 = subs2(e2, x0, p.x, 0)
             e2 = subs(e2, x0, :([$(p.x)[$k, 0] for $k ∈ 1:$(p.dim_x)]))
             e2 = subs2(e2, xf, p.x, :grid_size)
             e2 = subs(e2, xf, :([$(p.x)[$k, grid_size] for $k ∈ 1:$(p.dim_x)]))
-            quote
-                length($e1) == length($e3) || throw("wrong bound dimension") # (vs. __throw) since raised at runtime
-                if length($e1) == 1
-                    $pref.constraint($p_ocp, $e2; lcon=($e1[1]), ucon=($e3[1])) # todo: add _denull
-                else
-                    for $l ∈ 1:length($e1)
-                        $pref.constraint($p_ocp, $e2[$l]; lcon=($e1[$l]), ucon=($e3[$l])) # todo: add _denull
-                    end
-                end
-            end
+            concat(code, :($pref.constraint($p_ocp, $e2; lcon=($e1[1]), ucon=($e3[1])))) # todo: e1/3[1] will be e1/3[k] when vectorised over dim
         end
         (:initial, rg) => begin
             if isnothing(rg)
                 rg = :(1:($(p.dim_x))) # x(t0) implies rg == nothing but means x[1:p.dim_x](t0)
                 e2 = subs(e2, p.x, :($(p.x)[$rg]))
             else
-                rg = as_range(rg) # case rg = i (vs i:j or i:p:j)
+                rg = as_range(rg)
             end
             code = :(
                 length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
@@ -808,27 +794,23 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             :()
         end
         :state_fun || :control_fun || :mixed => begin
+            code = :(length($e1) == length($e3) == 1 || throw("this constraint must be scalar")) # (vs. __throw) since raised at runtime
             xt = __symgen(:xt)
             ut = __symgen(:ut)
+            e2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
             j = __symgen(:j)
             k = __symgen(:k)
-            l = __symgen(:l)
-            e2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
             e2 = subs2(e2, xt, p.x, j)
             e2 = subs(e2, xt, :([$(p.x)[$k, $j] for $k ∈ 1:$(p.dim_x)]))
             e2 = subs2(e2, ut, p.u, j)
             e2 = subs(e2, ut, :([$(p.u)[$k, $j] for $k ∈ 1:$(p.dim_u)]))
             e2 = subs(e2, p.t, :($(p.t0) + $j * $(p.dt)))
-            quote
-                length($e1) == length($e3) || throw("wrong bound dimension") # (vs. __throw) since raised at runtime
-                if length($e1) == 1
-                    $pref.constraint($p_ocp, $e2 for $j in 0:grid_size; lcon=($e1[1]), ucon=($e3[1])) # todo: add _denull
-                else
-                    for $l ∈ 1:length($e1)
-                        $pref.constraint($p_ocp, $e2[$l] for $j in 0:grid_size; lcon=($e1[$l]), ucon=($e3[$l])) # todo: add _denull
-                    end
-                end
-            end
+            concat(
+                code,
+                :($pref.constraint(
+                    $p_ocp, $e2 for $j in 0:grid_size; lcon=($e1[1]), ucon=($e3[1])
+                )),
+            )
         end
         _ => return __throw("bad constraint declaration", p.lnum, p.line)
     end
@@ -845,9 +827,6 @@ function p_dynamics!(
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
     x ≠ p.x && return __throw("wrong state $x for dynamics", p.lnum, p.line)
     t ≠ p.t && return __throw("wrong time $t for dynamics", p.lnum, p.line)
-    p.is_global_dyn && return __throw("dynamics already defined", p.lnum, p.line)
-    p.is_coord_dyn && return __throw("dynamics already partially defined", p.lnum, p.line)
-    p.is_global_dyn = true
     xut = __symgen(:xut)
     ee = replace_call(e, [p.x, p.u], p.t, [xut, xut])
     has(ee, p.t) && (p.is_autonomous = false)
@@ -873,51 +852,7 @@ function p_dynamics_fun!(p, p_ocp, x, t, e)
 end
 
 function p_dynamics_exa!(p, p_ocp, x, t, e)
-    pref = prefix_exa()
-    xt = __symgen(:xt)
-    ut = __symgen(:ut)
-    e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
-    j1 = __symgen(:j)
-    j2 = :($j1 + 1)
-    j12 = :($j1 + 0.5)
-    k = __symgen(:k)
-    ej1 = subs2(e, xt, p.x, j1)
-    ej1 = subs(ej1, xt, :([$(p.x)[$k, $j1] for $k ∈ 1:$(p.dim_x)]))
-    ej1 = subs2(ej1, ut, p.u, j1)
-    ej1 = subs(ej1, ut, :([$(p.u)[$k, $j1] for $k ∈ 1:$(p.dim_u)]))
-    ej1 = subs(ej1, p.t, :($(p.t0) + $j1 * $(p.dt)))
-    ej2 = subs2(e, xt, p.x, j2)
-    ej2 = subs(ej2, xt, :([$(p.x)[$k, $j2] for $k ∈ 1:$(p.dim_x)]))
-    ej2 = subs2(ej2, ut, p.u, j2)
-    ej2 = subs(ej2, ut, :([$(p.u)[$k, $j2] for $k ∈ 1:$(p.dim_u)]))
-    ej2 = subs(ej2, p.t, :($(p.t0) + $j2 * $(p.dt)))
-    ej12 = subs2m(e, xt, p.x, j1)
-    ej12 = subs(ej12, xt, :([(($(p.x)[$k, $j1] + $(p.x)[$k, $j1 + 1]) / 2) for $k ∈ 1:$(p.dim_x)]))
-    ej12 = subs2(ej12, ut, p.u, j1)
-    ej12 = subs(ej12, ut, :([$(p.u)[$k, $j1] for $k ∈ 1:$(p.dim_u)]))
-    ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
-    dxj = :([$(p.x)[$k, $j2] - $(p.x)[$k, $j1] for $k ∈ 1:$(p.dim_x)])
-    i = __symgen(:i)
-    code = quote
-        for $i ∈ 1:$(p.dim_x)
-            $(p.dyn_con)[$i] = if scheme == :euler # dyn_con already defined outside try catch
-                $pref.constraint($p_ocp, $dxj[$i] - $(p.dt) * $ej1[$i] for $j1 in 0:grid_size-1) # todo: add _denull
-            elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
-                $pref.constraint($p_ocp, $dxj[$i] - $(p.dt) * $ej2[$i] for $j1 in 0:grid_size-1) # todo: add _denull
-            elseif scheme == :midpoint
-                $pref.constraint($p_ocp, $dxj[$i] - $(p.dt) * $ej12[$i] for $j1 in 0:grid_size-1) # todo: add _denull
-            elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
-                $pref.constraint(
-                    $p_ocp, $dxj[$i] - $(p.dt) * ($ej1[$i] + $ej2[$i]) / 2 for $j1 in 0:grid_size-1 # todo: add _denull
-                )
-            else
-                throw(
-                    "unknown numerical scheme: $scheme (possible choices are :euler, :euler_implicit, :midpoint, :trapeze)",
-                ) # (vs. __throw) since raised at runtime (and __wrap-ped)
-            end
-        end
-    end
-    return __wrap(code, p.lnum, p.line)
+    return __throw("dynamics must be defined coordinatewise", p.lnum, p.line) # note: scalar case is redirected before coordinatewise case
 end
 
 function p_dynamics_coord!(
@@ -930,8 +865,6 @@ function p_dynamics_coord!(
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
     x ≠ p.x && return __throw("wrong state $x for dynamics", p.lnum, p.line)
     t ≠ p.t && return __throw("wrong time $t for dynamics", p.lnum, p.line)
-    p.is_global_dyn && return __throw("dynamics already defined", p.lnum, p.line)
-    p.is_coord_dyn = true
     xut = __symgen(:xut)
     ee = replace_call(e, [p.x, p.u], p.t, [xut, xut])
     has(ee, p.t) && (p.is_autonomous = false)
@@ -948,7 +881,7 @@ function p_dynamics_coord_fun!(p, p_ocp, x, i, t, e)
     args = [r, p.t, xt, ut, p.v]
     code = quote
         function $fun($(args...))
-            @views $r[:] .= $e # note that i can be a full range for :fun, still todo for :exa 
+            @views $r[:] .= $e # note that i can be a full range (allowed for :fun in CTModels, not for :exa)
             return nothing
         end
         $pref.dynamics!($p_ocp, $i, $fun)
@@ -957,12 +890,11 @@ function p_dynamics_coord_fun!(p, p_ocp, x, i, t, e)
 end
 
 function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
-    return __throw("dynamics coordinate $i should be an integer", p.lnum, p.line)
-end
-
-function p_dynamics_coord_exa!(p, p_ocp, x, i::Integer, t, e) # todo: also also add coord = range for :exa
     pref = prefix_exa()
-    i ∈ p.dyn_coords && return __throw("dynamics coordinate $i already defined", p.lnum, p.line)
+    i isa Integer ||
+        return __throw("dynamics coordinate $i should be an integer", p.lnum, p.line)
+    i ∈ p.dyn_coords &&
+        return __throw("dynamics coordinate $i already defined", p.lnum, p.line)
     append!(p.dyn_coords, i)
     xt = __symgen(:xt)
     ut = __symgen(:ut)
@@ -988,15 +920,15 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i::Integer, t, e) # todo: also also 
     ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
     dxij = :($(p.x)[$i, $j2] - $(p.x)[$i, $j1])
     code = quote
-        $(p.dyn_con)[$i] = if scheme == :euler # dyn_con already defined outside try catch
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 in 0:grid_size-1) # todo: add _denull
+        if scheme == :euler
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 in 0:grid_size-1)
         elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 in 0:grid_size-1) # todo: add _denull
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 in 0:grid_size-1)
         elseif scheme == :midpoint
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 in 0:grid_size-1) # todo: add _denull
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 in 0:grid_size-1)
         elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
             $pref.constraint(
-                $p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 in 0:grid_size-1 # todo: add _denull
+                $p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 in 0:grid_size-1
             )
         else
             throw(
@@ -1004,7 +936,10 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i::Integer, t, e) # todo: also also 
             ) # (vs. __throw) since raised at runtime (and __wrap-ped)
         end
     end
-    return __wrap(code, p.lnum, p.line)
+    dyn_con = Symbol(:dyn_con, p.x) # named constraint to allow retrieval of the dynamics multiplier that approximates the adjoint state
+    code = __wrap(code, p.lnum, p.line)
+    code = :($dyn_con[$i] = $code) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
+    return code
 end
 
 function p_lagrange!(p, p_ocp, e, type; log=false, backend=__default_parsing_backend())
@@ -1057,14 +992,14 @@ function p_lagrange_exa!(p, p_ocp, e, type)
     ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
     code = quote
         if scheme == :euler
-            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 0:grid_size-1) # todo: add _denull
+            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 0:grid_size-1)
         elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
-            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size) # todo: add _denull
+            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size)
         elseif scheme == :midpoint
-            $pref.objective($p_ocp, $(p.dt) * $ej12 for $j1 in 0:grid_size-1) # todo: add _denull
+            $pref.objective($p_ocp, $(p.dt) * $ej12 for $j1 in 0:grid_size-1)
         elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
-            $pref.objective($p_ocp, $(p.dt) * $ej1 / 2 for $j1 in (0, grid_size)) # todo: add _denull
-            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size-1) # todo: add _denull
+            $pref.objective($p_ocp, $(p.dt) * $ej1 / 2 for $j1 in (0, grid_size))
+            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size-1)
         else
             throw(
                 "unknown numerical scheme: $scheme (possible choices are :euler, :euler_implicit, :midpoint, :trapeze)",
@@ -1118,7 +1053,7 @@ function p_mayer_exa!(p, p_ocp, e, type)
     e = subs2(e, xf, p.x, :grid_size)
     e = subs(e, xf, :([$(p.x)[$k, grid_size] for $k ∈ 1:$(p.dim_x)]))
     # now, x[i](t0) has been replaced by x[i, 0] and x[i](tf) by x[i, grid_size]
-    code = :($pref.objective($p_ocp, $e)) # todo: add _denull
+    code = :($pref.objective($p_ocp, $e))
     return __wrap(code, p.lnum, p.line)
 end
 
@@ -1370,16 +1305,16 @@ function def_exa(e; log=false)
     p = ParsingInfo()
     code = parse!(p, p_ocp, e; log=log, backend=:exa)
     dyn_check = quote
-        !$p.is_global_dyn && !$p.is_coord_dyn && throw($e_pref.ParsingError("dynamics not defined")) # not $(p.xxxx) as these infos are known statically
-        if $p.is_coord_dyn # same: also known statically
-            sort($(p.dyn_coords)) == 1:($(p.dim_x)) || throw($e_pref.ParsingError("some coordinates of dynamics undefined"))
-        end
+        !isempty($(p.dyn_coords)) || throw($e_pref.ParsingError("dynamics not defined"))
+        sort($(p.dyn_coords)) == 1:($(p.dim_x)) ||
+            throw($e_pref.ParsingError("some coordinates of dynamics undefined"))
     end
     default_scheme = QuoteNode(__default_scheme_exa())
     default_grid_size = __default_grid_size_exa()
     default_backend = __default_backend_exa()
     default_init = __default_init_exa()
     default_base_type = __default_base_type_exa()
+    dyn_con = Symbol(:dyn_con, p.x)
 
     getter = quote
         function (sol; val)
@@ -1392,7 +1327,7 @@ function def_exa(e; log=false)
             elseif val == :costate
                 px = zeros(base_type, $(p.dim_x), grid_size)
                 for i in 1:($(p.dim_x))
-                    px[i, :] = Array($pref.multipliers(sol, $(p.dyn_con)[i])) # Array to copy from GPU
+                    px[i, :] = Array($pref.multipliers(sol, $dyn_con[i])) # Array to copy from GPU
                 end
                 px
             elseif val == :state_l
@@ -1436,8 +1371,6 @@ function def_exa(e; log=false)
             $p_ocp = $pref.ExaCore(
                 base_type; backend=backend, minimize=($p.criterion == :min) # not $(p.xxxx) as this info is known statically
             )
-            # _denull(e) = e # todo
-            # _denull(e::$pref.Null{T}) where {T<:Real} = e.value # todo: Null must be imported by OC.jl
             $code
             $dyn_check
             return $pref.ExaModel($p_ocp), $getter
