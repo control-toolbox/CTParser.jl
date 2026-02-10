@@ -23,7 +23,7 @@ import CTParser:
     deactivate_backend,
     is_active_backend,
     @def_exa # todo: remove __default... (as soon as discretise_exa has been moved to CTDirect)
-import CTBase: CTBase, ParsingError, UnauthorizedCall
+import CTBase: CTBase, ParsingError, PreconditionError
 import CTModels:
     CTModels,
     initial_time,
@@ -52,10 +52,9 @@ using CUDA
 using BenchmarkTools
 using Interpolations
 using NLPModels
+using LinearAlgebra
 
-macro ignore(e)
-    return :()
-end
+include("utils.jl")
 
 const VERBOSE = true
 const SHOWTIMING = true
@@ -64,6 +63,7 @@ const SHOWTIMING = true
 function default_tests()
     return OrderedDict(
         :aqua => true,
+        :exa_linalg => true,
         :initial_guess => true,
         :utils => true,
         :utils_bis => true,
@@ -73,6 +73,7 @@ function default_tests()
         :onepass_fun_bis => true,
         :onepass_exa => true,
         :onepass_exa_bis => true,
+        :dynamics_exa => true,
     )
 end
 
