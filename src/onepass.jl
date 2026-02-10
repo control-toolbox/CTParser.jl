@@ -709,10 +709,10 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             quote
                 length($e1) == length($e3) || throw("wrong bound dimension") # (vs. __throw) since raised at runtime
                 if length($e1) == 1
-                    $pref.constraint($p_ocp, $e2; lcon=($e1[1]), ucon=($e3[1]))
+                    $pref.constraint($p_ocp, $e2; lcon=($e1[1]), ucon=($e3[1])) # todo: add _denull
                 else
                     for $l ∈ 1:length($e1)
-                        $pref.constraint($p_ocp, $e2[$l]; lcon=($e1[$l]), ucon=($e3[$l]))
+                        $pref.constraint($p_ocp, $e2[$l]; lcon=($e1[$l]), ucon=($e3[$l])) # todo: add _denull
                     end
                 end
             end
@@ -822,10 +822,10 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             quote
                 length($e1) == length($e3) || throw("wrong bound dimension") # (vs. __throw) since raised at runtime
                 if length($e1) == 1
-                    $pref.constraint($p_ocp, $e2 for $j in 0:grid_size; lcon=($e1[1]), ucon=($e3[1]))
+                    $pref.constraint($p_ocp, $e2 for $j in 0:grid_size; lcon=($e1[1]), ucon=($e3[1])) # todo: add _denull
                 else
                     for $l ∈ 1:length($e1)
-                        $pref.constraint($p_ocp, $e2[$l] for $j in 0:grid_size; lcon=($e1[$l]), ucon=($e3[$l]))
+                        $pref.constraint($p_ocp, $e2[$l] for $j in 0:grid_size; lcon=($e1[$l]), ucon=($e3[$l])) # todo: add _denull
                     end
                 end
             end
@@ -901,14 +901,14 @@ function p_dynamics_exa!(p, p_ocp, x, t, e)
     code = quote
         for $i ∈ 1:$(p.dim_x)
             $(p.dyn_con)[$i] = if scheme == :euler # dyn_con already defined outside try catch
-                $pref.constraint($p_ocp, $dxj[$i] - $(p.dt) * $ej1[$i] for $j1 in 0:grid_size-1)
+                $pref.constraint($p_ocp, $dxj[$i] - $(p.dt) * $ej1[$i] for $j1 in 0:grid_size-1) # todo: add _denull
             elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
-                $pref.constraint($p_ocp, $dxj[$i] - $(p.dt) * $ej2[$i] for $j1 in 0:grid_size-1)
+                $pref.constraint($p_ocp, $dxj[$i] - $(p.dt) * $ej2[$i] for $j1 in 0:grid_size-1) # todo: add _denull
             elseif scheme == :midpoint
-                $pref.constraint($p_ocp, $dxj[$i] - $(p.dt) * $ej12[$i] for $j1 in 0:grid_size-1)
+                $pref.constraint($p_ocp, $dxj[$i] - $(p.dt) * $ej12[$i] for $j1 in 0:grid_size-1) # todo: add _denull
             elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
                 $pref.constraint(
-                    $p_ocp, $dxj[$i] - $(p.dt) * ($ej1[$i] + $ej2[$i]) / 2 for $j1 in 0:grid_size-1
+                    $p_ocp, $dxj[$i] - $(p.dt) * ($ej1[$i] + $ej2[$i]) / 2 for $j1 in 0:grid_size-1 # todo: add _denull
                 )
             else
                 throw(
@@ -960,7 +960,7 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i, t, e)
     return __throw("dynamics coordinate $i should be an integer", p.lnum, p.line)
 end
 
-function p_dynamics_coord_exa!(p, p_ocp, x, i::Integer, t, e) # debug: also also add coord = range for :exa
+function p_dynamics_coord_exa!(p, p_ocp, x, i::Integer, t, e) # todo: also also add coord = range for :exa
     pref = prefix_exa()
     i ∈ p.dyn_coords && return __throw("dynamics coordinate $i already defined", p.lnum, p.line)
     append!(p.dyn_coords, i)
@@ -989,14 +989,14 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i::Integer, t, e) # debug: also also
     dxij = :($(p.x)[$i, $j2] - $(p.x)[$i, $j1])
     code = quote
         $(p.dyn_con)[$i] = if scheme == :euler # dyn_con already defined outside try catch
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 in 0:grid_size-1)
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 in 0:grid_size-1) # todo: add _denull
         elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 in 0:grid_size-1)
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 in 0:grid_size-1) # todo: add _denull
         elseif scheme == :midpoint
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 in 0:grid_size-1)
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 in 0:grid_size-1) # todo: add _denull
         elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
             $pref.constraint(
-                $p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 in 0:grid_size-1
+                $p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 in 0:grid_size-1 # todo: add _denull
             )
         else
             throw(
@@ -1057,14 +1057,14 @@ function p_lagrange_exa!(p, p_ocp, e, type)
     ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
     code = quote
         if scheme == :euler
-            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 0:grid_size-1)
+            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 0:grid_size-1) # todo: add _denull
         elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
-            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size)
+            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size) # todo: add _denull
         elseif scheme == :midpoint
-            $pref.objective($p_ocp, $(p.dt) * $ej12 for $j1 in 0:grid_size-1)
+            $pref.objective($p_ocp, $(p.dt) * $ej12 for $j1 in 0:grid_size-1) # todo: add _denull
         elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
-            $pref.objective($p_ocp, $(p.dt) * $ej1 / 2 for $j1 in (0, grid_size))
-            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size-1)
+            $pref.objective($p_ocp, $(p.dt) * $ej1 / 2 for $j1 in (0, grid_size)) # todo: add _denull
+            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size-1) # todo: add _denull
         else
             throw(
                 "unknown numerical scheme: $scheme (possible choices are :euler, :euler_implicit, :midpoint, :trapeze)",
@@ -1118,7 +1118,7 @@ function p_mayer_exa!(p, p_ocp, e, type)
     e = subs2(e, xf, p.x, :grid_size)
     e = subs(e, xf, :([$(p.x)[$k, grid_size] for $k ∈ 1:$(p.dim_x)]))
     # now, x[i](t0) has been replaced by x[i, 0] and x[i](tf) by x[i, grid_size]
-    code = :($pref.objective($p_ocp, $e))
+    code = :($pref.objective($p_ocp, $e)) # todo: add _denull
     return __wrap(code, p.lnum, p.line)
 end
 
@@ -1436,6 +1436,8 @@ function def_exa(e; log=false)
             $p_ocp = $pref.ExaCore(
                 base_type; backend=backend, minimize=($p.criterion == :min) # not $(p.xxxx) as this info is known statically
             )
+            # _denull(e) = e # todo
+            # _denull(e::$pref.Null{T}) where {T<:Real} = e.value # todo: Null must be imported by OC.jl
             $code
             $dyn_check
             return $pref.ExaModel($p_ocp), $getter

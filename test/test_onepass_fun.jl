@@ -2746,7 +2746,7 @@ function test_onepass_fun()
         # this one is detected by the generated code (and not the parser)
         t0 = 9.0
         tf = 9.1
-        @test_throws UnauthorizedCall @def o begin
+        @test_throws PreconditionError @def o begin
             t ∈ [t0, tf], time
             t ∈ [t0, tf], time
         end
@@ -3026,7 +3026,7 @@ function test_onepass_fun()
             x1(0) → min
         end
 
-        @test_throws UnauthorizedCall @def begin
+        @test_throws PreconditionError @def begin
             t ∈ [0, 1], time
             x ∈ R², state
             u ∈ R², control
@@ -3034,7 +3034,7 @@ function test_onepass_fun()
             x1(0) → min
         end
 
-        @test_throws UnauthorizedCall @def begin
+        @test_throws PreconditionError @def begin
             t ∈ [0, 1], time
             x ∈ R³, state
             u ∈ R², control

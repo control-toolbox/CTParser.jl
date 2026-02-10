@@ -1,41 +1,7 @@
 # test onepass, exa parsing (aka parsing towards ExaModels)
 # tests with @def_exa are @test_throw's that bypass :fun parsing since parsing with :fun throws an error before one can be detected by :exa.
 
-using .ExaLinAlg # Load ExaLinAlg module for linear algebra operations on ExaModels.AbstractNode arrays
-
 activate_backend(:exa) # nota bene: needs to be executed before @def are expanded
-
-# Mock up of CTDirect.discretise for tests
-
-function discretise_exa(
-    ocp;
-    scheme=CTParser.__default_scheme_exa(),
-    grid_size=CTParser.__default_grid_size_exa(),
-    backend=CTParser.__default_backend_exa(),
-    init=CTParser.__default_init_exa(),
-    base_type=CTParser.__default_base_type_exa(),
-)
-    build_exa = CTModels.get_build_examodel(ocp)
-    return build_exa(;
-        scheme=scheme, grid_size=grid_size, backend=backend, init=init, base_type=base_type
-    )[1]
-end
-
-function discretise_exa_full(
-    ocp;
-    scheme=CTParser.__default_scheme_exa(),
-    grid_size=CTParser.__default_grid_size_exa(),
-    backend=CTParser.__default_backend_exa(),
-    init=CTParser.__default_init_exa(),
-    base_type=CTParser.__default_base_type_exa(),
-)
-    build_exa = CTModels.get_build_examodel(ocp)
-    return build_exa(;
-        scheme=scheme, grid_size=grid_size, backend=backend, init=init, base_type=base_type
-    )
-end
-
-# Tests
 
 function test_onepass_exa()
     l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
@@ -1788,20 +1754,21 @@ function __test_onepass_exa(
         tf = 5
         x0 = [0, 1]
         A = [0 1; -1 0]
-        B = [0, 1]
+        b = [0, 1]
         Q = [1 0; 0 1]
         R = 1
+        c(x0) = x0
 
         # Vectorised version
         o1 = @def begin
             t ∈ [0, tf], time
             x ∈ R², state
             u ∈ R, control
-            x(0) == x0
+            c(x(0)) == x0
             #∂(x₁)(t) == x₂(t)
-            ∂(x₁)(t) == dot(A[1, :], x(t)) + u(t) * B[1]
+            ∂(x₁)(t) == A[1, :]' * x(t) + u(t) * b[1]
             #∂(x₂)(t) == -x₁(t) + u(t) 
-            ∂(x₂)(t) == dot(A[2, :], x(t)) + u(t) * B[2]
+            ∂(x₂)(t) == A[2, :]' * x(t) + u(t) * b[2]
             #0.5∫( x₁(t)^2 + x₂(t)^2 + u(t)^2 ) → min
             0.5∫( x(t)' * Q * x(t) + u(t)' * R * u(t) ) → min
         end
@@ -1832,4 +1799,107 @@ function __test_onepass_exa(
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
     end 
+
+    test_name = "use case no. 9: vectorised dynamics ($backend_name, $scheme)"
+    @testset "$test_name" begin
+        println(test_name)
+
+        A = [0 1; 0 0]
+        b = [0, 1]
+        c(x0, xf) = [x0; xf]
+
+        # Vectorised version
+        o1 = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            c(x(0), x(1)) == [-1, 0, 0, 0] 
+            ẋ(t) == A * x(t) + u(t) * b 
+            0.5∫( u(t)^2 ) → min
+        end
+
+        N = 250
+        max_iter = 100
+        m1, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
+        @test m1 isa ExaModels.ExaModel
+        sol1 = madnlp(m1; tol=tolerance, max_iter=max_iter, kwargs...)
+        obj1 = sol1.objective
+
+        # Non-vectorised version
+        o2 = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x(0) == [-1, 0] 
+            x(1) == [0, 0] 
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t) 
+            0.5∫( u(t)^2 ) → min
+        end
+        
+        m2, _ = discretise_exa_full(o2; grid_size=N, backend=backend, scheme=scheme)
+        @test m2 isa ExaModels.ExaModel
+        sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
+        obj2 = sol2.objective
+
+        __atol = 1e-9
+        @test obj1 - obj2 ≈ 0 atol = __atol
+    end 
+
+    test_name = "use case no. 10 (Goddard): vectorised dynamics ($backend_name, $scheme)"
+    @testset "$test_name" begin
+        println(test_name)
+
+        t0 = 0      
+        r0 = 1      
+        v0 = 0      
+        m0 = 1      
+        vmax = 0.1  
+        mf = 0.6    
+        Cd = 310
+        Tmax = 3.5
+        β = 500
+        b = 2
+        
+        o1 = @def begin
+        
+            tf ∈ R, variable
+            t ∈ [t0, tf], time
+            x = (r, v, m) ∈ R³, state
+            u ∈ R, control
+        
+            x(t0) == [r0, v0, m0]
+            m(tf) == mf
+            0 ≤ u(t) ≤ 1
+            r(t) ≥ r0
+            0 ≤ v(t) ≤ vmax
+        
+            ẋ(t) == F0(x(t)) + u(t) * F1(x(t))
+        
+            -r(tf) → min
+        
+        end
+        
+        F0(x) = begin
+            r, v, m = x
+            D = Cd * v^2 * exp(-β*(r - 1))
+            return [v, -D/m - 1/r^2, 0]
+        end
+        
+        F1(x) = begin
+            r, v, m = x
+            return [0, Tmax/m, -b*Tmax]
+        end
+        
+        N = 250
+        max_iter = 100
+        m1, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
+        @test m1 isa ExaModels.ExaModel
+        sol1 = madnlp(m1; tol=tolerance, max_iter=max_iter, kwargs...)
+        obj1 = sol1.objective
+        __atol = 1e-3 # otherwise would just work for midpoint
+        obj2 = -1.0125766794048943e+00 # from midpoint with N = 250 
+        @test obj1 - obj2 ≈ 0 atol = __atol
+    end
+
 end
