@@ -23,7 +23,7 @@ import CTParser:
     deactivate_backend,
     is_active_backend,
     @def_exa # todo: remove __default... (as soon as discretise_exa has been moved to CTDirect)
-import CTBase: CTBase, ParsingError, UnauthorizedCall
+import CTBase: CTBase, ParsingError, PreconditionError
 import CTModels:
     CTModels,
     initial_time,
