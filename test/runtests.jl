@@ -1,3 +1,8 @@
+# ==============================================================================
+# CTParser Test Runner
+# ==============================================================================
+
+# Test dependencies
 using Test
 using Aqua
 using OrderedCollections: OrderedDict
@@ -59,73 +64,31 @@ include("utils.jl")
 const VERBOSE = true
 const SHOWTIMING = true
 
-"""Return the default set of tests enabled for CTParser."""
-function default_tests()
-    return OrderedDict(
-        :aqua => true,
-        :exa_linalg => true,
-        :initial_guess => true,
-        :utils => true,
-        :utils_bis => true,
-        :prefix => true,
-        :prefix_bis => true,
-        :onepass_fun => true,
-        :onepass_fun_bis => true,
-        :onepass_exa => true,
-        :onepass_exa_bis => true,
-        :dynamics_exa => true,
+# Run tests using the TestRunner extension
+CTBase.run_tests(;
+    args=String.(ARGS),
+    testset_name="CTParser tests",
+    available_tests=(
+        "suite/test_*",
+        ),
+    filename_builder=name -> "test_$(name).jl",
+    funcname_builder=name -> "test_$(name)",
+    verbose=VERBOSE,
+    showtiming=SHOWTIMING,
+    test_dir=@__DIR__,
+)
+
+# If running with coverage enabled, remind the user to run the post-processing script
+# because .cov files are flushed at process exit and cannot be cleaned up by this script.
+if Base.JLOptions().code_coverage != 0
+    println(
+        """
+        ================================================================================
+        Coverage files generated. To process them, please run:
+
+            julia --project -e 'using Pkg; Pkg.test("CTParser"; coverage=true); include("test/coverage.jl")'
+
+        ================================================================================
+        """
     )
-end
-
-const TEST_SELECTIONS = isempty(ARGS) ? Symbol[] : Symbol.(ARGS)
-
-function selected_tests()
-    tests = default_tests()
-    sels = TEST_SELECTIONS
-
-    # No selection: use defaults
-    if isempty(sels)
-        return tests
-    end
-
-    # Single :all selection: enable everything
-    if length(sels) == 1 && sels[1] == :all
-        for k in keys(tests)
-            tests[k] = true
-        end
-        return tests
-    end
-
-    # Otherwise, start with everything disabled
-    for k in keys(tests)
-        tests[k] = false
-    end
-
-    # Enable explicit selections
-    for sel in sels
-        if sel == :all
-            for k in keys(tests)
-                tests[k] = true
-            end
-            break
-        end
-        if haskey(tests, sel)
-            tests[sel] = true
-        end
-    end
-
-    return tests
-end
-
-const SELECTED_TESTS = selected_tests()
-
-@testset verbose = VERBOSE showtiming = SHOWTIMING "CTParser tests" begin
-    for (name, enabled) in SELECTED_TESTS
-        enabled || continue
-        @testset "$(name)" begin
-            test_name = Symbol(:test_, name)
-            include("$(test_name).jl")
-            @eval $test_name()
-        end
-    end
 end
