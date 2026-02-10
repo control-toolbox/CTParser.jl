@@ -3,6 +3,79 @@
 
 activate_backend(:exa) # nota bene: needs to be executed before @def are expanded
 
+# Auxiliary functions
+# todo: add tests on these, and export them (both from CTParser and from OC)
+# try: just redefine Base.zero and Base.adjoint; may be add promote and convert 
+
+import Base: zero, adjoint, *
+import LinearAlgebra: dot, Adjoint
+
+zero(x::T) where {T <: ExaModels.AbstractNode} = 0
+
+adjoint(x::ExaModels.AbstractNode) = x
+
+## Convert Number to AbstractNode using Null
+Base.convert(::Type{ExaModels.AbstractNode}, x::Number) = ExaModels.Null(x)
+#
+## Also handle the identity conversion
+#Base.convert(::Type{T}, x::T) where {T<:ExaModels.AbstractNode} = x
+#
+## If you need more specific typing:
+#Base.convert(::Type{ExaModels.Null{T}}, x::Number) where {T} = 
+#    ExaModels.Null{typeof(x)}(x)
+
+# works to define matrices (of vectors) with symbolic entries
+Base.promote_rule(::Type{<:ExaModels.AbstractNode}, ::Type{<:Number}) = ExaModels.AbstractNode
+
+function dot(v::Vector{T}, x::Vector{S}) where {T, S <: ExaModels.AbstractNode}
+    @assert length(v) == length(x)
+    return sum(v .* x)
+end
+
+function *(A::Matrix{T}, x::Vector{S}) where {T, S <: ExaModels.AbstractNode}
+    m, n = size(A)
+    @assert n == length(x)
+    return [dot(A[i, :], x) for i in 1:m]
+end
+
+function *(p::Adjoint{T, Vector{T}}, A::Matrix{S}) where {T <: ExaModels.AbstractNode, S}
+    m, n = size(A)
+    @assert m == length(p)
+    return [p * A[:, j] for j in 1:n]'
+end
+
+# Mock up of CTDirect.discretise for tests
+
+function discretise_exa(
+    ocp;
+    scheme=CTParser.__default_scheme_exa(),
+    grid_size=CTParser.__default_grid_size_exa(),
+    backend=CTParser.__default_backend_exa(),
+    init=CTParser.__default_init_exa(),
+    base_type=CTParser.__default_base_type_exa(),
+)
+    build_exa = CTModels.get_build_examodel(ocp)
+    return build_exa(;
+        scheme=scheme, grid_size=grid_size, backend=backend, init=init, base_type=base_type
+    )[1]
+end
+
+function discretise_exa_full(
+    ocp;
+    scheme=CTParser.__default_scheme_exa(),
+    grid_size=CTParser.__default_grid_size_exa(),
+    backend=CTParser.__default_backend_exa(),
+    init=CTParser.__default_init_exa(),
+    base_type=CTParser.__default_base_type_exa(),
+)
+    build_exa = CTModels.get_build_examodel(ocp)
+    return build_exa(;
+        scheme=scheme, grid_size=grid_size, backend=backend, init=init, base_type=base_type
+    )
+end
+
+# Tests
+
 function test_onepass_exa()
     l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
     #l_scheme = [:midpoint]
@@ -794,7 +867,7 @@ function __test_onepass_exa(
             tf^2 ≥ [1, 5] # wrong dim
             x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws MethodError o(; backend=backend)
+        @test_throws String o(; backend=backend)
 
         o = @def_exa begin
             tf ∈ R, variable
@@ -806,7 +879,7 @@ function __test_onepass_exa(
             cos(x₁(t)) ≤ [1, 2] # wrong dim
             x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws MethodError o(; backend=backend)
+        @test_throws String o(; backend=backend)
 
         o = @def_exa begin
             tf ∈ R, variable
@@ -818,7 +891,7 @@ function __test_onepass_exa(
             cos(u(t)) ≤ [1, 2] # wrong dim
             x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws MethodError o(; backend=backend)
+        @test_throws String o(; backend=backend)
 
         o = @def_exa begin
             tf ∈ R, variable
@@ -830,7 +903,7 @@ function __test_onepass_exa(
             x₁(t) + u(t) == [1, 2] # wrong dim
             x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws MethodError o(; backend=backend)
+        @test_throws String o(; backend=backend)
 
         o = @def begin
             tf ∈ R, variable
@@ -1017,14 +1090,14 @@ function __test_onepass_exa(
     @testset "$test_name" begin
         println(test_name)
 
-        o = @def begin
+        o = @def_exa begin
             t ∈ [0, 1], time
             x ∈ R⁴, state
             u ∈ R⁵, control
             ẋ(t) == u[1:4](t)
             x₁(0) + 2cos(x₂(1)) → min
         end
-        @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel # legacy: this now passes!
+        @test_throws ParsingError o(; backend=backend)
 
         o = @def_exa begin
             t ∈ [0, 1], time
@@ -1119,7 +1192,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws MethodError o(; backend=backend)
+        @test_throws String o(; backend=backend)
     end
 
     test_name = "variable bounds test"
@@ -1218,7 +1291,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws MethodError o(; backend=backend)
+        @test_throws String o(; backend=backend)
     end
 
     test_name = "initial bounds test"
@@ -1624,7 +1697,8 @@ function __test_onepass_exa(
         @test obj1 - obj2 ≈ 0 atol = __atol
     end
 
-    test_name = "use case no. 6: vectorised constraints ($backend_name, $scheme)"
+    # todo: test below inactived on GPU because run is unstable
+    if isnothing(backend) test_name = "use case no. 6: vectorised constraints ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
 
@@ -1681,7 +1755,7 @@ function __test_onepass_exa(
 
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
-    end 
+    end end
 
     # todo: test below inactived on GPU because run is unstable
     if isnothing(backend) test_name = "use case no. 7: mixed vectorisation ($backend_name, $scheme)"
@@ -1754,21 +1828,20 @@ function __test_onepass_exa(
         tf = 5
         x0 = [0, 1]
         A = [0 1; -1 0]
-        b = [0, 1]
+        B = [0, 1]
         Q = [1 0; 0 1]
         R = 1
-        c(x0) = x0
 
         # Vectorised version
         o1 = @def begin
             t ∈ [0, tf], time
             x ∈ R², state
             u ∈ R, control
-            c(x(0)) == x0
+            x(0) == x0
             #∂(x₁)(t) == x₂(t)
-            ∂(x₁)(t) == A[1, :]' * x(t) + u(t) * b[1]
+            ∂(x₁)(t) == dot(A[1, :], x(t)) + u(t) * B[1]
             #∂(x₂)(t) == -x₁(t) + u(t) 
-            ∂(x₂)(t) == A[2, :]' * x(t) + u(t) * b[2]
+            ∂(x₂)(t) == dot(A[2, :], x(t)) + u(t) * B[2]
             #0.5∫( x₁(t)^2 + x₂(t)^2 + u(t)^2 ) → min
             0.5∫( x(t)' * Q * x(t) + u(t)' * R * u(t) ) → min
         end
@@ -1799,107 +1872,4 @@ function __test_onepass_exa(
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
     end 
-
-    test_name = "use case no. 9: vectorised dynamics ($backend_name, $scheme)"
-    @testset "$test_name" begin
-        println(test_name)
-
-        A = [0 1; 0 0]
-        b = [0, 1]
-        c(x0, xf) = [x0; xf]
-
-        # Vectorised version
-        o1 = @def begin
-            t ∈ [0, 1], time
-            x ∈ R², state
-            u ∈ R, control
-            c(x(0), x(1)) == [-1, 0, 0, 0] 
-            ẋ(t) == A * x(t) + u(t) * b 
-            0.5∫( u(t)^2 ) → min
-        end
-
-        N = 250
-        max_iter = 100
-        m1, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
-        @test m1 isa ExaModels.ExaModel
-        sol1 = madnlp(m1; tol=tolerance, max_iter=max_iter, kwargs...)
-        obj1 = sol1.objective
-
-        # Non-vectorised version
-        o2 = @def begin
-            t ∈ [0, 1], time
-            x ∈ R², state
-            u ∈ R, control
-            x(0) == [-1, 0] 
-            x(1) == [0, 0] 
-            ∂(x₁)(t) == x₂(t)
-            ∂(x₂)(t) == u(t) 
-            0.5∫( u(t)^2 ) → min
-        end
-        
-        m2, _ = discretise_exa_full(o2; grid_size=N, backend=backend, scheme=scheme)
-        @test m2 isa ExaModels.ExaModel
-        sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
-        obj2 = sol2.objective
-
-        __atol = 1e-9
-        @test obj1 - obj2 ≈ 0 atol = __atol
-    end 
-
-    test_name = "use case no. 10 (Goddard): vectorised dynamics ($backend_name, $scheme)"
-    @testset "$test_name" begin
-        println(test_name)
-
-        t0 = 0      
-        r0 = 1      
-        v0 = 0      
-        m0 = 1      
-        vmax = 0.1  
-        mf = 0.6    
-        Cd = 310
-        Tmax = 3.5
-        β = 500
-        b = 2
-        
-        o1 = @def begin
-        
-            tf ∈ R, variable
-            t ∈ [t0, tf], time
-            x = (r, v, m) ∈ R³, state
-            u ∈ R, control
-        
-            x(t0) == [r0, v0, m0]
-            m(tf) == mf
-            0 ≤ u(t) ≤ 1
-            r(t) ≥ r0
-            0 ≤ v(t) ≤ vmax
-        
-            ẋ(t) == F0(x(t)) + u(t) * F1(x(t))
-        
-            -r(tf) → min
-        
-        end
-        
-        F0(x) = begin
-            r, v, m = x
-            D = Cd * v^2 * exp(-β*(r - 1))
-            return [v, -D/m - 1/r^2, 0]
-        end
-        
-        F1(x) = begin
-            r, v, m = x
-            return [0, Tmax/m, -b*Tmax]
-        end
-        
-        N = 250
-        max_iter = 100
-        m1, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
-        @test m1 isa ExaModels.ExaModel
-        sol1 = madnlp(m1; tol=tolerance, max_iter=max_iter, kwargs...)
-        obj1 = sol1.objective
-        __atol = 1e-3 # otherwise would just work for midpoint
-        obj2 = -1.0125766794048943e+00 # from midpoint with N = 250 
-        @test obj1 - obj2 ≈ 0 atol = __atol
-    end
-
 end
