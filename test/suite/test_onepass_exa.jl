@@ -6,7 +6,7 @@ activate_backend(:exa) # nota bene: needs to be executed before @def are expande
 function test_onepass_exa()
     l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
     #l_scheme = [:midpoint]
-    for scheme ∈ l_scheme
+    for scheme in l_scheme
         __test_onepass_exa(; scheme=scheme)
         CUDA.functional() && __test_onepass_exa(CUDABackend(); scheme=scheme)
     end
@@ -923,7 +923,7 @@ function __test_onepass_exa(
             v ≤ [1, 2, 3]
             v ≥ [1, 2, 3]
             v[1] ≤ 1
-            v[1] ≥ 1 
+            v[1] ≥ 1
             v[1:2] ≤ [1, 2]
             v[1:2] ≥ [1, 2]
             x[2](t) ≤ 1
@@ -1522,20 +1522,20 @@ function __test_onepass_exa(
         f₁(x, u) = 2x[1] * u[1] + x[2] * u[2]
         f₂(x) = x[1] + 2x[2] - x[3]
         f₃(x0, xf) = x0[2]^2 + sum(xf)^2
-        f₄(u) = sum(u.^2)
-        
+        f₄(u) = sum(u .^ 2)
+
         o1 = @def begin
             t ∈ [0, 1], time
             x ∈ R³, state
             u ∈ R², control
 
             x[1:2:3](0) == [1, 3]
- 
+
             ∂(x₁)(t) == sum(x(t))
             ∂(x₂)(t) == f₁(x(t), u(t))
-            ∂(x₃)(t) == f₂(x(t)) 
+            ∂(x₃)(t) == f₂(x(t))
 
-            f₃(x(0), x(1)) + 0.5∫( f₄(u(t)) ) → min
+            f₃(x(0), x(1)) + 0.5∫(f₄(u(t))) → min
         end
 
         N = 250
@@ -1551,12 +1551,12 @@ function __test_onepass_exa(
             u ∈ R², control
 
             x[1:2:3](0) == [1, 3]
- 
+
             ∂(x₁)(t) == x₁(t) + x₂(t) + x₃(t)
             ∂(x₂)(t) == 2x₁(t) * u₁(t) + x₂(t) * u₂(t)
             ∂(x₃)(t) == x₁(t) + 2x₂(t) - x₃(t)
 
-            (x₂(0)^2 + (x₁(1) + x₂(1) + x₃(1))^2) + 0.5∫( u₁(t)^2 + u₂(t)^2 ) → min
+            (x₂(0)^2 + (x₁(1) + x₂(1) + x₃(1))^2) + 0.5∫(u₁(t)^2 + u₂(t)^2) → min
         end
 
         m2, _ = discretise_exa_full(o2; grid_size=N, backend=backend, scheme=scheme)
@@ -1581,14 +1581,14 @@ function __test_onepass_exa(
             x ∈ R⁴, state
             u ∈ R², control
 
-            x(0) == [0, .1, .2, .3]
+            x(0) == [0, 0.1, 0.2, 0.3]
 
             ∂(x₁)(t) == g₁(x[1:2](t))
             ∂(x₂)(t) == g₂(u(t))
             ∂(x₃)(t) == sum(x[2:4](t))
             ∂(x₄)(t) == u₁(t)
 
-            sum(x[1:3](1))^2 + 0.5∫( sum(u(t).^2) ) → min
+            sum(x[1:3](1))^2 + 0.5∫(sum(u(t) .^ 2)) → min
         end
 
         N = 250
@@ -1605,14 +1605,14 @@ function __test_onepass_exa(
             x ∈ R⁴, state
             u ∈ R², control
 
-            x(0) == [0, .1, .2, .3]
+            x(0) == [0, 0.1, 0.2, 0.3]
 
             ∂(x₁)(t) == x₁(t)^2 + x₂(t)^2
             ∂(x₂)(t) == u₁(t) * u₂(t)
             ∂(x₃)(t) == x₂(t) + x₃(t) + x₄(t)
             ∂(x₄)(t) == u₁(t)
 
-            (x₁(1) + x₂(1) + x₃(1))^2 + 0.5∫( u₁(t)^2 + u₂(t)^2 ) → min
+            (x₁(1) + x₂(1) + x₃(1))^2 + 0.5∫(u₁(t)^2 + u₂(t)^2) → min
         end
 
         m2, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
@@ -1637,7 +1637,7 @@ function __test_onepass_exa(
             x ∈ R³, state
             u ∈ R², control
 
-            sum(x(0).^2) == 1.5 
+            sum(x(0) .^ 2) == 1.5
             h₁(x(1)) ≤ 200
 
             ∂(x₁)(t) == u₁(t)
@@ -1646,7 +1646,7 @@ function __test_onepass_exa(
 
             h₂(u(t)) ≤ 10
 
-            sum(x(1))^2 + ∫( h₂(u(t)) ) → min
+            sum(x(1))^2 + ∫(h₂(u(t))) → min
         end
 
         N = 250
@@ -1671,7 +1671,7 @@ function __test_onepass_exa(
 
             u₁(t)^2 + u₂(t)^2 ≤ 10
 
-            (x₁(1) + x₂(1) + x₃(1))^2 + ∫( u₁(t)^2 + u₂(t)^2 ) → min
+            (x₁(1) + x₂(1) + x₃(1))^2 + ∫(u₁(t)^2 + u₂(t)^2) → min
         end
 
         m2, _ = discretise_exa_full(o2; grid_size=N, backend=backend, scheme=scheme)
@@ -1681,71 +1681,74 @@ function __test_onepass_exa(
 
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
-    end 
+    end
 
     # todo: test below inactived on GPU because run is unstable
-    if isnothing(backend) test_name = "use case no. 7: mixed vectorisation ($backend_name, $scheme)"
-    @testset "$test_name" begin
-        println(test_name)
+    if isnothing(backend)
+        test_name = "use case no. 7: mixed vectorisation ($backend_name, $scheme)"
+        @testset "$test_name" begin
+            println(test_name)
 
-        # User-defined functions
-        p₁(x, u) = x[1] * u[1] + x[2] * u[2]
-        p₂(x) = x[1]^2 + x[2]^2 + x[3]^2
+            # User-defined functions
+            p₁(x, u) = x[1] * u[1] + x[2] * u[2]
+            p₂(x) = x[1]^2 + x[2]^2 + x[3]^2
 
-        # Vectorised version with mixed patterns
-        o1 = @def begin
-            t ∈ [0, 1], time
-            x ∈ R³, state
-            u ∈ R², control
+            # Vectorised version with mixed patterns
+            o1 = @def begin
+                t ∈ [0, 1], time
+                x ∈ R³, state
+                u ∈ R², control
 
-            x[1:2](0) == [0, 0.1]
-            -0.1 ≤ x₃(0) ≤ 0.1
-            sum(x(1)) == 0.2
+                x[1:2](0) == [0, 0.1]
+                -0.1 ≤ x₃(0) ≤ 0.1
+                sum(x(1)) == 0.2
 
-            ∂(x₁)(t) == p₁(x[1:2](t), u(t))
-            ∂(x₂)(t) == sum(u(t))
-            ∂(x₃)(t) == x₁(t)
+                ∂(x₁)(t) == p₁(x[1:2](t), u(t))
+                ∂(x₂)(t) == sum(u(t))
+                ∂(x₃)(t) == x₁(t)
 
-            p₂(x(t)) ≤ 50
+                p₂(x(t)) ≤ 50
 
-            (p₂(x(0)) + sum(x[1:2](1))^2) + 0.5∫( sum(u(t).^2) ) → min
+                (p₂(x(0)) + sum(x[1:2](1))^2) + 0.5∫(sum(u(t) .^ 2)) → min
+            end
+
+            N = 250
+            max_iter = 10
+            m1, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
+            @test m1 isa ExaModels.ExaModel
+            sol1 = madnlp(m1; tol=tolerance, max_iter=max_iter, kwargs...)
+            obj1 = sol1.objective
+
+            # Non-vectorised version
+            o2 = @def begin
+                t ∈ [0, 1], time
+                x ∈ R³, state
+                u ∈ R², control
+
+                x₁(0) == 0
+                x₂(0) == 0.1
+                -0.1 ≤ x₃(0) ≤ 0.1
+                x₁(1) + x₂(1) + x₃(1) == 0.2
+
+                ∂(x₁)(t) == x₁(t) * u₁(t) + x₂(t) * u₂(t)
+                ∂(x₂)(t) == u₁(t) + u₂(t)
+                ∂(x₃)(t) == x₁(t)
+
+                x₁(t)^2 + x₂(t)^2 + x₃(t)^2 ≤ 50
+
+                (x₁(0)^2 + x₂(0)^2 + x₃(0)^2 + (x₁(1) + x₂(1))^2) +
+                0.5∫(u₁(t)^2 + u₂(t)^2) → min
+            end
+
+            m2, _ = discretise_exa_full(o2; grid_size=N, backend=backend, scheme=scheme)
+            @test m2 isa ExaModels.ExaModel
+            sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
+            obj2 = sol2.objective
+
+            __atol = 1e-9
+            @test obj1 - obj2 ≈ 0 atol = __atol
         end
-
-        N = 250
-        max_iter = 10
-        m1, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
-        @test m1 isa ExaModels.ExaModel
-        sol1 = madnlp(m1; tol=tolerance, max_iter=max_iter, kwargs...)
-        obj1 = sol1.objective
-
-        # Non-vectorised version
-        o2 = @def begin
-            t ∈ [0, 1], time
-            x ∈ R³, state
-            u ∈ R², control
-
-            x₁(0) == 0
-            x₂(0) == 0.1
-            -0.1 ≤ x₃(0) ≤ 0.1
-            x₁(1) + x₂(1) + x₃(1) == 0.2 
-
-            ∂(x₁)(t) == x₁(t) * u₁(t) + x₂(t) * u₂(t)
-            ∂(x₂)(t) == u₁(t) + u₂(t)
-            ∂(x₃)(t) == x₁(t)
-
-            x₁(t)^2 + x₂(t)^2 + x₃(t)^2 ≤ 50
-
-            (x₁(0)^2 + x₂(0)^2 + x₃(0)^2 + (x₁(1) + x₂(1))^2) + 0.5∫( u₁(t)^2 + u₂(t)^2 ) → min
-        end
-
-        m2, _ = discretise_exa_full(o2; grid_size=N, backend=backend, scheme=scheme)
-        @test m2 isa ExaModels.ExaModel
-        sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
-        obj2 = sol2.objective
-
-        __atol = 1e-9
-        @test obj1 - obj2 ≈ 0 atol = __atol
-    end end
+    end
 
     test_name = "use case no. 8: vectorised dynamics ($backend_name, $scheme)"
     @testset "$test_name" begin
@@ -1770,7 +1773,7 @@ function __test_onepass_exa(
             #∂(x₂)(t) == -x₁(t) + u(t) 
             ∂(x₂)(t) == A[2, :]' * x(t) + u(t) * b[2]
             #0.5∫( x₁(t)^2 + x₂(t)^2 + u(t)^2 ) → min
-            0.5∫( x(t)' * Q * x(t) + u(t)' * R * u(t) ) → min
+            0.5∫(x(t)' * Q * x(t) + u(t)' * R * u(t)) → min
         end
 
         N = 250
@@ -1787,10 +1790,10 @@ function __test_onepass_exa(
             u ∈ R, control
             x(0) == x0
             ∂(x₁)(t) == x₂(t)
-            ∂(x₂)(t) == -x₁(t) + u(t) 
-            0.5∫( x₁(t)^2 + x₂(t)^2 + u(t)^2 ) → min
+            ∂(x₂)(t) == -x₁(t) + u(t)
+            0.5∫(x₁(t)^2 + x₂(t)^2 + u(t)^2) → min
         end
-        
+
         m2, _ = discretise_exa_full(o2; grid_size=N, backend=backend, scheme=scheme)
         @test m2 isa ExaModels.ExaModel
         sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
@@ -1798,7 +1801,7 @@ function __test_onepass_exa(
 
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
-    end 
+    end
 
     test_name = "use case no. 9: vectorised dynamics ($backend_name, $scheme)"
     @testset "$test_name" begin
@@ -1813,9 +1816,9 @@ function __test_onepass_exa(
             t ∈ [0, 1], time
             x ∈ R², state
             u ∈ R, control
-            c(x(0), x(1)) == [-1, 0, 0, 0] 
-            ẋ(t) == A * x(t) + u(t) * b 
-            0.5∫( u(t)^2 ) → min
+            c(x(0), x(1)) == [-1, 0, 0, 0]
+            ẋ(t) == A * x(t) + u(t) * b
+            0.5∫(u(t)^2) → min
         end
 
         N = 250
@@ -1830,13 +1833,13 @@ function __test_onepass_exa(
             t ∈ [0, 1], time
             x ∈ R², state
             u ∈ R, control
-            x(0) == [-1, 0] 
-            x(1) == [0, 0] 
+            x(0) == [-1, 0]
+            x(1) == [0, 0]
             ∂(x₁)(t) == x₂(t)
-            ∂(x₂)(t) == u(t) 
-            0.5∫( u(t)^2 ) → min
+            ∂(x₂)(t) == u(t)
+            0.5∫(u(t)^2) → min
         end
-        
+
         m2, _ = discretise_exa_full(o2; grid_size=N, backend=backend, scheme=scheme)
         @test m2 isa ExaModels.ExaModel
         sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
@@ -1844,53 +1847,51 @@ function __test_onepass_exa(
 
         __atol = 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
-    end 
+    end
 
     test_name = "use case no. 10 (Goddard): vectorised dynamics ($backend_name, $scheme)"
     @testset "$test_name" begin
         println(test_name)
 
-        t0 = 0      
-        r0 = 1      
-        v0 = 0      
-        m0 = 1      
-        vmax = 0.1  
-        mf = 0.6    
+        t0 = 0
+        r0 = 1
+        v0 = 0
+        m0 = 1
+        vmax = 0.1
+        mf = 0.6
         Cd = 310
         Tmax = 3.5
         β = 500
         b = 2
-        
+
         o1 = @def begin
-        
             tf ∈ R, variable
             t ∈ [t0, tf], time
             x = (r, v, m) ∈ R³, state
             u ∈ R, control
-        
+
             x(t0) == [r0, v0, m0]
             m(tf) == mf
             0 ≤ u(t) ≤ 1
             r(t) ≥ r0
             0 ≤ v(t) ≤ vmax
-        
+
             ẋ(t) == F0(x(t)) + u(t) * F1(x(t))
-        
+
             -r(tf) → min
-        
         end
-        
+
         F0(x) = begin
             r, v, m = x
             D = Cd * v^2 * exp(-β*(r - 1))
             return [v, -D/m - 1/r^2, 0]
         end
-        
+
         F1(x) = begin
             r, v, m = x
             return [0, Tmax/m, -b*Tmax]
         end
-        
+
         N = 250
         max_iter = 100
         m1, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
@@ -1901,5 +1902,4 @@ function __test_onepass_exa(
         obj2 = -1.0125766794048943e+00 # from midpoint with N = 250 
         @test obj1 - obj2 ≈ 0 atol = __atol
     end
-
 end
