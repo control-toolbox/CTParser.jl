@@ -54,77 +54,77 @@ function test_utils()
         @testset "range indexing (new)" begin
             # Test 5: Simple range 1:3
             e = :(x0[1:3])
-            result = subs2(e, :x0, :x, 0; k = :k)
-            @test result == :([x[k, 0] for k ∈ 1:3])
+            result = subs2(e, :x0, :x, 0; k=:k)
+            @test result == :([x[k, 0] for k in 1:3])
 
             # Test 6: Range with step 1:2:5
             e = :(x0[1:2:5])
-            result = subs2(e, :x0, :x, 0; k = :k)
-            @test result == :([x[k, 0] for k ∈ 1:2:5])
+            result = subs2(e, :x0, :x, 0; k=:k)
+            @test result == :([x[k, 0] for k in 1:2:5])
 
             # Test 7: Range with symbolic bounds
             e = :(x0[1:n])
-            result = subs2(e, :x0, :x, 0; k = :k)
-            @test result == :([x[k, 0] for k ∈ 1:n])
+            result = subs2(e, :x0, :x, 0; k=:k)
+            @test result == :([x[k, 0] for k in 1:n])
 
             # Test 8: Multiple ranges in same expression
             e = :(x0[1:3] + xf[2:4])
-            result = subs2(subs2(e, :x0, :x, 0; k = :k1), :xf, :x, :N; k = :k2)
-            @test result == :([x[k1, 0] for k1 ∈ 1:3] + [x[k2, N] for k2 ∈ 2:4])
+            result = subs2(subs2(e, :x0, :x, 0; k=:k1), :xf, :x, :N; k=:k2)
+            @test result == :([x[k1, 0] for k1 in 1:3] + [x[k2, N] for k2 in 2:4])
 
             # Test 9: Range inside function call
             e = :(sum(x0[1:n]))
-            result = subs2(e, :x0, :x, 0; k = :k)
-            @test result == :(sum([x[k, 0] for k ∈ 1:n]))
+            result = subs2(e, :x0, :x, 0; k=:k)
+            @test result == :(sum([x[k, 0] for k in 1:n]))
         end
 
         @testset "mixed scalar and range" begin
             # Test 10: Expression with both scalars and ranges
             e = :(x0[1] + x0[2:4] + x0[5])
-            result = subs2(e, :x0, :x, 0; k = :k)
+            result = subs2(e, :x0, :x, 0; k=:k)
             # x0[1] → x[1, 0]
             # x0[2:4] → [x[k, 0] for k ∈ 2:4]
             # x0[5] → x[5, 0]
-            @test result == :(x[1, 0] + [x[k, 0] for k ∈ 2:4] + x[5, 0])
+            @test result == :(x[1, 0] + [x[k, 0] for k in 2:4] + x[5, 0])
         end
 
         @testset "nested and complex expressions" begin
             # Test 11: Nested function calls with ranges
             e = :(norm(x0[1:3]) + cos(x0[4]))
-            result = subs2(e, :x0, :x, 0; k = :k)
-            @test result == :(norm([x[k, 0] for k ∈ 1:3]) + cos(x[4, 0]))
+            result = subs2(e, :x0, :x, 0; k=:k)
+            @test result == :(norm([x[k, 0] for k in 1:3]) + cos(x[4, 0]))
 
             # Test 12: Range in matrix operations
             e = :(A * x0[1:n])
-            result = subs2(e, :x0, :x, 0; k = :k)
-            @test result == :(A * [x[k, 0] for k ∈ 1:n])
+            result = subs2(e, :x0, :x, 0; k=:k)
+            @test result == :(A * [x[k, 0] for k in 1:n])
 
             # Test 13: Multiple substitutions with symbolic j
             e = :(x0[1:3] + xf[2:4])
-            result = subs2(subs2(e, :x0, :x, :j; k = :k1), :xf, :x, :(j+1); k = :k2)
-            @test result == :([x[k1, j] for k1 ∈ 1:3] + [x[k2, j+1] for k2 ∈ 2:4])
+            result = subs2(subs2(e, :x0, :x, :j; k=:k1), :xf, :x, :(j+1); k=:k2)
+            @test result == :([x[k1, j] for k1 in 1:3] + [x[k2, j + 1] for k2 in 2:4])
         end
 
         @testset "edge cases" begin
             # Test 14: Single-element range (should still create comprehension)
             e = :(x0[1:1])
-            result = subs2(e, :x0, :x, 0; k = :k)
-            @test result == :([x[k, 0] for k ∈ 1:1])
+            result = subs2(e, :x0, :x, 0; k=:k)
+            @test result == :([x[k, 0] for k in 1:1])
 
             # Test 15: Wrong variable name (should not substitute)
             e = :(y0[1:3])
-            result = subs2(e, :x0, :x, 0; k = :k)
+            result = subs2(e, :x0, :x, 0; k=:k)
             @test result == e  # Unchanged
 
             # Test 16: Complex symbolic j expression
             e = :(x0[1:3])
-            result = subs2(e, :x0, :x, :grid_size; k = :k)
-            @test result == :([x[k, grid_size] for k ∈ 1:3])
+            result = subs2(e, :x0, :x, :grid_size; k=:k)
+            @test result == :([x[k, grid_size] for k in 1:3])
 
             # Test 17: Scalar index that is a range expression (should not match)
             # This tests that we properly distinguish i (scalar) from 1:3 (range)
             e = :(x0[i])
-            result = subs2(e, :x0, :x, 0; k = :k)
+            result = subs2(e, :x0, :x, 0; k=:k)
             @test result == :(x[i, 0])  # Scalar behavior
         end
 
@@ -155,36 +155,35 @@ function test_utils()
         @testset "range indexing" begin
             # Test 1: Basic range substitution
             e = :(x0[1:3])
-            result = subs2m(e, :x0, :x, 0; k = :k)
-            @test result == :([((x[k, 0] + x[k, 0 + 1]) / 2) for k ∈ 1:3])
+            result = subs2m(e, :x0, :x, 0; k=:k)
+            @test result == :([((x[k, 0] + x[k, 0 + 1]) / 2) for k in 1:3])
 
             # Test 2: Range with step
             e = :(x0[1:2:5])
-            result = subs2m(e, :x0, :x, 0; k = :k)
-            @test result == :([((x[k, 0] + x[k, 0 + 1]) / 2) for k ∈ 1:2:5])
+            result = subs2m(e, :x0, :x, 0; k=:k)
+            @test result == :([((x[k, 0] + x[k, 0 + 1]) / 2) for k in 1:2:5])
 
             # Test 3: Range in arithmetic expression
             e = :(2 * x0[1:3])
-            result = subs2m(e, :x0, :x, 0; k = :k)
-            @test result == :(2 * [((x[k, 0] + x[k, 0 + 1]) / 2) for k ∈ 1:3])
+            result = subs2m(e, :x0, :x, 0; k=:k)
+            @test result == :(2 * [((x[k, 0] + x[k, 0 + 1]) / 2) for k in 1:3])
 
             # Test 4: Multiple ranges in same expression
             e = :(x0[1:2] + xf[2:4])
-            result = subs2m(subs2m(e, :x0, :x, 0; k = :k), :xf, :x, :N; k = :k)
+            result = subs2m(subs2m(e, :x0, :x, 0; k=:k), :xf, :x, :N; k=:k)
             @test result == :(
-                [((x[k, 0] + x[k, 0 + 1]) / 2) for k ∈ 1:2] +
-                [((x[k, N] + x[k, N + 1]) / 2) for k ∈ 2:4]
+                [((x[k, 0] + x[k, 0 + 1]) / 2) for k in 1:2] + [((x[k, N] + x[k, N + 1]) / 2) for k in 2:4]
             )
 
             # Test 5: Range with symbolic j
             e = :(x0[1:3])
-            result = subs2m(e, :x0, :x, :j; k = :k)
-            @test result == :([((x[k, j] + x[k, j + 1]) / 2) for k ∈ 1:3])
+            result = subs2m(e, :x0, :x, :j; k=:k)
+            @test result == :([((x[k, j] + x[k, j + 1]) / 2) for k in 1:3])
 
             # Test 6: Single-element range
             e = :(x0[2:2])
-            result = subs2m(e, :x0, :x, 0; k = :k)
-            @test result == :([((x[k, 0] + x[k, 0 + 1]) / 2) for k ∈ 2:2])
+            result = subs2m(e, :x0, :x, 0; k=:k)
+            @test result == :([((x[k, 0] + x[k, 0 + 1]) / 2) for k in 2:2])
         end
 
         @testset "backward compatibility" begin

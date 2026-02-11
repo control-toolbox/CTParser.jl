@@ -508,7 +508,7 @@ function test_exa_linalg()
             @test v[1] isa ExaModels.AbstractNode
 
             # Create matrix from variable
-            A = [xvar[i, j] for (i, j) ∈ Base.product(1:2, 0:3)]
+            A = [xvar[i, j] for (i, j) in Base.product(1:2, 0:3)]
             @test size(A) == (2, 4)
             @test A isa Matrix
             @test A[1, 1] isa ExaModels.AbstractNode
@@ -541,7 +541,7 @@ function test_exa_linalg()
             @test result6[1] isa ExaModels.AbstractNode
 
             # Extract a 2×2 submatrix for square operations
-            A_square = [xvar[i, j] for (i, j) ∈ Base.product(1:2, 1:2)]
+            A_square = [xvar[i, j] for (i, j) in Base.product(1:2, 1:2)]
             @test size(A_square) == (2, 2)
 
             result7 = det(A_square)
@@ -748,7 +748,7 @@ function test_exa_linalg()
 
                 z3 = zeros(ExaModels.AbstractNode, 2, 2, 2)
                 @test size(z3) == (2, 2, 2)
-                @test z3 isa Array{<:ExaModels.AbstractNode, 3}
+                @test z3 isa Array{<:ExaModels.AbstractNode,3}
                 @test all(is_null_zero.(z3))
 
                 # Test ones with different dimensions
@@ -764,7 +764,7 @@ function test_exa_linalg()
 
                 o3 = ones(ExaModels.AbstractNode, 2, 2, 2)
                 @test size(o3) == (2, 2, 2)
-                @test o3 isa Array{<:ExaModels.AbstractNode, 3}
+                @test o3 isa Array{<:ExaModels.AbstractNode,3}
                 @test all(x -> x isa ExaModels.Null && isone(x.value), o3)
 
                 # Test with specific ExaModels types (Variable <: AbstractNode)
@@ -933,23 +933,23 @@ function test_exa_linalg()
 
                 # AbstractNode matrix + zeros
                 result1 = mat_nodes + [0 0; 0 0]
-                @test result1[1,1].value == x.value
-                @test result1[1,2].value == y.value
-                @test result1[2,1].value == z.value
-                @test result1[2,2].value == w.value
+                @test result1[1, 1].value == x.value
+                @test result1[1, 2].value == y.value
+                @test result1[2, 1].value == z.value
+                @test result1[2, 2].value == w.value
                 @test result1 isa Matrix{<:ExaModels.AbstractNode}
 
                 # Zeros + AbstractNode matrix
                 result2 = [0.0 0.0; 0.0 0.0] + mat_nodes
-                @test result2[1,1].value == x.value
-                @test result2[1,2].value == y.value
+                @test result2[1, 1].value == x.value
+                @test result2[1, 2].value == y.value
 
                 # Mixed: some zeros
                 result3 = mat_nodes + [0 1.0; 0 0]
-                @test result3[1,1].value == x.value  # x + 0 = x
-                @test result3[1,2].value == y.value + 1.0  # y + 1.0
-                @test result3[2,1].value == z.value  # z + 0 = z
-                @test result3[2,2].value == w.value  # w + 0 = w
+                @test result3[1, 1].value == x.value  # x + 0 = x
+                @test result3[1, 2].value == y.value + 1.0  # y + 1.0
+                @test result3[2, 1].value == z.value  # z + 0 = z
+                @test result3[2, 2].value == w.value  # w + 0 = w
             end
         end
 
@@ -985,18 +985,18 @@ function test_exa_linalg()
 
                 # AbstractNode matrix - zeros
                 result1 = mat_nodes - [0 0; 0 0]
-                @test result1[1,1].value == x.value
-                @test result1[1,2].value == y.value
-                @test result1[2,1].value == z.value
-                @test result1[2,2].value == w.value
+                @test result1[1, 1].value == x.value
+                @test result1[1, 2].value == y.value
+                @test result1[2, 1].value == z.value
+                @test result1[2, 2].value == w.value
                 @test result1 isa Matrix{<:ExaModels.AbstractNode}
 
                 # Mixed: some zeros
                 result2 = mat_nodes - [0 1.0; 0 0]
-                @test result2[1,1].value == x.value  # x - 0 = x
-                @test result2[1,2].value == y.value - 1.0  # y - 1.0
-                @test result2[2,1].value == z.value  # z - 0 = z
-                @test result2[2,2].value == w.value  # w - 0 = w
+                @test result2[1, 1].value == x.value  # x - 0 = x
+                @test result2[1, 2].value == y.value - 1.0  # y - 1.0
+                @test result2[2, 1].value == z.value  # z - 0 = z
+                @test result2[2, 2].value == w.value  # w - 0 = w
             end
         end
 
@@ -1091,17 +1091,32 @@ function test_exa_linalg()
 
             @testset "sum with zeros" begin
                 # All AbstractNode zeros: 0 + 0 + 0 = 0
-                result1 = sum([zero(ExaModels.AbstractNode), zero(ExaModels.AbstractNode), zero(ExaModels.AbstractNode)])
+                result1 = sum([
+                    zero(ExaModels.AbstractNode),
+                    zero(ExaModels.AbstractNode),
+                    zero(ExaModels.AbstractNode),
+                ])
                 @test result1 isa ExaModels.Null
                 @test iszero(result1.value)
 
                 # sum([zero(ExaModels.AbstractNode), zero(ExaModels.AbstractNode), x, zero(ExaModels.AbstractNode)]): 0 + 0 + x + 0 = x
-                result2 = sum([zero(ExaModels.AbstractNode), zero(ExaModels.AbstractNode), x, zero(ExaModels.AbstractNode)])
+                result2 = sum([
+                    zero(ExaModels.AbstractNode),
+                    zero(ExaModels.AbstractNode),
+                    x,
+                    zero(ExaModels.AbstractNode),
+                ])
                 @test result2 isa ExaModels.Null
                 @test result2.value == x.value
 
                 # sum with multiple non-zeros interspersed with zeros
-                result3 = sum([zero(ExaModels.AbstractNode), x, zero(ExaModels.AbstractNode), y, zero(ExaModels.AbstractNode)])
+                result3 = sum([
+                    zero(ExaModels.AbstractNode),
+                    x,
+                    zero(ExaModels.AbstractNode),
+                    y,
+                    zero(ExaModels.AbstractNode),
+                ])
                 @test result3 isa ExaModels.Null
                 @test result3.value == x.value + y.value
             end
@@ -1360,7 +1375,7 @@ function test_exa_linalg()
 
                 # Reshape Real vector to matrix
                 A_reshaped = reshape(v_num, 2, 2)
-                @test A_reshaped isa Union{Matrix, Base.ReshapedArray}
+                @test A_reshaped isa Union{Matrix,Base.ReshapedArray}
 
                 # Operations with reshaped array
                 result1 = x * A_reshaped
@@ -1369,7 +1384,7 @@ function test_exa_linalg()
 
                 # Reshape AbstractNode vector to matrix
                 mat_reshaped = reshape(vec_nodes, 2, 2)
-                @test mat_reshaped isa Union{Matrix, Base.ReshapedArray}
+                @test mat_reshaped isa Union{Matrix,Base.ReshapedArray}
 
                 result2 = 2.0 * mat_reshaped
                 @test size(result2) == (2, 2)
@@ -1388,7 +1403,7 @@ function test_exa_linalg()
 
                 # Reshape Real matrix to vector
                 v_reshaped = reshape(A_num, 4)
-                @test v_reshaped isa Union{Vector, Base.ReshapedArray}
+                @test v_reshaped isa Union{Vector,Base.ReshapedArray}
 
                 # Operations with reshaped array
                 result1 = x * v_reshaped
@@ -1397,7 +1412,7 @@ function test_exa_linalg()
 
                 # Reshape AbstractNode matrix to vector
                 vec_reshaped = reshape(mat_nodes, 4)
-                @test vec_reshaped isa Union{Vector, Base.ReshapedArray}
+                @test vec_reshaped isa Union{Vector,Base.ReshapedArray}
 
                 result2 = 2.0 * vec_reshaped
                 @test length(result2) == 4

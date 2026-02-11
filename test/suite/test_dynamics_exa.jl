@@ -7,7 +7,7 @@ activate_backend(:exa) # nota bene: needs to be executed before @def are expande
 
 function test_dynamics_exa()
     l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
-    for scheme ∈ l_scheme
+    for scheme in l_scheme
         __test_dynamics_exa(; scheme=scheme)
         CUDA.functional() && __test_dynamics_exa(CUDABackend(); scheme=scheme)
     end
@@ -226,7 +226,8 @@ function __test_dynamics_exa(
             t ∈ [0, 1], time
             x ∈ R³, state
             u ∈ R², control
-            ∂(x)(t) == [x₁(t) + x₂(t) + x₃(t), 2x₁(t) * u₁(t) + x₂(t) * u₂(t), x₁(t) + 2x₂(t) - x₃(t)]
+            ∂(x)(t) ==
+            [x₁(t) + x₂(t) + x₃(t), 2x₁(t) * u₁(t) + x₂(t) * u₂(t), x₁(t) + 2x₂(t) - x₃(t)]
             x(0) == [1, 0, 0]
             x₁(1) => min
         end
@@ -340,14 +341,16 @@ function __test_dynamics_exa(
             u ∈ R³, control
             ∂(x)(t) == [
                 x₂(t),
-                u₁(t) * sin(x₇(t)) * sin(x₉(t)) + u₁(t) * cos(x₇(t)) * sin(x₈(t)) * cos(x₉(t)),
+                u₁(t) * sin(x₇(t)) * sin(x₉(t)) +
+                u₁(t) * cos(x₇(t)) * sin(x₈(t)) * cos(x₉(t)),
                 x₄(t),
-                u₁(t) * sin(x₇(t)) * cos(x₉(t)) - u₁(t) * cos(x₇(t)) * sin(x₈(t)) * sin(x₉(t)),
+                u₁(t) * sin(x₇(t)) * cos(x₉(t)) -
+                u₁(t) * cos(x₇(t)) * sin(x₈(t)) * sin(x₉(t)),
                 x₆(t),
                 u₁(t) * cos(x₇(t)) * cos(x₈(t)) - g,
                 u₂(t) * cos(x₇(t)) / cos(x₈(t)) + u₃(t) * sin(x₇(t)) / cos(x₈(t)),
                 -u₂(t) * sin(x₇(t)) + u₃(t) * cos(x₇(t)),
-                u₂(t) * cos(x₇(t)) * tan(x₈(t)) + u₃(t) * sin(x₇(t)) * tan(x₈(t))
+                u₂(t) * cos(x₇(t)) * tan(x₈(t)) + u₃(t) * sin(x₇(t)) * tan(x₈(t)),
             ]
             x(0) == [0, 0, 0, 0, 0, 0, 0, 0, 0]
             x₁(1) => min

@@ -122,16 +122,19 @@ julia> subs2(subs2(e, :x0, :x, 0), :xf, :x, :N)
 :(x0 * (2 * x[3, N]))
 ```
 """
-function subs2(e, x, y, j; k = __symgen(:k))
-    foo(x, y, j) = (h, args...) -> begin
-        f = Expr(h, args...)
-        @match f begin
-            :($xx[$rg]) && if ((xx == x) && is_range(rg)) end => :([$y[$k, $j] for $k ∈ $rg])
-            :($xx[$i]) && if (xx == x) end => :($y[$i, $j])
-            _ => f
+function subs2(e, x, y, j; k=__symgen(:k))
+    foo(x, y, j) =
+        (h, args...) -> begin
+            f = Expr(h, args...)
+            @match f begin
+                :($xx[$rg]) && if ((xx == x) && is_range(rg))
+                end => :([$y[$k, $j] for $k in $rg])
+                :($xx[$i]) && if (xx == x)
+                end => :($y[$i, $j])
+                _ => f
+            end
         end
-    end
-    expr_it(e, foo(x, y, j), x -> x) 
+    expr_it(e, foo(x, y, j), x -> x)
 end
 
 """
@@ -195,13 +198,15 @@ julia> subs2m(e, :x0, :x, 0)
 :([((x[k, 0] + x[k, 0 + 1]) / 2) for k ∈ 1:3])
 ```
 """
-function subs2m(e, x, y, j; k = __symgen(:k))
+function subs2m(e, x, y, j; k=__symgen(:k))
     foo(x, y, j) =
         (h, args...) -> begin
             f = Expr(h, args...)
             @match f begin
-                :($xx[$rg]) && if ((xx == x) && is_range(rg)) end => :([($y[$k, $j] + $y[$k, $j + 1]) / 2 for $k ∈ $rg])
-                :($xx[$i]) && if (xx == x) end => :(($y[$i, $j] + $y[$i, $j + 1]) / 2)
+                :($xx[$rg]) && if ((xx == x) && is_range(rg))
+                end => :([($y[$k, $j] + $y[$k, $j + 1]) / 2 for $k in $rg])
+                :($xx[$i]) && if (xx == x)
+                end => :(($y[$i, $j] + $y[$i, $j + 1]) / 2)
                 _ => f
             end
         end

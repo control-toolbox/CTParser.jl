@@ -68,9 +68,7 @@ const SHOWTIMING = true
 CTBase.run_tests(;
     args=String.(ARGS),
     testset_name="CTParser tests",
-    available_tests=(
-        "suite/test_*",
-        ),
+    available_tests=("suite/test_*",),
     filename_builder=name -> "test_$(name).jl",
     funcname_builder=name -> "test_$(name)",
     verbose=VERBOSE,
@@ -89,6 +87,6 @@ if Base.JLOptions().code_coverage != 0
             julia --project -e 'using Pkg; Pkg.test("CTParser"; coverage=true); include("test/coverage.jl")'
 
         ================================================================================
-        """
+        """,
     )
 end
