@@ -40,7 +40,7 @@ function test_initial_guess()
             u(t) := t
         end
 
-        @test ig isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_fixed, ig)
 
         ufun = CTModels.control(ig)
@@ -54,7 +54,7 @@ function test_initial_guess()
     @testset "empty and alias-only blocks delegate to defaults" begin
         # Empty block: should behave like a plain call to build_initial_guess(ocp, ())
         ig_empty = @init ocp_fixed begin end
-        @test ig_empty isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig_empty isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_fixed, ig_empty)
 
         # Alias-only block: aliases are executed, but no init specs should still
@@ -62,7 +62,7 @@ function test_initial_guess()
         ig_alias_only = @init ocp_fixed begin
             c = 1.0
         end
-        @test ig_alias_only isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig_alias_only isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_fixed, ig_alias_only)
     end
 
@@ -72,7 +72,7 @@ function test_initial_guess()
             v(t) := a
         end
 
-        @test ig isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_fixed, ig)
 
         xfun = CTModels.state(ig)
@@ -89,7 +89,7 @@ function test_initial_guess()
             tf := a
         end
 
-        @test ig isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_var, ig)
     end
 
@@ -98,7 +98,7 @@ function test_initial_guess()
         ig_block = @init ocp_var2 begin
             w := [1.0, 2.0]
         end
-        @test ig_block isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig_block isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_var2, ig_block)
         v_block = CTModels.variable(ig_block)
         @test length(v_block) == 2
@@ -109,7 +109,7 @@ function test_initial_guess()
         ig_tf = @init ocp_var2 begin
             tf := 1.0
         end
-        @test ig_tf isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig_tf isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_var2, ig_tf)
         v_tf = CTModels.variable(ig_tf)
         @test length(v_tf) == 2
@@ -120,7 +120,7 @@ function test_initial_guess()
         ig_a = @init ocp_var2 begin
             a := 0.5
         end
-        @test ig_a isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig_a isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_var2, ig_a)
         v_a = CTModels.variable(ig_a)
         @test length(v_a) == 2
@@ -132,7 +132,7 @@ function test_initial_guess()
             tf := 1.0
             a := 0.5
         end
-        @test ig_both isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig_both isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_var2, ig_both)
         v_both = CTModels.variable(ig_both)
         @test length(v_both) == 2
@@ -147,7 +147,7 @@ function test_initial_guess()
             u(t) := t
         end
 
-        @test ig isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_fixed, ig)
 
         xfun = CTModels.state(ig)
@@ -172,7 +172,7 @@ function test_initial_guess()
             u(t) := t
         end
 
-        @test ig isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_fixed, ig)
 
         xfun = CTModels.state(ig)
@@ -201,7 +201,7 @@ function test_initial_guess()
             u(T) := U
         end
 
-        @test ig isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_fixed, ig)
 
         xfun = CTModels.state(ig)
@@ -234,7 +234,7 @@ function test_initial_guess()
             u(T) := U
         end
 
-        @test ig isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_fixed, ig)
 
         xfun = CTModels.state(ig)
@@ -261,7 +261,7 @@ function test_initial_guess()
             u(T) := nothing
         end
 
-        @test ig isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_fixed, ig)
     end
 
@@ -279,7 +279,7 @@ function test_initial_guess()
             u(Tu) := Du
         end
 
-        @test ig isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_fixed, ig)
 
         xfun = CTModels.state(ig)
@@ -304,7 +304,7 @@ function test_initial_guess()
             v(t) := 1.0
         end
 
-        @test ig isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_fixed, ig)
     end
 
@@ -315,7 +315,7 @@ function test_initial_guess()
             u := 0.1
         end
 
-        @test ig isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_fixed, ig)
     end
 
@@ -324,7 +324,7 @@ function test_initial_guess()
             tf := 1.0
         end
 
-        @test ig isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_var, ig)
     end
 
@@ -333,7 +333,7 @@ function test_initial_guess()
         ig_plain = @init ocp_fixed begin
             u(t) := t
         end
-        @test ig_plain isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig_plain isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_fixed, ig_plain)
 
         # Same DSL but with log = true, while redirecting stdout to avoid polluting test logs
@@ -342,7 +342,7 @@ function test_initial_guess()
                 u(t) := t
             end log = true
         end
-        @test ig_log isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig_log isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_fixed, ig_log)
 
         # Compare behaviour at a few sample points
@@ -361,7 +361,7 @@ function test_initial_guess()
             u(t) := t
         end
 
-        @test ig isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_var, ig)
 
         xfun = CTModels.state(ig)
@@ -388,7 +388,7 @@ function test_initial_guess()
             u(T) := nothing
         end
 
-        @test ig isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_var, ig)
     end
 
@@ -403,7 +403,7 @@ function test_initial_guess()
             u(T) := U
         end
 
-        @test ig isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_var, ig)
 
         xfun = CTModels.state(ig)
@@ -437,7 +437,7 @@ function test_initial_guess()
             u(Tu) := Du
         end
 
-        @test ig isa CTModels.AbstractOptimalControlInitialGuess
+        @test ig isa CTModels.AbstractInitialGuess
         CTModels.validate_initial_guess(ocp_var, ig)
 
         xfun = CTModels.state(ig)

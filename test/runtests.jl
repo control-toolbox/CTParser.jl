@@ -69,7 +69,7 @@ CTBase.run_tests(;
     args=String.(ARGS),
     testset_name="CTParser tests",
     available_tests=(
-        "suite/test_*",
+        "test_*",
         ),
     filename_builder=name -> "test_$(name).jl",
     funcname_builder=name -> "test_$(name)",
