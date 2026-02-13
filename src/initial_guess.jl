@@ -311,7 +311,7 @@ When `log = true`, the macro additionally prints a human-readable
 
 # Returns
 
-- `AbstractOptimalControlInitialGuess`: backend-specific initial guess
+- `AbstractInitialGuess`: backend-specific initial guess
   object produced by the current backend (par défaut `CTModels`).
 
 # Example
@@ -333,7 +333,7 @@ julia> ig = @init ocp begin
            u(t) := t
        end
 
-julia> ig isa CTModels.AbstractOptimalControlInitialGuess
+julia> ig isa CTModels.AbstractInitialGuess
 true
 ```
 """
