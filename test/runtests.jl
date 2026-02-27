@@ -50,16 +50,14 @@ import CTModels:
     criterion,
     Model,
     get_build_examodel
-using ExaModels: ExaModels
+using ExaModels
+using LinearAlgebra
 using MadNLP
 using MadNLPGPU
 using CUDA
 using BenchmarkTools
 using Interpolations
 using NLPModels
-using LinearAlgebra
-
-include("utils.jl")
 
 const VERBOSE = true
 const SHOWTIMING = true
