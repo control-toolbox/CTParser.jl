@@ -59,6 +59,8 @@ using BenchmarkTools
 using Interpolations
 using NLPModels
 
+include("utils.jl")
+
 const VERBOSE = true
 const SHOWTIMING = true
 
