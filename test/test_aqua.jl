@@ -7,9 +7,5 @@ function test_aqua()
             deps_compat=(ignore=[:LinearAlgebra, :Unicode],),
             piracies=true,
         )
-        # Test ExaLinAlg submodule for type piracy
-        #@testset "ExaLinAlg piracy" begin
-        #    Aqua.test_piracies(CTParser.ExaLinAlg)
-        #end
     end
 end
