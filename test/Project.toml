@@ -14,12 +14,16 @@ NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
 OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
+[sources]
+ExaModels = {rev = "linalg2-ext", url = "https://github.com/exanauts/ExaModels.jl"}
+
 [compat]
 Aqua = "0.8"
 BenchmarkTools = "1"
 CTBase = "0.18"
 CTModels = "0.9"
 CUDA = "5"
+ExaModels = "0.9"
 Interpolations = "0.16"
 KernelAbstractions = "0.9"
 LinearAlgebra = "1"
