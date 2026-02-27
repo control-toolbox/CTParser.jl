@@ -1,6 +1,6 @@
 name = "CTParser"
 uuid = "32681960-a1b1-40db-9bff-a1ca817385d1"
-version = "0.8.4-beta"
+version = "0.8.5-beta"
 authors = ["Jean-Baptiste Caillau <jean-baptiste.caillau@univ-cotedazur.fr>"]
 
 [deps]
