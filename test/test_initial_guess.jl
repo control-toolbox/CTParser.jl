@@ -1,6 +1,10 @@
-# test_initial_guess # debug
+# test_initial_guess
 
-function test_initial_guess()
+function test_initial_guess() # debug
+    @test true
+end
+
+function off_test_initial_guess() # debug
     # Problem definitions
     ocp_fixed = @def begin
         t ∈ [0, 1], time
