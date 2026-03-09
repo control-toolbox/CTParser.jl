@@ -22,7 +22,6 @@ using Unicode
 # sources
 include("defaults.jl")
 include("utils.jl")
-include("exa_linalg.jl")
 include("onepass.jl")
 include("initial_guess.jl")
 

@@ -50,14 +50,14 @@ import CTModels:
     criterion,
     Model,
     get_build_examodel
-using ExaModels: ExaModels
+using ExaModels
+using LinearAlgebra
 using MadNLP
 using MadNLPGPU
 using CUDA
 using BenchmarkTools
 using Interpolations
 using NLPModels
-using LinearAlgebra
 
 include("utils.jl")
 
@@ -69,7 +69,7 @@ CTBase.run_tests(;
     args=String.(ARGS),
     testset_name="CTParser tests",
     available_tests=(
-        "suite/test_*",
+        "test_*",
         ),
     filename_builder=name -> "test_$(name).jl",
     funcname_builder=name -> "test_$(name)",
