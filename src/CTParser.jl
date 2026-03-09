@@ -1,5 +1,5 @@
 """
-[`CTParser`](@ref) module.
+`CTParser` module.
 
 Lists all the imported modules and packages:
 

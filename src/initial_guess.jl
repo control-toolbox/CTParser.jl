@@ -29,8 +29,8 @@ Current backend prefix used by `@init`.
 
 This reference stores the symbol of the backend module that provides
 `build_initial_guess` and `validate_initial_guess`. It is initialised
-by [`__default_init_prefix`](@ref) and can be updated at runtime via
-[`init_prefix!`](@ref).
+by `__default_init_prefix` and can be updated at runtime via
+`init_prefix!`.
 """
 const INIT_PREFIX = Ref(__default_init_prefix())
 
@@ -64,7 +64,7 @@ $(TYPEDSIGNATURES)
 
 Set the backend prefix used by `@init`.
 
-This function updates the global [`INIT_PREFIX`](@ref), thereby changing
+This function updates the global `INIT_PREFIX`, thereby changing
 which module is used to build and validate initial guesses.
 
 # Arguments
@@ -181,7 +181,7 @@ Given an optimal control problem `ocp` and the body `e` of an `@init`
 block, this function collects the initialisation specifications, builds
 an appropriate `NamedTuple` expression and constructs the call to
 `build_initial_guess` / `validate_initial_guess` on the current backend
-(prefix returned by [`init_prefix`](@ref)).
+(prefix returned by `init_prefix`).
 
 It also produces a compact string representation of the specification,
 used for optional logging when `log = true` is requested at the
@@ -288,7 +288,7 @@ v(t) := a         # time-dependent function using the alias above
 The macro itself only rewrites this DSL into a `NamedTuple`-based
 representation. All dimensional checks, interpretation of aliases and
 construction of the concrete initial guess object are delegated to the
-backend selected by [`init_prefix`](@ref) (by défaut `:CTModels`), via
+backend selected by `init_prefix` (by défaut `:CTModels`), via
 `build_initial_guess` and `validate_initial_guess`.
 
 An optional keyword-like trailing argument controls logging:
