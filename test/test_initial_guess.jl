@@ -535,4 +535,161 @@ function test_initial_guess() # debug
         CTParser.init_prefix!(old_pref)
         @test CTParser.init_prefix() == old_pref
     end
+
+    # ============================================================================
+    # Tests for custom time names (time_name != "t")
+    # ============================================================================
+
+    @testset "custom time name: s instead of t" begin
+        # Define an OCP with time variable named 's'
+        ocp_s = @def begin
+            s ∈ [0, 1], time
+            x = (q, v) ∈ R², state
+            u ∈ R, control
+            x(0) == [-1, 0]
+            x(1) == [0, 0]
+            ẋ(s) == [v(s), u(s)]
+            ∫(0.5u(s)^2) → min
+        end
+
+        @test CTModels.time_name(ocp_s) == "s"
+
+        # Test 1: Valid - using s(s) := s
+        ig1 = @init ocp_s begin
+            u(s) := s
+        end
+        @test ig1 isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_s, ig1)
+        ufun = CTModels.control(ig1)
+        @test ufun(0.0) ≈ 0.0
+        @test ufun(1.0) ≈ 1.0
+
+        # Test 2: Valid - using s for all components
+        ig2 = @init ocp_s begin
+            q(s) := sin(s)
+            v(s) := 1.0
+            u(s) := s
+        end
+        @test ig2 isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_s, ig2)
+        xfun = CTModels.state(ig2)
+        x0 = xfun(0.0)
+        x1 = xfun(1.0)
+        @test x0[1] ≈ sin(0.0)
+        @test x1[1] ≈ sin(1.0)
+        @test x0[2] ≈ 1.0
+
+        # Test 3: Invalid - using t instead of s should fail
+        @test_throws ErrorException Base.redirect_stdout(Base.devnull) do
+            @init ocp_s begin
+                u(t) := t
+            end
+        end
+
+        # Test 4: Valid - time grids can use any name except 's'
+        T = [0.0, 0.5, 1.0]
+        X = [[-1.0, 0.0], [0.0, 0.5], [0.0, 0.0]]
+        U = [0.0, 0.0, 1.0]
+        ig4 = @init ocp_s begin
+            x(T) := X
+            u(T) := U
+        end
+        @test ig4 isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_s, ig4)
+
+        # Test 5: Valid - mixing time functions and grids
+        ig5 = @init ocp_s begin
+            q(s) := sin(s)
+            v(T) := [0.0, 0.5, 0.0]
+            u(s) := s
+        end
+        @test ig5 isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_s, ig5)
+    end
+
+    @testset "custom time name: tau" begin
+        # Define an OCP with time variable named 'tau' (multi-character)
+        ocp_tau = @def begin
+            tau ∈ [0, 2], time
+            x ∈ R, state
+            u ∈ R, control
+            ẋ(tau) == u(tau)
+            x(0) == 0
+            x(2) == 1
+            ∫(0.5u(tau)^2) → min
+        end
+
+        @test CTModels.time_name(ocp_tau) == "tau"
+
+        # Time-dependent function with multi-character time name
+        ig1 = @init ocp_tau begin
+            u(tau) := tau
+        end
+        @test ig1 isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_tau, ig1)
+        ufun = CTModels.control(ig1)
+        @test ufun(0.0) ≈ 0.0
+        @test ufun(1.0) ≈ 1.0
+
+        # Constant time function with multi-character time name
+        ig2 = @init ocp_tau begin
+            x(tau) := 0.5
+            u(tau) := 0.1
+        end
+        @test ig2 isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_tau, ig2)
+        xfun = CTModels.state(ig2)
+        @test xfun(0.0) ≈ 0.5
+        @test xfun(1.0) ≈ 0.5
+        ufun2 = CTModels.control(ig2)
+        @test ufun2(0.0) ≈ 0.1
+        @test ufun2(1.0) ≈ 0.1
+        
+        # Time grids should work
+        T = [0.0, 1.0, 2.0]
+        X = [0.0, 0.5, 1.0]
+        U = [0.5, 0.5, 0.5]
+        ig3 = @init ocp_tau begin
+            x(T) := X
+            u(T) := U
+        end
+        @test ig3 isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_tau, ig3)
+
+        # Error: wrong time variable name
+        @test_throws ErrorException Base.redirect_stdout(Base.devnull) do
+            @init ocp_tau begin
+                u(t) := t
+            end
+        end
+    end
+
+    @testset "error messages for wrong time variable" begin
+        ocp_s = @def begin
+            s ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R, control
+            ẋ(s) == u(s)
+            ∫(u(s)^2) → min
+        end
+
+        # Capture error message when using wrong time variable
+        err = nothing
+        try
+            Base.redirect_stdout(Base.devnull) do
+                @init ocp_s begin
+                    u(t) := t
+                end
+            end
+        catch e
+            err = e
+        end
+
+        @test err isa ErrorException
+        err_msg = sprint(showerror, err)
+        @test occursin("Incorrect time variable", err_msg)
+        @test occursin(":t", err_msg)
+        @test occursin("\"s\"", err_msg)
+        @test occursin(":s", err_msg)
+    end
 end
