@@ -98,6 +98,149 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Generate runtime code for a temporal specification `lhs(arg) := rhs`.
+
+This function produces the Julia expression that will be evaluated at runtime
+to determine whether the specification represents a time-dependent function
+or a time grid, based on whether `arg` matches `time_name(ocp)`.
+
+# Arguments
+
+- `pref::Symbol`: backend module prefix (e.g. `:CTModels`).
+- `ocp`: symbolic OCP variable passed from the macro.
+- `arg::Symbol`: argument symbol used in the specification (e.g. `:t`, `:s`, `:T`).
+- `rhs`: right-hand side expression.
+- `arg_in_rhs::Bool`: whether `arg` appears in `rhs` (computed at parse-time via `has`).
+
+# Returns
+
+- `val_sym::Symbol`: generated symbol to store the computed value.
+- `code::Expr`: expression block to insert in the generated code.
+
+# Notes
+
+When `arg_in_rhs` is `true`, the specification is definitely a time-dependent
+function, so we validate that `arg == Symbol(time_name(ocp))` and throw an
+error if not. When `arg_in_rhs` is `false`, we generate a runtime conditional
+that checks whether `arg` matches the time name to decide between a constant
+function or a time grid.
+"""
+function __gen_temporal_value(pref, ocp, arg, rhs, arg_in_rhs)
+    val_sym = __symgen(:init_val)
+    arg_quoted = QuoteNode(arg)
+
+    if arg_in_rhs
+        # arg appears in rhs → must be a time-dependent function
+        # Validate at runtime that arg matches time_name(ocp)
+        code = quote
+            let _expected = Symbol($pref.time_name($ocp))
+                if $arg_quoted != _expected
+                    error(
+                        "Incorrect time variable in @init: " *
+                        "used :" * string($arg_quoted) * " but time_name(ocp) is " *
+                        "\"" * $pref.time_name($ocp) * "\" " *
+                        "(expected :" * string(_expected) * "). " *
+                        "Please use :" * string(_expected) * " instead of :" * string($arg_quoted) * " " *
+                        "in your @init block."
+                    )
+                end
+            end
+            $val_sym = $arg -> $rhs
+        end
+    else
+        # arg does NOT appear in rhs → ambiguous
+        # Runtime check: if arg matches time_name → constant function, else → grid
+        code = quote
+            $val_sym = if Symbol($pref.time_name($ocp)) == $arg_quoted
+                $arg -> $rhs          # constant time function
+            else
+                ($arg, $rhs)          # time grid
+            end
+        end
+    end
+
+    return val_sym, code
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Generate runtime code for a single initialisation specification.
+
+This function dispatches based on the specification kind (`:constant` or
+`:temporal`) and delegates to the appropriate code generator.
+
+# Arguments
+
+- `pref::Symbol`: backend module prefix.
+- `ocp`: symbolic OCP variable.
+- `spec::Tuple`: specification tuple, either `(:constant, rhs)` or
+  `(:temporal, arg, rhs, arg_in_rhs)`.
+
+# Returns
+
+- `val_sym::Symbol`: generated symbol to store the value.
+- `code::Expr`: expression to insert in the generated code.
+"""
+function __gen_spec_value(pref, ocp, spec)
+    kind = spec[1]
+    if kind == :constant
+        rhs = spec[2]
+        val_sym = __symgen(:init_val)
+        code = :($val_sym = $rhs)
+        return val_sym, code
+    elseif kind == :temporal
+        arg, rhs, arg_in_rhs = spec[2], spec[3], spec[4]
+        return __gen_temporal_value(pref, ocp, arg, rhs, arg_in_rhs)
+    else
+        error("Unknown spec kind: $kind")
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Format a single initialisation specification for logging.
+
+This function produces a human-readable string representation of a
+specification, used when `log = true` is passed to `@init`.
+
+# Arguments
+
+- `key::Symbol`: component name (e.g. `:u`, `:x`).
+- `spec::Tuple`: specification tuple.
+
+# Returns
+
+- `String`: formatted string like `"u = t -> sin(t)"` or `"x = 1.0"`.
+"""
+function __log_spec(key, spec)
+    kind = spec[1]
+    if kind == :constant
+        rhs = spec[2]
+        rhs_str = if rhs isa Expr
+            sprint(Base.show_unquoted, Base.remove_linenums!(deepcopy(rhs)))
+        else
+            sprint(show, rhs)
+        end
+        return string(key, " = ", rhs_str)
+    elseif kind == :temporal
+        arg, rhs = spec[2], spec[3]
+        rhs_clean = if rhs isa Expr
+            Base.remove_linenums!(deepcopy(rhs))
+        else
+            rhs
+        end
+        rhs_str = sprint(Base.show_unquoted, rhs_clean)
+        return string(key, " = ", arg, " -> ", rhs_str)
+    else
+        return string(key, " = ???")
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Internal helper that parses the body of an `@init` block.
 
 The function walks through the expression `ex` and splits it into
@@ -105,12 +248,19 @@ The function walks through the expression `ex` and splits it into
 - *alias statements*, which are left as ordinary Julia assignments and
   executed verbatim inside the generated block;
 - *initialisation specifications* of the form `lhs := rhs` or
-  `lhs(t) := rhs` / `lhs(T) := rhs`, which are converted into keys and
-  values used to build a `NamedTuple`.
+  `lhs(arg) := rhs`, which are converted into structured specification
+  tuples.
+
+For expressions of the form `lhs(arg) := rhs`, this function uses `has(rhs, arg)`
+to determine whether `arg` appears in the right-hand side. This information
+is stored in the specification tuple and used later to generate appropriate
+runtime code that distinguishes time-dependent functions from time grids.
 
 # Arguments
 
 - `ex::Any`: expression or block coming from the body of `@init`.
+- `lnum::Int`: line number for error reporting.
+- `line_str::String`: line string for error reporting.
 
 # Returns
 
@@ -118,13 +268,14 @@ The function walks through the expression `ex` and splits it into
   building the initial guess.
 - `keys::Vector{Symbol}`: names of the components being initialised
   (e.g. `:q`, `:v`, `:u`, `:tf`).
-- `vals::Vector{Any}`: expressions representing the corresponding
-  values, functions or `(T, data)` pairs.
+- `specs::Vector{Tuple}`: specification tuples, either `(:constant, rhs)`
+  for constant values or `(:temporal, arg, rhs, arg_in_rhs)` for temporal
+  specifications where `arg_in_rhs` indicates whether `arg` appears in `rhs`.
 """
-function _collect_init_specs(ex)
+function _collect_init_specs(ex, lnum::Int, line_str::String)
     alias_stmts = Expr[]           # statements of the form a = ... or other Julia statements
     keys = Symbol[]                # keys of the NamedTuple (q, v, x, u, tf, ...)
-    vals = Any[]                   # expressions for the associated values
+    specs = Tuple[]                # specification tuples
 
     stmts = if ex isa Expr && ex.head == :block
         ex.args
@@ -141,25 +292,24 @@ function _collect_init_specs(ex)
                 push!(alias_stmts, st)
             end
 
-            # Forms q(t) := rhs (time-dependent function) or q(T) := rhs (time grid)
+            # Forms q(arg) := rhs
+            # Use has(rhs, arg) to determine if arg appears in rhs
             :($lhs($arg) := $rhs) => begin
                 lhs isa Symbol || error("Unsupported left-hand side in @init: $lhs")
-                if arg == :t
-                    # q(t) := rhs → time-dependent function
-                    push!(keys, lhs)
-                    push!(vals, :($arg -> $rhs))
-                else
-                    # q(T) := rhs → (T, rhs) for build_initial_guess
-                    push!(keys, lhs)
-                    push!(vals, :(($arg, $rhs)))
-                end
+                arg isa Symbol || error("Unsupported argument in @init: $arg must be a symbol")
+                
+                # Check if arg appears in rhs using has() from utils.jl
+                arg_in_rhs = has(rhs, arg)
+                
+                push!(keys, lhs)
+                push!(specs, (:temporal, arg, rhs, arg_in_rhs))
             end
 
             # Constant / variable form: lhs := rhs
             :($lhs := $rhs) => begin
                 lhs isa Symbol || error("Unsupported left-hand side in @init: $lhs")
                 push!(keys, lhs)
-                push!(vals, rhs)
+                push!(specs, (:constant, rhs))
             end
 
             # Fallback: any other line is treated as an ordinary Julia statement
@@ -169,7 +319,7 @@ function _collect_init_specs(ex)
         end
     end
 
-    return alias_stmts, keys, vals
+    return alias_stmts, keys, specs
 end
 
 """
@@ -191,6 +341,8 @@ macro level.
 
 - `ocp`: symbolic optimal control problem built with `@def`.
 - `e`: expression corresponding to the body of the `@init` block.
+- `lnum::Int`: line number for error reporting.
+- `line_str::String`: line string for error reporting.
 
 # Returns
 
@@ -199,8 +351,8 @@ macro level.
 - `code_expr::Expr`: block of Julia code that builds and validates the
   initial guess when executed.
 """
-function init_fun(ocp, e)
-    alias_stmts, keys, vals = _collect_init_specs(e)
+function init_fun(ocp, e, lnum::Int, line_str::String)
+    alias_stmts, keys, specs = _collect_init_specs(e, lnum, line_str)
     pref = init_prefix()
 
     # If there is no init specification, delegate to build_initial_guess/validate_initial_guess
@@ -215,47 +367,30 @@ function init_fun(ocp, e)
         return log_str, code_expr
     end
 
-    # Build the NamedTuple type and its values for execution
-    key_nodes = [QuoteNode(k) for k in keys]
-    keys_tuple = Expr(:tuple, key_nodes...)
-    vals_tuple = Expr(:tuple, vals...)
-    nt_expr = :(NamedTuple{$keys_tuple}($vals_tuple))
-
+    # Generate runtime code for each specification
     body_stmts = Any[]
     append!(body_stmts, alias_stmts)
+
+    val_syms = Symbol[]
+    for spec in specs
+        val_sym, code = __gen_spec_value(pref, ocp, spec)
+        push!(val_syms, val_sym)
+        push!(body_stmts, code)
+    end
+
+    # Build the NamedTuple with the generated value symbols
+    key_nodes = [QuoteNode(k) for k in keys]
+    keys_tuple = Expr(:tuple, key_nodes...)
+    vals_tuple = Expr(:tuple, val_syms...)
+    nt_expr = :(NamedTuple{$keys_tuple}($vals_tuple))
+
     build_call = :($pref.build_initial_guess($ocp, $nt_expr))
     validate_call = :($pref.validate_initial_guess($ocp, $build_call))
     push!(body_stmts, validate_call)
     code_expr = Expr(:block, body_stmts...)
 
-    # Build a pretty NamedTuple-like string for logging, of the form (q = ..., v = ..., ...)
-    pairs_str = String[]
-    for (k, v) in zip(keys, vals)
-        vc = v
-        if vc isa Expr
-            # Remove LineNumberNode noise and print without leading :( ... ) wrapper
-            vc_clean = Base.remove_linenums!(deepcopy(vc))
-            if vc_clean.head == :-> && length(vc_clean.args) == 2
-                arg_expr, body_expr = vc_clean.args
-                # Simplify body: strip trivial `begin ... end` with a single non-LineNumberNode expression
-                body_clean = body_expr
-                if body_clean isa Expr && body_clean.head == :block
-                    filtered = [x for x in body_clean.args if !(x isa LineNumberNode)]
-                    if length(filtered) == 1
-                        body_clean = filtered[1]
-                    end
-                end
-                lhs_str = sprint(Base.show_unquoted, arg_expr)
-                rhs_body_str = sprint(Base.show_unquoted, body_clean)
-                rhs_str = string(lhs_str, " -> ", rhs_body_str)
-            else
-                rhs_str = sprint(Base.show_unquoted, vc_clean)
-            end
-        else
-            rhs_str = sprint(show, vc)
-        end
-        push!(pairs_str, string(k, " = ", rhs_str))
-    end
+    # Build log string using __log_spec helper
+    pairs_str = [__log_spec(k, s) for (k, s) in zip(keys, specs)]
     log_str = if length(pairs_str) == 1
         string("(", pairs_str[1], ",)")
     else
@@ -349,22 +484,25 @@ macro init(ocp, e, rest...)
         if opt isa Expr && opt.head == :(=) && opt.args[1] == :log
             log_expr = opt.args[2]
         else
-            error(
-                "Unsupported trailing argument in @init. Use `log = true` or `log = false`."
+            throw_expr = CTParser.__throw(
+                "Unsupported trailing argument in @init. Use `log = true` or `log = false`.",
+                lnum, line_str
             )
+            return esc(throw_expr)
         end
     elseif length(rest) > 1
-        error(
+        throw_expr = CTParser.__throw(
             "Too many trailing arguments in @init. Only a single `log = ...` keyword is supported.",
+            lnum, line_str
         )
+        return esc(throw_expr)
     end
 
     log_str, code = try
-        init_fun(ocp, e)
+        init_fun(ocp, e, lnum, line_str)
     catch err
-        # Treat unsupported DSL syntax as a static parsing error with proper line info.
-        if err isa ErrorException &&
-            occursin("Unsupported left-hand side in @init", err.msg)
+        # Catch any ErrorException from parsing and convert to __throw
+        if err isa ErrorException
             throw_expr = CTParser.__throw(err.msg, lnum, line_str)
             return esc(throw_expr)
         else
