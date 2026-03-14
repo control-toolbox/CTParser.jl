@@ -552,9 +552,7 @@ function test_onepass_fun_bis()
         # Test that p_constraint! correctly identifies invalid constraints
         # Mixed initial state and control: x1(0) * u1(t) + u2(t)^2 <= 1
         # This should result in constraint_type returning :other
-        ex = CTParser.p_constraint!(
-            p, p_ocp, nothing, :(x[1](0) * u[1](t) + u[2](t)^2), 1
-        )
+        ex = CTParser.p_constraint!(p, p_ocp, nothing, :(x[1](0) * u[1](t) + u[2](t)^2), 1)
         @test ex isa Expr
         @test_throws ParsingError eval(ex)
 

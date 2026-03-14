@@ -703,15 +703,15 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = replace_call(e2, p.x, p.t0, x0)
             e2 = replace_call(e2, p.x, p.tf, xf)
             e2 = subs2(e2, x0, p.x, 0)
-            e2 = subs(e2, x0, :([$(p.x)[$k, 0] for $k ∈ 1:$(p.dim_x)]))
+            e2 = subs(e2, x0, :([$(p.x)[$k, 0] for $k in 1:($(p.dim_x))]))
             e2 = subs2(e2, xf, p.x, :grid_size)
-            e2 = subs(e2, xf, :([$(p.x)[$k, grid_size] for $k ∈ 1:$(p.dim_x)]))
+            e2 = subs(e2, xf, :([$(p.x)[$k, grid_size] for $k in 1:($(p.dim_x))]))
             quote
                 length($e1) == length($e3) || throw("wrong bound dimension") # (vs. __throw) since raised at runtime
                 if length($e1) == 1
                     $pref.constraint($p_ocp, $e2; lcon=($e1[1]), ucon=($e3[1])) # todo: add _denull
                 else
-                    for $l ∈ 1:length($e1)
+                    for $l in 1:length($e1)
                         $pref.constraint($p_ocp, $e2[$l]; lcon=($e1[$l]), ucon=($e3[$l])) # todo: add _denull
                     end
                 end
@@ -815,17 +815,24 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             l = __symgen(:l)
             e2 = replace_call(e2, [p.x, p.u], p.t, [xt, ut])
             e2 = subs2(e2, xt, p.x, j)
-            e2 = subs(e2, xt, :([$(p.x)[$k, $j] for $k ∈ 1:$(p.dim_x)]))
+            e2 = subs(e2, xt, :([$(p.x)[$k, $j] for $k in 1:($(p.dim_x))]))
             e2 = subs2(e2, ut, p.u, j)
-            e2 = subs(e2, ut, :([$(p.u)[$k, $j] for $k ∈ 1:$(p.dim_u)]))
+            e2 = subs(e2, ut, :([$(p.u)[$k, $j] for $k in 1:($(p.dim_u))]))
             e2 = subs(e2, p.t, :($(p.t0) + $j * $(p.dt)))
             quote
                 length($e1) == length($e3) || throw("wrong bound dimension") # (vs. __throw) since raised at runtime
                 if length($e1) == 1
-                    $pref.constraint($p_ocp, $e2 for $j in 0:grid_size; lcon=($e1[1]), ucon=($e3[1])) # todo: add _denull
+                    $pref.constraint(
+                        $p_ocp, $e2 for $j in 0:grid_size; lcon=($e1[1]), ucon=($e3[1])
+                    ) # todo: add _denull
                 else
-                    for $l ∈ 1:length($e1)
-                        $pref.constraint($p_ocp, $e2[$l] for $j in 0:grid_size; lcon=($e1[$l]), ucon=($e3[$l])) # todo: add _denull
+                    for $l in 1:length($e1)
+                        $pref.constraint(
+                            $p_ocp,
+                            $e2[$l] for $j in 0:grid_size;
+                            lcon=($e1[$l]),
+                            ucon=($e3[$l]),
+                        ) # todo: add _denull
                     end
                 end
             end
@@ -882,33 +889,47 @@ function p_dynamics_exa!(p, p_ocp, x, t, e)
     j12 = :($j1 + 0.5)
     k = __symgen(:k)
     ej1 = subs2(e, xt, p.x, j1)
-    ej1 = subs(ej1, xt, :([$(p.x)[$k, $j1] for $k ∈ 1:$(p.dim_x)]))
+    ej1 = subs(ej1, xt, :([$(p.x)[$k, $j1] for $k in 1:($(p.dim_x))]))
     ej1 = subs2(ej1, ut, p.u, j1)
-    ej1 = subs(ej1, ut, :([$(p.u)[$k, $j1] for $k ∈ 1:$(p.dim_u)]))
+    ej1 = subs(ej1, ut, :([$(p.u)[$k, $j1] for $k in 1:($(p.dim_u))]))
     ej1 = subs(ej1, p.t, :($(p.t0) + $j1 * $(p.dt)))
     ej2 = subs2(e, xt, p.x, j2)
-    ej2 = subs(ej2, xt, :([$(p.x)[$k, $j2] for $k ∈ 1:$(p.dim_x)]))
+    ej2 = subs(ej2, xt, :([$(p.x)[$k, $j2] for $k in 1:($(p.dim_x))]))
     ej2 = subs2(ej2, ut, p.u, j2)
-    ej2 = subs(ej2, ut, :([$(p.u)[$k, $j2] for $k ∈ 1:$(p.dim_u)]))
+    ej2 = subs(ej2, ut, :([$(p.u)[$k, $j2] for $k in 1:($(p.dim_u))]))
     ej2 = subs(ej2, p.t, :($(p.t0) + $j2 * $(p.dt)))
     ej12 = subs2m(e, xt, p.x, j1)
-    ej12 = subs(ej12, xt, :([(($(p.x)[$k, $j1] + $(p.x)[$k, $j1 + 1]) / 2) for $k ∈ 1:$(p.dim_x)]))
+    ej12 = subs(
+        ej12, xt, :([(($(p.x)[$k, $j1] + $(p.x)[$k, $j1 + 1]) / 2) for $k in 1:($(p.dim_x))
+    ])
+    )
     ej12 = subs2(ej12, ut, p.u, j1)
-    ej12 = subs(ej12, ut, :([$(p.u)[$k, $j1] for $k ∈ 1:$(p.dim_u)]))
+    ej12 = subs(ej12, ut, :([$(p.u)[$k, $j1] for $k in 1:($(p.dim_u))]))
     ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
-    dxj = :([$(p.x)[$k, $j2] - $(p.x)[$k, $j1] for $k ∈ 1:$(p.dim_x)])
+    dxj = :([$(p.x)[$k, $j2] - $(p.x)[$k, $j1] for $k in 1:($(p.dim_x))])
     i = __symgen(:i)
     code = quote
-        for $i ∈ 1:$(p.dim_x)
+        for $i in 1:($(p.dim_x))
             $(p.dyn_con)[$i] = if scheme == :euler # dyn_con already defined outside try catch
-                $pref.constraint($p_ocp, $dxj[$i] - $(p.dt) * $ej1[$i] for $j1 in 0:grid_size-1) # todo: add _denull
+                $pref.constraint(
+                    $p_ocp,
+                    $dxj[$i] - $(p.dt) * $ej1[$i] for $j1 in 0:(grid_size - 1)
+                ) # todo: add _denull
             elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
-                $pref.constraint($p_ocp, $dxj[$i] - $(p.dt) * $ej2[$i] for $j1 in 0:grid_size-1) # todo: add _denull
+                $pref.constraint(
+                    $p_ocp,
+                    $dxj[$i] - $(p.dt) * $ej2[$i] for $j1 in 0:(grid_size - 1)
+                ) # todo: add _denull
             elseif scheme == :midpoint
-                $pref.constraint($p_ocp, $dxj[$i] - $(p.dt) * $ej12[$i] for $j1 in 0:grid_size-1) # todo: add _denull
+                $pref.constraint(
+                    $p_ocp,
+                    $dxj[$i] - $(p.dt) * $ej12[$i] for $j1 in 0:(grid_size - 1)
+                ) # todo: add _denull
             elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
                 $pref.constraint(
-                    $p_ocp, $dxj[$i] - $(p.dt) * ($ej1[$i] + $ej2[$i]) / 2 for $j1 in 0:grid_size-1 # todo: add _denull
+                    $p_ocp,
+                    $dxj[$i] - $(p.dt) * ($ej1[$i] + $ej2[$i]) / 2 for
+                    $j1 in 0:(grid_size - 1) # todo: add _denull
                 )
             else
                 throw(
@@ -962,7 +983,8 @@ end
 
 function p_dynamics_coord_exa!(p, p_ocp, x, i::Integer, t, e) # todo: also also add coord = range for :exa
     pref = prefix_exa()
-    i ∈ p.dyn_coords && return __throw("dynamics coordinate $i already defined", p.lnum, p.line)
+    i ∈ p.dyn_coords &&
+        return __throw("dynamics coordinate $i already defined", p.lnum, p.line)
     append!(p.dyn_coords, i)
     xt = __symgen(:xt)
     ut = __symgen(:ut)
@@ -972,31 +994,35 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i::Integer, t, e) # todo: also also 
     j12 = :($j1 + 0.5)
     k = __symgen(:k)
     ej1 = subs2(e, xt, p.x, j1)
-    ej1 = subs(ej1, xt, :([$(p.x)[$k, $j1] for $k ∈ 1:$(p.dim_x)]))
+    ej1 = subs(ej1, xt, :([$(p.x)[$k, $j1] for $k in 1:($(p.dim_x))]))
     ej1 = subs2(ej1, ut, p.u, j1)
-    ej1 = subs(ej1, ut, :([$(p.u)[$k, $j1] for $k ∈ 1:$(p.dim_u)]))
+    ej1 = subs(ej1, ut, :([$(p.u)[$k, $j1] for $k in 1:($(p.dim_u))]))
     ej1 = subs(ej1, p.t, :($(p.t0) + $j1 * $(p.dt)))
     ej2 = subs2(e, xt, p.x, j2)
-    ej2 = subs(ej2, xt, :([$(p.x)[$k, $j2] for $k ∈ 1:$(p.dim_x)]))
+    ej2 = subs(ej2, xt, :([$(p.x)[$k, $j2] for $k in 1:($(p.dim_x))]))
     ej2 = subs2(ej2, ut, p.u, j2)
-    ej2 = subs(ej2, ut, :([$(p.u)[$k, $j2] for $k ∈ 1:$(p.dim_u)]))
+    ej2 = subs(ej2, ut, :([$(p.u)[$k, $j2] for $k in 1:($(p.dim_u))]))
     ej2 = subs(ej2, p.t, :($(p.t0) + $j2 * $(p.dt)))
     ej12 = subs2m(e, xt, p.x, j1)
-    ej12 = subs(ej12, xt, :([(($(p.x)[$k, $j1] + $(p.x)[$k, $j1 + 1]) / 2) for $k ∈ 1:$(p.dim_x)]))
+    ej12 = subs(
+        ej12, xt, :([(($(p.x)[$k, $j1] + $(p.x)[$k, $j1 + 1]) / 2) for $k in 1:($(p.dim_x))
+    ])
+    )
     ej12 = subs2(ej12, ut, p.u, j1)
-    ej12 = subs(ej12, ut, :([$(p.u)[$k, $j1] for $k ∈ 1:$(p.dim_u)]))
+    ej12 = subs(ej12, ut, :([$(p.u)[$k, $j1] for $k in 1:($(p.dim_u))]))
     ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
     dxij = :($(p.x)[$i, $j2] - $(p.x)[$i, $j1])
     code = quote
         $(p.dyn_con)[$i] = if scheme == :euler # dyn_con already defined outside try catch
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 in 0:grid_size-1) # todo: add _denull
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1)) # todo: add _denull
         elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 in 0:grid_size-1) # todo: add _denull
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 in 0:(grid_size - 1)) # todo: add _denull
         elseif scheme == :midpoint
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 in 0:grid_size-1) # todo: add _denull
+            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1)) # todo: add _denull
         elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
             $pref.constraint(
-                $p_ocp, $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 in 0:grid_size-1 # todo: add _denull
+                $p_ocp,
+                $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 in 0:(grid_size - 1) # todo: add _denull
             )
         else
             throw(
@@ -1046,25 +1072,28 @@ function p_lagrange_exa!(p, p_ocp, e, type)
     j12 = :($j1 + 0.5)
     k = __symgen(:k)
     ej1 = subs2(e, xt, p.x, j1)
-    ej1 = subs(ej1, xt, :([$(p.x)[$k, $j1] for $k ∈ 1:$(p.dim_x)]))
+    ej1 = subs(ej1, xt, :([$(p.x)[$k, $j1] for $k in 1:($(p.dim_x))]))
     ej1 = subs2(ej1, ut, p.u, j1)
-    ej1 = subs(ej1, ut, :([$(p.u)[$k, $j1] for $k ∈ 1:$(p.dim_u)]))
+    ej1 = subs(ej1, ut, :([$(p.u)[$k, $j1] for $k in 1:($(p.dim_u))]))
     ej1 = subs(ej1, p.t, :($(p.t0) + $j1 * $(p.dt)))
     ej12 = subs2m(e, xt, p.x, j1)
-    ej12 = subs(ej12, xt, :([(($(p.x)[$k, $j1] + $(p.x)[$k, $j1 + 1]) / 2) for $k ∈ 1:$(p.dim_x)]))
+    ej12 = subs(
+        ej12, xt, :([(($(p.x)[$k, $j1] + $(p.x)[$k, $j1 + 1]) / 2) for $k in 1:($(p.dim_x))
+    ])
+    )
     ej12 = subs2(ej12, ut, p.u, j1)
-    ej12 = subs(ej12, ut, :([$(p.u)[$k, $j1] for $k ∈ 1:$(p.dim_u)]))
+    ej12 = subs(ej12, ut, :([$(p.u)[$k, $j1] for $k in 1:($(p.dim_u))]))
     ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
     code = quote
         if scheme == :euler
-            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 0:grid_size-1) # todo: add _denull
+            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1)) # todo: add _denull
         elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
             $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size) # todo: add _denull
         elseif scheme == :midpoint
-            $pref.objective($p_ocp, $(p.dt) * $ej12 for $j1 in 0:grid_size-1) # todo: add _denull
+            $pref.objective($p_ocp, $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1)) # todo: add _denull
         elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
             $pref.objective($p_ocp, $(p.dt) * $ej1 / 2 for $j1 in (0, grid_size)) # todo: add _denull
-            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size-1) # todo: add _denull
+            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:(grid_size - 1)) # todo: add _denull
         else
             throw(
                 "unknown numerical scheme: $scheme (possible choices are :euler, :euler_implicit, :midpoint, :trapeze)",
@@ -1114,9 +1143,9 @@ function p_mayer_exa!(p, p_ocp, e, type)
     e = replace_call(e, p.x, p.t0, x0)
     e = replace_call(e, p.x, p.tf, xf)
     e = subs2(e, x0, p.x, 0)
-    e = subs(e, x0, :([$(p.x)[$k, 0] for $k ∈ 1:$(p.dim_x)]))
+    e = subs(e, x0, :([$(p.x)[$k, 0] for $k in 1:($(p.dim_x))]))
     e = subs2(e, xf, p.x, :grid_size)
-    e = subs(e, xf, :([$(p.x)[$k, grid_size] for $k ∈ 1:$(p.dim_x)]))
+    e = subs(e, xf, :([$(p.x)[$k, grid_size] for $k in 1:($(p.dim_x))]))
     # now, x[i](t0) has been replaced by x[i, 0] and x[i](tf) by x[i, grid_size]
     code = :($pref.objective($p_ocp, $e)) # todo: add _denull
     return __wrap(code, p.lnum, p.line)
@@ -1370,9 +1399,12 @@ function def_exa(e; log=false)
     p = ParsingInfo()
     code = parse!(p, p_ocp, e; log=log, backend=:exa)
     dyn_check = quote
-        !$p.is_global_dyn && !$p.is_coord_dyn && throw($e_pref.ParsingError("dynamics not defined")) # not $(p.xxxx) as these infos are known statically
+        !$p.is_global_dyn &&
+            !$p.is_coord_dyn &&
+            throw($e_pref.ParsingError("dynamics not defined")) # not $(p.xxxx) as these infos are known statically
         if $p.is_coord_dyn # same: also known statically
-            sort($(p.dyn_coords)) == 1:($(p.dim_x)) || throw($e_pref.ParsingError("some coordinates of dynamics undefined"))
+            sort($(p.dyn_coords)) == 1:($(p.dim_x)) ||
+                throw($e_pref.ParsingError("some coordinates of dynamics undefined"))
         end
     end
     default_scheme = QuoteNode(__default_scheme_exa())
@@ -1434,7 +1466,9 @@ function def_exa(e; log=false)
             $(p.box_u) # lvar and uvar for control
             $(p.box_v) # lvar and uvar for variable (after x and u for compatibility with CTDirect)
             $p_ocp = $pref.ExaCore(
-                base_type; backend=backend, minimize=($p.criterion == :min) # not $(p.xxxx) as this info is known statically
+                base_type;
+                backend=backend,
+                minimize=($p.criterion == :min), # not $(p.xxxx) as this info is known statically
             )
             # _denull(e) = e # todo
             # _denull(e::$pref.Null{T}) where {T<:Real} = e.value # todo: Null must be imported by OC.jl
