@@ -137,11 +137,21 @@ function __gen_temporal_value(pref, ocp, arg, rhs, arg_in_rhs)
                 if $arg_quoted != _expected
                     error(
                         "Incorrect time variable in @init: " *
-                        "used :" * string($arg_quoted) * " but time_name(ocp) is " *
-                        "\"" * $pref.time_name($ocp) * "\" " *
-                        "(expected :" * string(_expected) * "). " *
-                        "Please use :" * string(_expected) * " instead of :" * string($arg_quoted) * " " *
-                        "in your @init block."
+                        "used :" *
+                        string($arg_quoted) *
+                        " but time_name(ocp) is " *
+                        "\"" *
+                        $pref.time_name($ocp) *
+                        "\" " *
+                        "(expected :" *
+                        string(_expected) *
+                        "). " *
+                        "Please use :" *
+                        string(_expected) *
+                        " instead of :" *
+                        string($arg_quoted) *
+                        " " *
+                        "in your @init block.",
                     )
                 end
             end
@@ -296,11 +306,12 @@ function _collect_init_specs(ex, lnum::Int, line_str::String)
             # Use has(rhs, arg) to determine if arg appears in rhs
             :($lhs($arg) := $rhs) => begin
                 lhs isa Symbol || error("Unsupported left-hand side in @init: $lhs")
-                arg isa Symbol || error("Unsupported argument in @init: $arg must be a symbol")
-                
+                arg isa Symbol ||
+                    error("Unsupported argument in @init: $arg must be a symbol")
+
                 # Check if arg appears in rhs using has() from utils.jl
                 arg_in_rhs = has(rhs, arg)
-                
+
                 push!(keys, lhs)
                 push!(specs, (:temporal, arg, rhs, arg_in_rhs))
             end
@@ -486,14 +497,16 @@ macro init(ocp, e, rest...)
         else
             throw_expr = CTParser.__throw(
                 "Unsupported trailing argument in @init. Use `log = true` or `log = false`.",
-                lnum, line_str
+                lnum,
+                line_str,
             )
             return esc(throw_expr)
         end
     elseif length(rest) > 1
         throw_expr = CTParser.__throw(
             "Too many trailing arguments in @init. Only a single `log = ...` keyword is supported.",
-            lnum, line_str
+            lnum,
+            line_str,
         )
         return esc(throw_expr)
     end

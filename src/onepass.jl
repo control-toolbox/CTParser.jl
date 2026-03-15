@@ -900,8 +900,9 @@ function p_dynamics_exa!(p, p_ocp, x, t, e)
     ej2 = subs(ej2, p.t, :($(p.t0) + $j2 * $(p.dt)))
     ej12 = subs2m(e, xt, p.x, j1)
     ej12 = subs(
-        ej12, xt, :([(($(p.x)[$k, $j1] + $(p.x)[$k, $j1 + 1]) / 2) for $k in 1:($(p.dim_x))
-    ])
+        ej12,
+        xt,
+        :([(($(p.x)[$k, $j1] + $(p.x)[$k, $j1 + 1]) / 2) for $k in 1:($(p.dim_x))]),
     )
     ej12 = subs2(ej12, ut, p.u, j1)
     ej12 = subs(ej12, ut, :([$(p.u)[$k, $j1] for $k in 1:($(p.dim_u))]))
@@ -1005,8 +1006,9 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i::Integer, t, e) # todo: also also 
     ej2 = subs(ej2, p.t, :($(p.t0) + $j2 * $(p.dt)))
     ej12 = subs2m(e, xt, p.x, j1)
     ej12 = subs(
-        ej12, xt, :([(($(p.x)[$k, $j1] + $(p.x)[$k, $j1 + 1]) / 2) for $k in 1:($(p.dim_x))
-    ])
+        ej12,
+        xt,
+        :([(($(p.x)[$k, $j1] + $(p.x)[$k, $j1 + 1]) / 2) for $k in 1:($(p.dim_x))]),
     )
     ej12 = subs2(ej12, ut, p.u, j1)
     ej12 = subs(ej12, ut, :([$(p.u)[$k, $j1] for $k in 1:($(p.dim_u))]))
@@ -1078,8 +1080,9 @@ function p_lagrange_exa!(p, p_ocp, e, type)
     ej1 = subs(ej1, p.t, :($(p.t0) + $j1 * $(p.dt)))
     ej12 = subs2m(e, xt, p.x, j1)
     ej12 = subs(
-        ej12, xt, :([(($(p.x)[$k, $j1] + $(p.x)[$k, $j1 + 1]) / 2) for $k in 1:($(p.dim_x))
-    ])
+        ej12,
+        xt,
+        :([(($(p.x)[$k, $j1] + $(p.x)[$k, $j1 + 1]) / 2) for $k in 1:($(p.dim_x))]),
     )
     ej12 = subs2(ej12, ut, p.u, j1)
     ej12 = subs(ej12, ut, :([$(p.u)[$k, $j1] for $k in 1:($(p.dim_u))]))
