@@ -692,4 +692,155 @@ function test_initial_guess() # debug
         @test occursin("\"s\"", err_msg)
         @test occursin(":s", err_msg)
     end
+
+    @testset "time-dependent alias (phi = 2pi * t)" begin
+        ocp_circle = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R², control
+            x(0) == [0, 0]
+            x(1) == [1, 1]
+            ẋ(t) == u(t)
+            ∫(u(t)' * u(t)) → min
+        end
+
+        ig = @init ocp_circle begin
+            phi = 2π * t  # Alias depending on time variable
+            u(t) := [cos(phi), sin(phi)]
+        end
+
+        @test ig isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_circle, ig)
+
+        ufun = CTModels.control(ig)
+        u0 = ufun(0.0)
+        u1 = ufun(0.5)
+
+        @test u0[1] ≈ cos(0.0)
+        @test u0[2] ≈ sin(0.0)
+        @test u1[1] ≈ cos(π)
+        @test u1[2] ≈ sin(π) atol=1e-10
+    end
+
+    @testset "time variable substitution (s = t)" begin
+        ocp_circle = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R², control
+            x(0) == [0, 0]
+            x(1) == [1, 1]
+            ẋ(t) == u(t)
+            ∫(u(t)' * u(t)) → min
+        end
+
+        ig = @init ocp_circle begin
+            s = t  # Alias for time variable
+            u(s) := [cos(s), sin(s)]
+        end
+
+        @test ig isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_circle, ig)
+
+        ufun = CTModels.control(ig)
+        u0 = ufun(0.0)
+        u1 = ufun(0.5)
+
+        @test u0[1] ≈ cos(0.0)
+        @test u0[2] ≈ sin(0.0)
+        @test u1[1] ≈ cos(0.5)
+        @test u1[2] ≈ sin(0.5)
+    end
+
+    @testset "grid aliases (T, X, U as local variables)" begin
+        ig = @init ocp_fixed begin
+            T = [0.0, 0.5, 1.0]
+            X = [[-1.0, 0.0], [0.0, 0.5], [0.0, 0.0]]
+            U = [0.0, 0.0, 1.0]
+            x(T) := X
+            u(T) := U
+        end
+
+        @test ig isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_fixed, ig)
+
+        xfun = CTModels.state(ig)
+        ufun = CTModels.control(ig)
+
+        x0 = xfun(0.0)
+        x1 = xfun(1.0)
+        u0 = ufun(0.0)
+        u1 = ufun(1.0)
+
+        @test x0[1] ≈ -1.0
+        @test x0[2] ≈ 0.0
+        @test x1[1] ≈ 0.0
+        @test x1[2] ≈ 0.0
+        @test u0 ≈ 0.0
+        @test u1 ≈ 1.0
+    end
+
+    @testset "accumulated aliases (a = t, s = a)" begin
+        ocp_circle = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R², control
+            x(0) == [0, 0]
+            x(1) == [1, 1]
+            ẋ(t) == u(t)
+            ∫(u(t)' * u(t)) → min
+        end
+
+        ig = @init ocp_circle begin
+            a = t
+            s = a
+            u(s) := [cos(s), sin(s)]
+        end
+
+        @test ig isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_circle, ig)
+
+        ufun = CTModels.control(ig)
+        u0 = ufun(0.0)
+        u1 = ufun(0.5)
+
+        @test u0[1] ≈ cos(0.0)
+        @test u0[2] ≈ sin(0.0)
+        @test u1[1] ≈ cos(0.5)
+        @test u1[2] ≈ sin(0.5)
+    end
+
+    @testset "grid aliases with literal arrays" begin
+        ig = @init ocp_fixed begin
+            X = [[-1.0, 0.0], [0.0, 0.5], [0.0, 0.0]]
+            U = [0.0, 0.0, 1.0]
+            x([0.0, 0.5, 1.0]) := X
+            u([0.0, 0.5, 1.0]) := U
+        end
+
+        @test ig isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_fixed, ig)
+
+        xfun = CTModels.state(ig)
+        ufun = CTModels.control(ig)
+
+        x0 = xfun(0.0)
+        x1 = xfun(1.0)
+        u0 = ufun(0.0)
+        u1 = ufun(1.0)
+
+        @test x0[1] ≈ -1.0
+        @test x0[2] ≈ 0.0
+        @test x1[1] ≈ 0.0
+        @test x1[2] ≈ 0.0
+        @test u0 ≈ 0.0
+        @test u1 ≈ 1.0
+    end
+
+    @testset "strict mode: unrecognized statement error" begin
+        @test_throws CTBase.ParsingError Base.redirect_stdout(Base.devnull) do
+            @init ocp_fixed begin
+                println("This should fail")
+            end
+        end
+    end
 end
