@@ -130,14 +130,14 @@ function or a time grid.
 """
 function __gen_temporal_value(pref, ocp, arg, rhs, arg_in_rhs)
     val_sym = __symgen(:init_val)
-    
+
     # Early return: if arg is not a Symbol (e.g., literal array after alias expansion),
     # it's always a grid specification
     if !(arg isa Symbol)
         code = :($val_sym = ($arg, $rhs))
         return val_sym, code
     end
-    
+
     arg_quoted = QuoteNode(arg)
 
     if arg_in_rhs
@@ -148,11 +148,21 @@ function __gen_temporal_value(pref, ocp, arg, rhs, arg_in_rhs)
                 if $arg_quoted != _expected
                     error(
                         "Incorrect time variable in @init: " *
-                        "used :" * string($arg_quoted) * " but time_name(ocp) is " *
-                        "\"" * $pref.time_name($ocp) * "\" " *
-                        "(expected :" * string(_expected) * "). " *
-                        "Please use :" * string(_expected) * " instead of :" * string($arg_quoted) * " " *
-                        "in your @init block."
+                        "used :" *
+                        string($arg_quoted) *
+                        " but time_name(ocp) is " *
+                        "\"" *
+                        $pref.time_name($ocp) *
+                        "\" " *
+                        "(expected :" *
+                        string(_expected) *
+                        "). " *
+                        "Please use :" *
+                        string(_expected) *
+                        " instead of :" *
+                        string($arg_quoted) *
+                        " " *
+                        "in your @init block.",
                     )
                 end
             end
@@ -243,7 +253,7 @@ function __log_spec(key, spec)
             rhs
         end
         rhs_str = sprint(Base.show_unquoted, rhs_clean)
-        
+
         # If arg is not a Symbol (e.g., literal array after alias expansion),
         # format as grid specification
         if arg isa Symbol
@@ -294,7 +304,7 @@ time-dependent aliases like `phi = 2π * t` and accumulated aliases like
   specifications where `arg_in_rhs` indicates whether `arg` appears in `rhs`.
 """
 function _collect_init_specs(ex, lnum::Int, line_str::String)
-    aliases = OrderedCollections.OrderedDict{Union{Symbol,Expr}, Any}()
+    aliases = OrderedCollections.OrderedDict{Union{Symbol,Expr},Any}()
     keys = Symbol[]                # keys of the NamedTuple (q, v, x, u, tf, ...)
     specs = Tuple[]                # specification tuples
 
@@ -315,7 +325,9 @@ function _collect_init_specs(ex, lnum::Int, line_str::String)
         @match st begin
             # Alias: store for future substitution
             :($lhs = $rhs) => begin
-                lhs isa Symbol || error("Unsupported alias left-hand side in @init: $lhs (only Symbol allowed)")
+                lhs isa Symbol || error(
+                    "Unsupported alias left-hand side in @init: $lhs (only Symbol allowed)",
+                )
                 aliases[lhs] = rhs
             end
 
@@ -323,12 +335,12 @@ function _collect_init_specs(ex, lnum::Int, line_str::String)
             # After alias expansion, arg may be a Symbol or an Expr (literal grid)
             :($lhs($arg) := $rhs) => begin
                 lhs isa Symbol || error("Unsupported left-hand side in @init: $lhs")
-                
+
                 # Check if arg appears in rhs using has() from utils.jl
                 # Note: if arg is not a Symbol (e.g., after alias expansion to a literal array),
                 # has() will return false, which is correct for grid specifications
                 arg_in_rhs = (arg isa Symbol) && has(rhs, arg)
-                
+
                 push!(keys, lhs)
                 push!(specs, (:temporal, arg, rhs, arg_in_rhs))
             end
@@ -342,7 +354,9 @@ function _collect_init_specs(ex, lnum::Int, line_str::String)
 
             # Fallback: strict mode - reject unrecognized statements
             _ => begin
-                error("Unrecognized statement in @init block: $st. Only alias assignments (a = expr) and specifications (lhs := rhs or lhs(arg) := rhs) are allowed.")
+                error(
+                    "Unrecognized statement in @init block: $st. Only alias assignments (a = expr) and specifications (lhs := rhs or lhs(arg) := rhs) are allowed.",
+                )
             end
         end
     end
@@ -510,14 +524,16 @@ macro init(ocp, e, rest...)
         else
             throw_expr = CTParser.__throw(
                 "Unsupported trailing argument in @init. Use `log = true` or `log = false`.",
-                lnum, line_str
+                lnum,
+                line_str,
             )
             return esc(throw_expr)
         end
     elseif length(rest) > 1
         throw_expr = CTParser.__throw(
             "Too many trailing arguments in @init. Only a single `log = ...` keyword is supported.",
-            lnum, line_str
+            lnum,
+            line_str,
         )
         return esc(throw_expr)
     end
