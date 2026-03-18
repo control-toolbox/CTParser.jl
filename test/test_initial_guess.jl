@@ -644,7 +644,7 @@ function test_initial_guess() # debug
         ufun2 = CTModels.control(ig2)
         @test ufun2(0.0) ≈ 0.1
         @test ufun2(1.0) ≈ 0.1
-        
+
         # Time grids should work
         T = [0.0, 1.0, 2.0]
         X = [0.0, 0.5, 1.0]
