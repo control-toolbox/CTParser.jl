@@ -17,12 +17,22 @@ function test_control_zero()
     Test.@testset "Control Zero Dimension Tests" verbose=VERBOSE showtiming=SHOWTIMING begin
 
         # Build a Model without control
-        function get_model()
-            return CTParser.@def begin
-                t ∈ [0, 1], time
-                x ∈ R², state
-                ẋ(t) == [x₂(t), -x₁(t)]
-                x₁(1)^2 → min
+        function get_model(; variable=false)
+            if variable
+                return CTParser.@def begin
+                    v ∈ R, variable
+                    t ∈ [0, 1], time
+                    x ∈ R², state
+                    ẋ(t) == [x₂(t), -x₁(t)]
+                    x₁(1)^2 + v → min
+                end
+            else
+                return CTParser.@def begin
+                    t ∈ [0, 1], time
+                    x ∈ R², state
+                    ẋ(t) == [x₂(t), -x₁(t)]
+                    x₁(1)^2 → min
+                end
             end
         end
 
@@ -40,16 +50,95 @@ function test_control_zero()
 
         Test.@testset "build() - Model without control but with variable" begin
             # build a model with a variable
-            ov = CTParser.@def begin
-                v ∈ R, variable
-                t ∈ [0, 1], time
-                x ∈ R², state
-                ẋ(t) == [x₂(t), -x₁(t)]
-                x₁(1)^2 + v → min
-            end
+            ov = get_model(variable=true)
             Test.@test OCP.control_dimension(ov) == 0
             Test.@test OCP.variable_dimension(ov) == 1
             Test.@test OCP.state_dimension(ov) == 2
+        end
+
+        # ====================================================================
+        # UNIT TESTS - Declaration Order Validation
+        # ====================================================================
+
+        Test.@testset "Control declaration order validation" begin
+            # Control after dynamics should fail
+            Test.@test_throws Exceptions.ParsingError begin
+                CTParser.@def begin
+                    t ∈ [0, 1], time
+                    x ∈ R², state
+                    ẋ(t) == [x₂(t), -x₁(t)]
+                    u ∈ R, control  # ❌ After dynamics
+                    x₁(1)^2 → min
+                end
+            end
+            
+            # Control after cost should fail
+            Test.@test_throws Exceptions.ParsingError begin
+                CTParser.@def begin
+                    t ∈ [0, 1], time
+                    x ∈ R², state
+                    x₁(1)^2 → min
+                    u ∈ R, control  # ❌ After cost
+                end
+            end
+        end
+
+        # ====================================================================
+        # UNIT TESTS - Coordinate Dynamics Without Control
+        # ====================================================================
+
+        Test.@testset "Coordinate dynamics without control" begin
+            o = CTParser.@def begin
+                t ∈ [0, 1], time
+                x ∈ R², state
+                ∂(x₁)(t) == x₂(t)
+                ∂(x₂)(t) == -x₁(t)
+                x₁(1)^2 → min
+            end
+            Test.@test OCP.control_dimension(o) == 0
+            Test.@test OCP.state_dimension(o) == 2
+        end
+
+        # ====================================================================
+        # UNIT TESTS - Advanced Cost Criteria Without Control
+        # ====================================================================
+
+        Test.@testset "Advanced cost criteria without control" begin
+            # Lagrange cost
+            o1 = CTParser.@def begin
+                t ∈ [0, 1], time
+                x ∈ R², state
+                ẋ(t) == [x₂(t), -x₁(t)]
+                ∫(x₁(t)^2 + x₂(t)^2) → min
+            end
+            Test.@test OCP.control_dimension(o1) == 0
+            
+            # Bolza cost
+            o2 = CTParser.@def begin
+                t ∈ [0, 1], time
+                x ∈ R², state
+                ẋ(t) == [x₂(t), -x₁(t)]
+                x₁(0)^2 + ∫(x₂(t)^2) → min
+            end
+            Test.@test OCP.control_dimension(o2) == 0
+        end
+
+        # ====================================================================
+        # UNIT TESTS - Constraints Without Control
+        # ====================================================================
+
+        Test.@testset "Constraints without control" begin
+            o = CTParser.@def begin
+                t ∈ [0, 1], time
+                x ∈ R², state
+                ẋ(t) == [x₂(t), -x₁(t)]
+                x₁(0) == 1
+                x₂(0) == 0
+                x₁(1) + x₂(1) ≤ 1
+                x₁(1)^2 → min
+            end
+            Test.@test OCP.control_dimension(o) == 0
+            Test.@test OCP.state_dimension(o) == 2
         end
 
         # ====================================================================
