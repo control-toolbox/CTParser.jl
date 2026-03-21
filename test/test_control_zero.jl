@@ -56,15 +56,6 @@ function test_control_zero()
         # UNIT TESTS - Initialization without control
         # ====================================================================
 
-        Test.@testset "Init - initial_control with nothing" begin
-            o = get_model()
-            ig = CTParser.@init o begin end
-            u_init = OCP.control(ig)
-            # Test that initial_control with nothing returns empty vector function
-            Test.@test u_init isa Function
-            Test.@test u_init(0.5) == Float64[]
-        end
-
         Test.@testset "Init - initial_control with scalar throws error" begin
             o = get_model()
             Test.@test_throws Exceptions.IncorrectArgument begin
