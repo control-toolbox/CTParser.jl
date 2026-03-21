@@ -560,6 +560,8 @@ function p_control!(
     p, p_ocp, u, m; components_names=nothing, log=false, backend=__default_parsing_backend()
 )
     log && println("control: $u, dim: $m")
+    (p.is_global_dyn || p.is_coord_dyn) && return __throw("control must be declared before dynamics", p.lnum, p.line)
+    !isnothing(p.criterion) && return __throw("control must be declared before cost criterion", p.lnum, p.line)
     u isa Symbol || return __throw("forbidden control name: $u", p.lnum, p.line)
     uu = QuoteNode(u)
     if m == 1
