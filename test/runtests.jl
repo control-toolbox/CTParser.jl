@@ -61,8 +61,12 @@ using NLPModels
 
 include("utils.jl")
 
-const VERBOSE = true
-const SHOWTIMING = true
+# Controls nested testset output formatting (used by individual test files)
+module TestData
+    const VERBOSE = true
+    const SHOWTIMING = true
+end
+using .TestData: VERBOSE, SHOWTIMING
 
 # Run tests using the TestRunner extension
 CTBase.run_tests(;

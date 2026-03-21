@@ -264,7 +264,7 @@ julia> e = :( ((x^2)(t0) + u[1])(t) ); replace_call(e, [ x, u ], t , [ :xx, :uu 
 :((xx ^ 2)(t0) + uu[1])
 ```
 """
-function replace_call(e, x::Vector{Symbol}, t, y)
+function replace_call(e, x::Vector{<:Union{Nothing, Symbol}}, t, y)
     @assert length(x) == length(y)
     foo(x, t, y) =
         (h, args...) -> begin
