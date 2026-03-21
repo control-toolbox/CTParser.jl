@@ -172,6 +172,24 @@ function test_control_zero()
             Test.@test u_init(0.5) == Float64[]
         end
 
+        Test.@testset "Advanced initialization without control" begin
+            # Test with state initialization only
+            o = get_model()
+            ig = CTParser.@init o begin
+                x(t) := [sin(t), cos(t)]
+            end
+            Test.@test ig isa Init.InitialGuess
+            
+            # Test with variable initialization
+            o = get_model(; variable=true)
+            ig2 = CTParser.@init o begin
+                x(t) := [sin(t), cos(t)]
+                v := 1.0
+            end
+            Test.@test ig2 isa Init.InitialGuess
+            Test.@test OCP.variable(ig2) == 1.0
+        end
+
         # ====================================================================
         # INTEGRATION TESTS - Serialization without control
         # ====================================================================
