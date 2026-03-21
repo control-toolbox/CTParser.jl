@@ -272,8 +272,8 @@ function replace_call(e, x::Vector{<:Union{Nothing, Symbol}}, t, y)
             @match ee begin
                 :($eee($tt)) && if tt == t
                 end => let ch = false
-                    for i in 1:length(x)
-                        if has(eee, x[i])
+                    for i in eachindex(x)
+                        if !isnothing(x[i]) && has(eee, x[i]) # skip Nothing symbols
                             eee = subs(eee, x[i], y[i])
                             ch = true # todo: unnecessary (as subs can be idempotent)?
                         end
