@@ -9,6 +9,10 @@ import CTModels.Init
 # for the @def and @init macros
 import CTBase
 import CTModels
+import ExaModels
+import MadNLP
+
+include(joinpath(@__DIR__, "utils.jl"))
 
 const VERBOSE = isdefined(Main, :TestData) ? Main.TestData.VERBOSE : true
 const SHOWTIMING = isdefined(Main, :TestData) ? Main.TestData.SHOWTIMING : true
@@ -188,6 +192,45 @@ function test_control_zero()
             end
             Test.@test ig2 isa Init.InitialGuess
             Test.@test OCP.variable(ig2) == 1.0
+        end
+
+        # ====================================================================
+        # INTEGRATION TESTS - Getter Function Without Control
+        # ====================================================================
+
+        Test.@testset "Getter function without control" begin
+            o = get_model()
+            
+            # Define grid size explicitly
+            N = 10
+            
+            # Build NLP and getter using discretise_exa_full
+            m, exa_getter = discretise_exa_full(o; grid_size=N)
+            Test.@test m isa ExaModels.ExaModel
+            
+            # Solve the NLP to get a solution
+            sol = MadNLP.madnlp(m; tol=1e-6, print_level=MadNLP.ERROR)
+            Test.@test sol.status == MadNLP.SOLVE_SUCCEEDED
+            
+            # Test getter function - this should work without throwing errors
+            # Test state retrieval (should work)
+            state_result = exa_getter(sol, val=:state)
+            Test.@test state_result isa Matrix
+            Test.@test size(state_result) == (2, N+1)  # N grid points
+            
+            # Test control retrieval (should return empty array, not throw error)
+            control_result = exa_getter(sol, val=:control)
+            Test.@test control_result isa Vector
+            Test.@test length(control_result) == 0
+            
+            # Test control multipliers (should return empty array, not throw error)
+            control_l_result = exa_getter(sol, val=:control_l)
+            Test.@test control_l_result isa Vector
+            Test.@test length(control_l_result) == 0
+            
+            control_u_result = exa_getter(sol, val=:control_u)
+            Test.@test control_u_result isa Vector
+            Test.@test length(control_u_result) == 0
         end
 
         # ====================================================================

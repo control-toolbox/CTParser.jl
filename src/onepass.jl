@@ -1423,7 +1423,7 @@ function def_exa(e; log=false)
             res = if val == :state # if as @match is not exported from CTParser or OptimalControl
                 $pref.solution(sol, $(p.x))
             elseif val == :control
-                $pref.solution(sol, $(p.u))
+                isnothing($(p.dim_u)) ? base_type[] : $pref.solution(sol, $(p.u))
             elseif val == :variable
                 isnothing($(p.dim_v)) ? base_type[] : $pref.solution(sol, $(p.v))
             elseif val == :costate
@@ -1437,9 +1437,9 @@ function def_exa(e; log=false)
             elseif val == :state_u
                 $pref.multipliers_U(sol, $(p.x))
             elseif val == :control_l
-                $pref.multipliers_L(sol, $(p.u))
+                isnothing($(p.dim_u)) ? base_type[] : $pref.multipliers_L(sol, $(p.u))
             elseif val == :control_u
-                $pref.multipliers_U(sol, $(p.u))
+                isnothing($(p.dim_u)) ? base_type[] : $pref.multipliers_U(sol, $(p.u))
             elseif val == :variable_l
                 if isnothing($(p.dim_v))
                     base_type[]
