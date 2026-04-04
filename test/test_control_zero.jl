@@ -1,16 +1,16 @@
 module TestControlZero
 
 using Test: Test
-import CTParser
+using CTParser: CTParser
 import CTBase.Exceptions
 import CTModels.OCP
 import CTModels.Init
 
 # for the @def and @init macros
-import CTBase
-import CTModels
-import ExaModels
-import MadNLP
+using CTBase: CTBase
+using CTModels: CTModels
+using ExaModels: ExaModels
+using MadNLP: MadNLP
 
 include(joinpath(@__DIR__, "utils.jl"))
 
@@ -75,7 +75,7 @@ function test_control_zero()
                     x₁(1)^2 → min
                 end
             end
-            
+
             # Control after cost should fail
             Test.@test_throws Exceptions.ParsingError begin
                 CTParser.@def begin
@@ -116,7 +116,7 @@ function test_control_zero()
                 ∫(x₁(t)^2 + x₂(t)^2) → min
             end
             Test.@test OCP.control_dimension(o1) == 0
-            
+
             # Bolza cost
             o2 = CTParser.@def begin
                 t ∈ [0, 1], time
@@ -152,7 +152,7 @@ function test_control_zero()
         Test.@testset "Init - initial_control with scalar throws error" begin
             o = get_model()
             Test.@test_throws Exceptions.IncorrectArgument begin
-                ig = CTParser.@init o begin 
+                ig = CTParser.@init o begin
                     u(t) := 0.5
                 end
             end
@@ -161,7 +161,7 @@ function test_control_zero()
         Test.@testset "Init - initial_control with non-empty vector throws error" begin
             o = get_model()
             Test.@test_throws Exceptions.IncorrectArgument begin
-                ig = CTParser.@init o begin 
+                ig = CTParser.@init o begin
                     u(t) := [0.5]
                 end
             end
@@ -183,7 +183,7 @@ function test_control_zero()
                 x(t) := [sin(t), cos(t)]
             end
             Test.@test ig isa Init.InitialGuess
-            
+
             # Test with variable initialization
             o = get_model(; variable=true)
             ig2 = CTParser.@init o begin
@@ -200,34 +200,34 @@ function test_control_zero()
 
         Test.@testset "Getter function without control" begin
             o = get_model()
-            
+
             # Define grid size explicitly
             N = 10
-            
+
             # Build NLP and getter using discretise_exa_full
             m, exa_getter = discretise_exa_full(o; grid_size=N)
             Test.@test m isa ExaModels.ExaModel
-            
+
             # Solve the NLP to get a solution
             sol = MadNLP.madnlp(m; tol=1e-6, print_level=MadNLP.ERROR)
             Test.@test sol.status == MadNLP.SOLVE_SUCCEEDED
-            
+
             # Test getter function - this should work without throwing errors
             # Test state retrieval (should work)
             state_result = exa_getter(sol, val=:state)
             Test.@test state_result isa Matrix
             Test.@test size(state_result) == (2, N+1)  # N grid points
-            
+
             # Test control retrieval (should return empty array, not throw error)
             control_result = exa_getter(sol, val=:control)
             Test.@test control_result isa Vector
             Test.@test length(control_result) == 0
-            
+
             # Test control multipliers (should return empty array, not throw error)
             control_l_result = exa_getter(sol, val=:control_l)
             Test.@test control_l_result isa Vector
             Test.@test length(control_l_result) == 0
-            
+
             control_u_result = exa_getter(sol, val=:control_u)
             Test.@test control_u_result isa Vector
             Test.@test length(control_u_result) == 0
@@ -275,7 +275,6 @@ function test_control_zero()
             Test.@test OCP.state_dimension(sol) == 2
             Test.@test OCP.objective(sol) == 1.0
         end
-
     end
 end
 
