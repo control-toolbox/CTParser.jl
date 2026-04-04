@@ -63,8 +63,8 @@ include("utils.jl")
 
 # Controls nested testset output formatting (used by individual test files)
 module TestData
-    const VERBOSE = true
-    const SHOWTIMING = true
+const VERBOSE = true
+const SHOWTIMING = true
 end
 using .TestData: VERBOSE, SHOWTIMING
 
