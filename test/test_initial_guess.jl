@@ -843,4 +843,138 @@ function test_initial_guess() # debug
             end
         end
     end
+
+    # ============================================================================
+    # Tests for cross-spec substitution
+    # ============================================================================
+
+    @testset "cross-spec: temporal → temporal (basic)" begin
+        ig = @init ocp_fixed begin
+            q(t) := sin(t)
+            v(t) := 1.0 + q(t)
+        end
+
+        @test ig isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_fixed, ig)
+
+        xfun = CTModels.state(ig)
+        for τ in (0.0, 0.5, 1.0)
+            x = xfun(τ)
+            @test x[1] ≈ sin(τ)
+            @test x[2] ≈ 1.0 + sin(τ)
+        end
+    end
+
+    @testset "cross-spec: temporal → temporal → temporal (transitive chain)" begin
+        ig = @init ocp_fixed begin
+            q(t) := sin(t)
+            v(t) := 1.0 + q(t)
+            u(t) := t + v(t)^2
+        end
+
+        @test ig isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_fixed, ig)
+
+        xfun = CTModels.state(ig)
+        ufun = CTModels.control(ig)
+        for τ in (0.0, 0.5, 1.0)
+            x = xfun(τ)
+            u = ufun(τ)
+            @test x[1] ≈ sin(τ)
+            @test x[2] ≈ 1.0 + sin(τ)
+            @test u ≈ τ + (1.0 + sin(τ))^2
+        end
+    end
+
+    @testset "cross-spec: constant → temporal" begin
+        ig = @init ocp_fixed begin
+            q := -1.0
+            v(t) := q + sin(t)
+        end
+
+        @test ig isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_fixed, ig)
+
+        xfun = CTModels.state(ig)
+        for τ in (0.0, 0.5, 1.0)
+            x = xfun(τ)
+            @test x[2] ≈ -1.0 + sin(τ)
+        end
+    end
+
+    @testset "cross-spec: constant → constant" begin
+        ig = @init ocp_var2 begin
+            tf := 1.0
+            a := tf + 0.5
+        end
+
+        @test ig isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_var2, ig)
+
+        v = CTModels.variable(ig)
+        @test v[1] ≈ 1.0
+        @test v[2] ≈ 1.5
+    end
+
+    @testset "cross-spec: mixed aliases and cross-spec refs" begin
+        ig = @init ocp_fixed begin
+            A = 2.0
+            q(t) := A * sin(t)
+            v(t) := q(t) + 1.0
+        end
+
+        @test ig isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_fixed, ig)
+
+        xfun = CTModels.state(ig)
+        for τ in (0.0, 0.5, 1.0)
+            x = xfun(τ)
+            @test x[1] ≈ 2.0 * sin(τ)
+            @test x[2] ≈ 2.0 * sin(τ) + 1.0
+        end
+    end
+
+    @testset "cross-spec: custom time name s" begin
+        ocp_s = @def begin
+            s ∈ [0, 1], time
+            x = (q, v) ∈ R², state
+            u ∈ R, control
+            x(0) == [-1, 0]
+            x(1) == [0, 0]
+            ẋ(s) == [v(s), u(s)]
+            ∫(0.5u(s)^2) → min
+        end
+
+        ig = @init ocp_s begin
+            q(s) := sin(s)
+            v(s) := 1.0 + q(s)
+            u(s) := s + v(s)
+        end
+
+        @test ig isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_s, ig)
+
+        xfun = CTModels.state(ig)
+        ufun = CTModels.control(ig)
+        for τ in (0.0, 0.5, 1.0)
+            x = xfun(τ)
+            u = ufun(τ)
+            @test x[1] ≈ sin(τ)
+            @test x[2] ≈ 1.0 + sin(τ)
+            @test u ≈ τ + 1.0 + sin(τ)
+        end
+    end
+
+    @testset "cross-spec: no substitution across different args (grid spec)" begin
+        T = [0.0, 0.5, 1.0]
+        Dq = [0.0, 0.5, 1.0]
+
+        ig = @init ocp_fixed begin
+            q(T) := Dq
+            v(t) := 1.0
+        end
+
+        @test ig isa CTModels.AbstractInitialGuess
+        CTModels.validate_initial_guess(ocp_fixed, ig)
+    end
 end
