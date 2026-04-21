@@ -7,8 +7,8 @@ function test_onepass_exa()
     l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
     #l_scheme = [:midpoint]
     for scheme in l_scheme
-        __test_onepass_exa(; scheme=scheme)
-        CUDA.functional() && __test_onepass_exa(CUDABackend(); scheme=scheme)
+        __test_onepass_exa(; scheme=scheme, print_level=MadNLP.WARN)
+        CUDA.functional() && __test_onepass_exa(CUDABackend(); scheme=scheme, print_level=MadNLP.WARN)
     end
 end
 
@@ -842,7 +842,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == x₁(t)
             ∂(x₄)(t) == x₁(t)
             x₁(0) == 1
-            x[1:2:3](0) == [1, 2]
+            x[1:2:3](0) == [1, 3]
             x[1:3](0) == [1, 2, 3]
             x(0) == [1, 2, 3, 4]
             x₁(0) + 2cos(x₂(tf)) → min
@@ -855,7 +855,7 @@ function __test_onepass_exa(
             x ∈ R⁴, state
             u ∈ R, control
             x₁(tf) == 1
-            x[1:2:3](tf) == [1, 2]
+            x[1:2:3](tf) == [1, 3]
             x[1:3](tf) == [1, 2, 3]
             x(tf) == [1, 2, 3, 4]
             ∂(x₁)(t) == x₁(t)
@@ -872,7 +872,7 @@ function __test_onepass_exa(
             x ∈ R⁴, state
             u ∈ R, control
             v₁ == 1
-            v[1:2:3] == [1, 2]
+            v[1:2:3] == [1, 3]
             v[1:3] == [1, 2, 3]
             v == [1, 2, 3, 4]
             ∂(x₁)(t) == x₁(t)
@@ -888,7 +888,7 @@ function __test_onepass_exa(
             x ∈ R⁴, state
             u ∈ R, control
             x₁(t) == 1
-            x[1:2:3](t) == [1, 2]
+            x[1:2:3](t) == [1, 3]
             x[1:3](t) == [1, 2, 3]
             x(t) == [1, 2, 3, 4]
             ∂(x₁)(t) == x₁(t)
@@ -904,9 +904,9 @@ function __test_onepass_exa(
             x ∈ R⁴, state
             u ∈ R⁵, control
             u₁(t) == 1
-            u[2:2:4](t) == [1, 2]
-            u[2:4](t) == [1, 2, 3]
-            u(t) == [1, 2, 3, 4, 5]
+            u[2:2:4](t) == [1, 4]
+            u[2:4](t) == [1, 3, 4]
+            u(t) == [1, 1, 3, 4, 5]
             ∂(x₁)(t) == x₁(t)
             ∂(x₂)(t) == x₁(t)
             ∂(x₃)(t) == x₁(t)
@@ -927,13 +927,13 @@ function __test_onepass_exa(
             v[1:2] ≤ [1, 2]
             v[1:2] ≥ [1, 2]
             x[2](t) ≤ 1
-            x[2:2:4](t) ≤ [1, 2]
+            x[2:2:4](t) ≤ [1, 3]
             x[2:4](t) ≤ [1, 2, 3]
             x[2](t) ≥ 1
             x[2:2:4](t) ≥ [1, 2]
             x[2:4](t) ≥ [1, 2, 3]
             u[2](t) ≤ 1
-            u[2:2:4](t) ≤ [1, 2]
+            u[2:2:4](t) ≤ [1, 3]
             u[2:4](t) ≤ [1, 2, 3]
             u[2](t) ≥ 1
             u[2:2:4](t) ≥ [1, 2]
