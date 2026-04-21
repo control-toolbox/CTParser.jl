@@ -1727,8 +1727,8 @@ function test_onepass_fun()
 
         # define more variables
         u_b = 1.0
-        u_u = 2.0
-        u2_b = 3.0
+        u_u = 3.5
+        u2_b = 2.5
         u2_u = 4.0
         v_b = 5.0
         v_u = 6.0
@@ -1760,10 +1760,10 @@ function test_onepass_fun()
         n = 2
         u_b = 1.0
         u_u = 2.0
-        u2_b = 3.0
-        u2_u = 4.0
-        v_b = 5.0
-        v_u = 6.0
+        u2_b = 1.5
+        u2_u = 2.5
+        v_b = 1.5
+        v_u = 2.5
         @def ocp8 begin
             t ∈ [t0, tf], time
             x ∈ R^n, state
