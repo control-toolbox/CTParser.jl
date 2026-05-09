@@ -8,7 +8,8 @@ function test_onepass_exa()
     #l_scheme = [:midpoint]
     for scheme in l_scheme
         __test_onepass_exa(; scheme=scheme, print_level=MadNLP.WARN)
-        CUDA.functional() && __test_onepass_exa(CUDABackend(); scheme=scheme, print_level=MadNLP.WARN)
+        CUDA.functional() &&
+            __test_onepass_exa(CUDABackend(); scheme=scheme, print_level=MadNLP.WARN)
     end
 end
 
