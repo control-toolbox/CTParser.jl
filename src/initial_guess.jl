@@ -278,7 +278,7 @@ The function walks through the expression `ex` and splits it into
   and substituted into subsequent statements at parse-time using `subs`;
 - *initialisation specifications* of the form `lhs := rhs` or
   `lhs(arg) := rhs`, which are converted into structured specification
-  tuples after alias expansion.
+  tuples after alias and cross-spec expansion.
 
 For expressions of the form `lhs(arg) := rhs`, this function uses `has(rhs, arg)`
 to determine whether `arg` appears in the right-hand side. This information
@@ -288,6 +288,19 @@ runtime code that distinguishes time-dependent functions from time grids.
 Alias substitution happens before each statement is matched, enabling
 time-dependent aliases like `phi = 2π * t` and accumulated aliases like
 `a = t; s = a`.
+
+After each specification is matched, its (pattern, rhs) pair is stored
+for *cross-spec substitution*: subsequent specifications can reference
+previous ones in their right-hand side. Substitution is applied on the
+RHS only (post-matching) to avoid corrupting the LHS. The already-substituted
+RHS is stored, so transitive references are resolved automatically.
+
+All combinations are supported:
+- temporal → temporal: `q(t) := sin(t); v(t) := 1.0 + q(t)`
+- constant → temporal: `c := 0.1; v(t) := c + sin(t)`
+- constant → constant: `a := 1.0; b := a + 2.0`
+
+Order matters: a spec can only reference specs that appear before it.
 
 # Arguments
 
@@ -305,6 +318,7 @@ time-dependent aliases like `phi = 2π * t` and accumulated aliases like
 """
 function _collect_init_specs(ex, lnum::Int, line_str::String)
     aliases = OrderedCollections.OrderedDict{Union{Symbol,Expr},Any}()
+    spec_subs = Tuple{Any,Any}[]   # substitution list: (pattern, rhs) for cross-spec references
     keys = Symbol[]                # keys of the NamedTuple (q, v, x, u, tf, ...)
     specs = Tuple[]                # specification tuples
 
@@ -336,6 +350,11 @@ function _collect_init_specs(ex, lnum::Int, line_str::String)
             :($lhs($arg) := $rhs) => begin
                 lhs isa Symbol || error("Unsupported left-hand side in @init: $lhs")
 
+                # Apply cross-spec substitutions on rhs only (post-matching)
+                for (pattern, replacement) in spec_subs
+                    rhs = subs(rhs, pattern, replacement)
+                end
+
                 # Check if arg appears in rhs using has() from utils.jl
                 # Note: if arg is not a Symbol (e.g., after alias expansion to a literal array),
                 # has() will return false, which is correct for grid specifications
@@ -343,13 +362,25 @@ function _collect_init_specs(ex, lnum::Int, line_str::String)
 
                 push!(keys, lhs)
                 push!(specs, (:temporal, arg, rhs, arg_in_rhs))
+
+                # Store for cross-spec substitution in subsequent specs
+                push!(spec_subs, (Expr(:call, lhs, arg), rhs))
             end
 
             # Constant / variable form: lhs := rhs
             :($lhs := $rhs) => begin
                 lhs isa Symbol || error("Unsupported left-hand side in @init: $lhs")
+
+                # Apply cross-spec substitutions on rhs only (post-matching)
+                for (pattern, replacement) in spec_subs
+                    rhs = subs(rhs, pattern, replacement)
+                end
+
                 push!(keys, lhs)
                 push!(specs, (:constant, rhs))
+
+                # Store for cross-spec substitution in subsequent specs
+                push!(spec_subs, (lhs, rhs))
             end
 
             # Fallback: strict mode - reject unrecognized statements

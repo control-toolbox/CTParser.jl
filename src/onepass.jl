@@ -560,8 +560,10 @@ function p_control!(
     p, p_ocp, u, m; components_names=nothing, log=false, backend=__default_parsing_backend()
 )
     log && println("control: $u, dim: $m")
-    (p.is_global_dyn || p.is_coord_dyn) && return __throw("control must be declared before dynamics", p.lnum, p.line)
-    !isnothing(p.criterion) && return __throw("control must be declared before cost criterion", p.lnum, p.line)
+    (p.is_global_dyn || p.is_coord_dyn) &&
+        return __throw("control must be declared before dynamics", p.lnum, p.line)
+    !isnothing(p.criterion) &&
+        return __throw("control must be declared before cost criterion", p.lnum, p.line)
     u isa Symbol || return __throw("forbidden control name: $u", p.lnum, p.line)
     uu = QuoteNode(u)
     if m == 1
@@ -1437,9 +1439,17 @@ function def_exa(e; log=false)
             elseif val == :state_u
                 $pref.multipliers_U(sol, $(p.x))
             elseif val == :control_l
-                isnothing($(p.dim_u)) ? base_type[] : $pref.multipliers_L(sol, $(p.u))
+                if isnothing($(p.dim_u))
+                    base_type[]
+                else
+                    $pref.multipliers_L(sol, $(p.u))
+                end
             elseif val == :control_u
-                isnothing($(p.dim_u)) ? base_type[] : $pref.multipliers_U(sol, $(p.u))
+                if isnothing($(p.dim_u))
+                    base_type[]
+                else
+                    $pref.multipliers_U(sol, $(p.u))
+                end
             elseif val == :variable_l
                 if isnothing($(p.dim_v))
                     base_type[]

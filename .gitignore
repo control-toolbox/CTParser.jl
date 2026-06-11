@@ -28,7 +28,7 @@ Manifest.toml
 
 # Local reports (analysis, status reports, previews) should not be tracked
 .reports/
-.windsurf/
+.devin/
 
 # claude
 CLAUDE.local.md
