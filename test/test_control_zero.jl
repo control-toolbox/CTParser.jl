@@ -3,7 +3,6 @@ module TestControlZero
 using Test: Test
 using CTParser: CTParser
 import CTBase.Exceptions
-import CTModels.OCP
 import CTModels.Init
 
 # for the @def and @init macros
@@ -46,18 +45,18 @@ function test_control_zero()
 
         Test.@testset "build() - Model without control" begin
             o = get_model()
-            Test.@test o isa OCP.Model
-            Test.@test OCP.control_dimension(o) == 0
-            Test.@test OCP.control_name(o) == ""
-            Test.@test OCP.control_components(o) == String[]
+            Test.@test o isa CTModels.Model
+            Test.@test CTModels.control_dimension(o) == 0
+            Test.@test CTModels.control_name(o) == ""
+            Test.@test CTModels.control_components(o) == String[]
         end
 
         Test.@testset "build() - Model without control but with variable" begin
             # build a model with a variable
             ov = get_model(variable=true)
-            Test.@test OCP.control_dimension(ov) == 0
-            Test.@test OCP.variable_dimension(ov) == 1
-            Test.@test OCP.state_dimension(ov) == 2
+            Test.@test CTModels.control_dimension(ov) == 0
+            Test.@test CTModels.variable_dimension(ov) == 1
+            Test.@test CTModels.state_dimension(ov) == 2
         end
 
         # ====================================================================
@@ -99,8 +98,8 @@ function test_control_zero()
                 ∂(x₂)(t) == -x₁(t)
                 x₁(1)^2 → min
             end
-            Test.@test OCP.control_dimension(o) == 0
-            Test.@test OCP.state_dimension(o) == 2
+            Test.@test CTModels.control_dimension(o) == 0
+            Test.@test CTModels.state_dimension(o) == 2
         end
 
         # ====================================================================
@@ -115,7 +114,7 @@ function test_control_zero()
                 ẋ(t) == [x₂(t), -x₁(t)]
                 ∫(x₁(t)^2 + x₂(t)^2) → min
             end
-            Test.@test OCP.control_dimension(o1) == 0
+            Test.@test CTModels.control_dimension(o1) == 0
 
             # Bolza cost
             o2 = CTParser.@def begin
@@ -124,7 +123,7 @@ function test_control_zero()
                 ẋ(t) == [x₂(t), -x₁(t)]
                 x₁(0)^2 + ∫(x₂(t)^2) → min
             end
-            Test.@test OCP.control_dimension(o2) == 0
+            Test.@test CTModels.control_dimension(o2) == 0
         end
 
         # ====================================================================
@@ -141,8 +140,8 @@ function test_control_zero()
                 x₁(1) + x₂(1) ≤ 1
                 x₁(1)^2 → min
             end
-            Test.@test OCP.control_dimension(o) == 0
-            Test.@test OCP.state_dimension(o) == 2
+            Test.@test CTModels.control_dimension(o) == 0
+            Test.@test CTModels.state_dimension(o) == 2
         end
 
         # ====================================================================
@@ -170,7 +169,7 @@ function test_control_zero()
         Test.@testset "Init - initial_guess without control" begin
             o = get_model()
             ig = CTParser.@init o begin end
-            u_init = OCP.control(ig)
+            u_init = CTModels.control(ig)
             Test.@test ig isa Init.InitialGuess
             Test.@test u_init isa Function
             Test.@test u_init(0.5) == Float64[]
@@ -191,7 +190,7 @@ function test_control_zero()
                 v := 1.0
             end
             Test.@test ig2 isa Init.InitialGuess
-            Test.@test OCP.variable(ig2) == 1.0
+            Test.@test CTModels.variable(ig2) == 1.0
         end
 
         # ====================================================================
@@ -246,7 +245,7 @@ function test_control_zero()
             p_data = hcat(cos.(T), -sin.(T))  # (10, 2) matrix
             v_data = Float64[]
 
-            sol = OCP.build_solution(
+            sol = CTModels.build_solution(
                 o,
                 T,
                 T,
@@ -265,15 +264,15 @@ function test_control_zero()
             )
 
             # Test that control_dimension is 0
-            Test.@test OCP.control_dimension(sol) == 0
+            Test.@test CTModels.control_dimension(sol) == 0
 
             # Test that control function returns empty vector
-            u_func = OCP.control(sol)
+            u_func = CTModels.control(sol)
             Test.@test u_func(0.5) == Float64[]
 
             # Test that solution properties are correct
-            Test.@test OCP.state_dimension(sol) == 2
-            Test.@test OCP.objective(sol) == 1.0
+            Test.@test CTModels.state_dimension(sol) == 2
+            Test.@test CTModels.objective(sol) == 1.0
         end
     end
 end
