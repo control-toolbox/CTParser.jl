@@ -9,7 +9,8 @@ on:
     types: [labeled, synchronize, reopened]
 
 jobs:
-  call:
+  # Job for the GitHub hosted runners (ubuntu, macos, windows)
+  test-github-runner:
     # A 'labeled' event fires once per label added, and re-evaluates against the PR's
     # *current* full label set — so adding several labels in a row would otherwise
     # re-run this job on every subsequent label add. Only react to 'labeled' when it's
@@ -17,12 +18,28 @@ jobs:
     # checking the current label set as before.
     if: >
       github.event_name != 'pull_request' ||
-      (github.event.action == 'labeled' && github.event.label.name == 'run ci') ||
-      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'run ci'))
+      (github.event.action == 'labeled' && github.event.label.name == 'github-runner') ||
+      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'github-runner'))
     uses: control-toolbox/CTActions/.github/workflows/ci.yml@main
     with:
       runs_on: '["ubuntu-latest", "macos-latest", "windows-latest"]'
       runner_type: 'github'
+      use_ct_registry: true
+    secrets:
+      SSH_KEY: ${{ secrets.SSH_KEY }}
+
+  # Job for the self-hosted runner kkt (GPU/CUDA)
+  test-kkt-runner:
+    # See the comment on test-github-runner above.
+    if: >
+      github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'kkt-runner') ||
+      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'kkt-runner'))
+    uses: control-toolbox/CTActions/.github/workflows/ci.yml@main
+    with:
+      versions: '["1"]'
+      runs_on: '[["kkt"]]'
+      runner_type: 'self-hosted'
       use_ct_registry: true
     secrets:
       SSH_KEY: ${{ secrets.SSH_KEY }}
