@@ -11,9 +11,18 @@ OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
 Unicode = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
+[weakdeps]
+ExaModels = "1037b233-b668-4ce9-9b63-f9f681f55dd2"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+
+[extensions]
+CTParserExaModels = ["ExaModels", "LinearAlgebra"]
+
 [compat]
 CTBase = "0.29"
 DocStringExtensions = "0.9"
+ExaModels = "0.12"
+LinearAlgebra = "1"
 MLStyle = "0.4"
 OrderedCollections = "1, 2"
 Parameters = "0.13"
