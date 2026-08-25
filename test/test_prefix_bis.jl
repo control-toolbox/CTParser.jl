@@ -30,8 +30,8 @@ function test_prefix_bis()
         @test_throws CTBase.IncorrectArgument deactivate_backend(:unknown_backend)
 
         # :fun is always active, so trying to (de)activate it should fail
-        @test_throws PreconditionError activate_backend(:fun)
-        @test_throws PreconditionError deactivate_backend(:fun)
+        @test_throws CTBase.PreconditionError activate_backend(:fun)
+        @test_throws CTBase.PreconditionError deactivate_backend(:fun)
     end
 
     @testset "backend activation (twisted sequences)" begin
