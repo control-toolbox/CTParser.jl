@@ -783,7 +783,7 @@ function __test_onepass_exa(
             -1 ≤ x₂(0) + x₁(tf) + tf ≤ [1, 2]
             x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws PreconditionError o(; backend=backend)
 
         o = @def_exa begin
             tf ∈ R, variable
@@ -1085,7 +1085,7 @@ function __test_onepass_exa(
             x(0) + 2cos(x(1)) → min
         end
         @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
-        @test_throws String discretise_exa(o; scheme=:foo)
+        @test_throws CTBase.IncorrectArgument discretise_exa(o; scheme=:foo)
     end
 
     test_name = "lagrange cost ($backend_name, $scheme)"
@@ -1140,7 +1140,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws PreconditionError o(; backend=backend)
     end
 
     test_name = "state bounds test"
@@ -1159,7 +1159,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws PreconditionError o(; backend=backend)
     end
 
     test_name = "control bounds test"
@@ -1179,7 +1179,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws PreconditionError o(; backend=backend)
     end
 
     test_name = "path bounds test"
@@ -1199,7 +1199,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws PreconditionError o(; backend=backend)
     end
 
     test_name = "path bounds test"
@@ -1238,7 +1238,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws PreconditionError o(; backend=backend)
     end
 
     test_name = "final bounds test"
@@ -1257,7 +1257,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws PreconditionError o(; backend=backend)
     end
 
     test_name = "use case no. 1: simple example (mayer) ($backend_name, $scheme)"
@@ -1314,7 +1314,7 @@ function __test_onepass_exa(
         @test size(getter(s; val=:control_u)) == (1, N + 1)
         @test size(getter(s; val=:variable_l)) == (0,)
         @test size(getter(s; val=:variable_u)) == (0,)
-        @test_throws String getter(s; val=:foo)
+        @test_throws CTBase.IncorrectArgument getter(s; val=:foo)
     end
 
     test_name = "use case no. 1: simple example (mayer), testing getters (2/2) ($backend_name, $scheme)"

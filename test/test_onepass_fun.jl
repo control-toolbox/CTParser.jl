@@ -3147,10 +3147,10 @@ function test_onepass_fun()
         @test is_active_backend(:exa)
         deactivate_backend(:exa)
         @test !is_active_backend(:exa)
-        @test_throws String activate_backend(:fun)
-        @test_throws String deactivate_backend(:fun)
-        @test_throws String activate_backend(:foo)
-        @test_throws String deactivate_backend(:foo)
+        @test_throws PreconditionError activate_backend(:fun)
+        @test_throws PreconditionError deactivate_backend(:fun)
+        @test_throws CTBase.IncorrectArgument activate_backend(:foo)
+        @test_throws CTBase.IncorrectArgument deactivate_backend(:foo)
     end
 
     test_name = "dimensions at runtime"
