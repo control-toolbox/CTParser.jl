@@ -59,6 +59,13 @@ using LinearAlgebra
 using MadNLP
 using MadNLPGPU
 using CUDA
+# MadNLPGPU 0.10 moved CUDSS from [deps] to [weakdeps]: its CUDA extension now triggers
+# on ["CUDACore", "CUDSS", "cuBLAS", "cuSOLVER", "cuSPARSE"], so CUDSS no longer arrives
+# transitively and the consumer must load it. Without this, every GPU solve dies with
+# "MadNLPGPU: cannot build a GPU sparse KKT system because the GPU backend extension is
+# not loaded". Invisible on a CPU-only machine, where CUDA.functional() is false and the
+# GPU paths never run.
+using CUDSS: CUDSS
 using BenchmarkTools
 using Interpolations
 using NLPModels
