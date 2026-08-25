@@ -50,7 +50,11 @@ import CTModels:
     criterion,
     Model,
     get_build_examodel
-using ExaModels
+# Qualified: a bare `using ExaModels` brings its exported `constraint` into Main, where
+# it clashes with the `constraint` imported from CTModels above and every :exa test run
+# opens with "WARNING: using ExaModels.constraint in module Main conflicts with an
+# existing identifier". Test files already write ExaModels.x throughout. Fixes #230.
+using ExaModels: ExaModels
 using LinearAlgebra
 using MadNLP
 using MadNLPGPU
