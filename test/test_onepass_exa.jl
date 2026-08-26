@@ -1450,9 +1450,9 @@ function __test_onepass_exa(
 
         N = 200
         t = (tfs * 0):N
-        xs = _xs.(t);
+        xs = _xs.(t)
         xs = stack(xs[:])
-        us = _us.(t);
+        us = _us.(t)
         us = stack(us[:])
 
         m, _ = discretise_exa_full(
