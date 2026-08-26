@@ -1803,7 +1803,12 @@ function __test_onepass_exa(
         sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
         obj2 = sol2.objective
 
-        __atol = 1e-9
+        # GPU floating-point reduction order differs from CPU's for the A[i,:]' * x(t)
+        # dot products this case is built from (LinearAlgebra.dot, ported in
+        # ext/CTParserExaModels.jl), so obj1 and obj2 -- two independently converged
+        # MadNLP solves -- agree only to the solver's own tolerance on GPU, not to
+        # machine precision as they happen to on CPU.
+        __atol = backend_name == "GPU" ? 1e-5 : 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
     end
 
