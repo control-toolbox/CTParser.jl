@@ -4,6 +4,33 @@
 activate_backend(:exa) # nota bene: needs to be executed before @def are expanded
 
 function test_onepass_exa()
+    @testset "unsupported scheme does not print a misleading source line" begin
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R, control
+            ∂(x)(t) == u(t)
+            ∫(u(t)^2) → min
+        end
+
+        output = Pipe()
+        err = Base.redirect_stdout(() -> begin
+            try
+                discretise_exa(o; scheme=:gauss_legendre_2)
+            catch caught
+                caught
+            end
+        end, output)
+        close(output.in)
+        captured = read(output.out, String)
+
+        @test err isa CTBase.IncorrectArgument
+        @test err.got == "gauss_legendre_2"
+        @test err.expected == ":euler, :euler_implicit, :midpoint or :trapeze"
+        @test err.suggestion == "pass one of the supported schemes to the :exa backend"
+        @test !occursin("Line ", captured)
+    end
+
     l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
     #l_scheme = [:midpoint]
     for scheme in l_scheme

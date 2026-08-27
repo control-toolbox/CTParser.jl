@@ -176,18 +176,24 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Wrap a block of generated code with line-aware error reporting.
+Wrap a block of generated code with selective line-aware error reporting.
 
-The returned expression executes `e` inside a `try/catch` block and, in
-case of an exception, prints the originating line number and source
-text before rethrowing.
+The returned expression executes `e` inside a `try/catch` block. Structured
+`CTBase.CTException` values are rethrown unchanged because they already carry
+their own diagnostic information; other exceptions are preceded by the
+originating line number and source text before being rethrown.
 """
-__wrap(e, n, line) = quote
-    try
-        $e
-    catch
-        println("Line ", $n, ": ", $line)
-        rethrow()
+__wrap(e, n, line) = begin
+    ct_exception = CTBase.CTException
+    return quote
+        try
+            $e
+        catch err
+            if !(err isa $ct_exception)
+                println("Line ", $n, ": ", $line)
+            end
+            rethrow()
+        end
     end
 end
 
