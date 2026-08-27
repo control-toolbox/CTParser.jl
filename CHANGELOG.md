@@ -6,6 +6,12 @@ All notable changes to CTParser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1-beta] - 2026-08-26
+
+### 🐛 Bug Fixes
+
+- **Structured errors no longer print a misleading source line** ([#338](https://github.com/control-toolbox/CTParser.jl/issues/338)). Errors such as an unsupported ExaModels `scheme` are propagated with their structured diagnostic without an unrelated `Line n: ...` message on `stdout`.
+
 ## [0.9.0] - 2026-08-25
 
 Aligns CTParser with the released ecosystem — CTBase 0.29.3, CTModels 0.18.0,

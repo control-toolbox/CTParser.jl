@@ -4,6 +4,13 @@
 Breaking changes in CTParser releases, and how to migrate. Tracked from the 0.8.15
 baseline onward; see [CHANGELOG.md](CHANGELOG.md) for the full record.
 
+## [0.9.1-beta] - 2026-08-26
+
+No breaking changes in this release.
+
+- Structured CTBase errors no longer print an unrelated `Line n: ...` message on
+  `stdout`; their existing structured diagnostics and exception types are unchanged.
+
 ## [0.9.0] - 2026-08-25
 
 ### The `:exa` emission requires ExaModels ≥ 0.12
