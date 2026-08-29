@@ -4,6 +4,16 @@
 Breaking changes in CTParser releases, and how to migrate. Tracked from the 0.8.15
 baseline onward; see [CHANGELOG.md](CHANGELOG.md) for the full record.
 
+## [0.9.2-beta] - 2026-08-28
+
+No breaking changes in this release.
+
+- Test-suite and release metadata only ([#339](https://github.com/control-toolbox/CTParser.jl/issues/339)):
+  GPU runner capability detection now recognises both the `kkt` and `occidata`
+  self-hosted runners, the GPU test tiers skip visibly with `Test.@test_skip` on
+  CPU runners, and a new `test/test_environment_contract.jl` enforces both. `src/`,
+  `ext/` and `.github/workflows/CI.yml` are unchanged.
+
 ## [0.9.1-beta] - 2026-08-26
 
 No breaking changes in this release.

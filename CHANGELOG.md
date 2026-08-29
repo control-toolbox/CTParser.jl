@@ -6,6 +6,42 @@ All notable changes to CTParser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2-beta] - 2026-08-28
+
+### 🧪 Testing
+
+- **GPU runner capability detection recognises both `kkt` and `occidata`**
+  ([#339](https://github.com/control-toolbox/CTParser.jl/issues/339)). The suite had no
+  notion of which runner it was executing on. `test/runtests.jl` now defines a single
+  `TestCapabilities` module holding `CUDA_FUNCTIONAL`, `ON_GPU_RUNNER` and
+  `GPU_SOLVER_ARMED`. `ON_GPU_RUNNER` matches the `kkt` / `occidata` substring of
+  `RUNNER_NAME` — the self-hosted runners are registered as `kkt-runner` /
+  `occidata-runner`, whereas the `CI.yml` `runs_on` label is the bare `kkt` / `occidata`
+  — so a missing or broken CUDA device now fails loudly on either GPU runner instead of
+  being silently skipped. `RUNNER_NAME` is set by the GitHub Actions runner agent itself,
+  so no `.github/workflows/CI.yml` or CTActions change was needed.
+
+- **The two GPU test tiers now skip visibly.** `test_dynamics_exa.jl` and
+  `test_onepass_exa.jl` gated their GPU runs behind a bare short-circuit on the raw device
+  predicate, which made a correctly-skipped run (no device, as expected on a developer
+  machine) and a silently-broken one (device missing on a GPU runner) produce the same
+  output: a green run with the GPU tier simply absent. Both now branch to
+  `Test.@test_skip`, so each scheme's GPU tier shows as `Broken` in the summary — eight
+  entries on a CPU runner.
+
+- **New meta-test `test/test_environment_contract.jl`**, mirroring CTSolvers'
+  `test/suite/environment/test_environment_contract.jl`. It asserts that the
+  MadNLPGPU/CUDSS GPU solver extension is armed (on every runner, CPU laptops included —
+  this is the assertion that catches the CUDSS wiring regression), that a CUDA device is
+  present when running on `kkt` or `occidata`, and that the silent-guard anti-pattern has
+  not reappeared anywhere under `test/`.
+
+### ✅ Compatibility
+
+- **No breaking changes**: test-suite and release metadata only — `src/` and `ext/` are
+  untouched, and `.github/workflows/CI.yml` is unchanged (it already targets `occidata`).
+  See [BREAKING.md](BREAKING.md).
+
 ## [0.9.1-beta] - 2026-08-26
 
 ### 🐛 Bug Fixes
