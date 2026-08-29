@@ -35,8 +35,16 @@ function test_onepass_exa()
     #l_scheme = [:midpoint]
     for scheme in l_scheme
         __test_onepass_exa(; scheme=scheme, print_level=MadNLP.WARN)
-        CUDA.functional() &&
+        # Visible skip: short-circuiting on the raw device predicate makes a correctly-skipped
+        # run (no device, as expected on a developer machine) and a silently-broken one (device
+        # missing on a GPU runner) look identical. See test_environment_contract.jl.
+        if Main.TestCapabilities.CUDA_FUNCTIONAL
             __test_onepass_exa(CUDABackend(); scheme=scheme, print_level=MadNLP.WARN)
+        else
+            @testset "onepass exa (GPU, $scheme)" begin
+                @test_skip "GPU :exa solves need a functional CUDA device"
+            end
+        end
     end
 end
 

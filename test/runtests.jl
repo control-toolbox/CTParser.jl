@@ -70,6 +70,36 @@ using BenchmarkTools
 using Interpolations
 using NLPModels
 
+# Capability constants, computed once, here. `CUDA_FUNCTIONAL` is the suite's single
+# CUDA-device predicate — never write a bare `CUDA.functional()` guard in a test file
+# (duplicated copies drift; Handbook philosophy/testing.md §"Capability-gated tests").
+# `ON_GPU_RUNNER` turns the device tier from *skipped* into *required* on the self-hosted
+# GPU runners: `RUNNER_NAME` is set by the GitHub Actions runner agent itself (no CI.yml
+# or CTActions change needed) to the runner's *registered* name. Ours are registered as
+# `kkt-runner` / `occidata-runner` — the CI.yml `runs_on` label is the bare
+# `kkt`/`occidata`, a different string — so match on the substring to survive the
+# `-runner` suffix. Enforcement lives centrally in test/test_environment_contract.jl.
+module TestCapabilities
+using CUDA: CUDA
+using CUDSS: CUDSS          # with CUDA, arms MadNLPGPUCUDAExt
+using MadNLPGPU: MadNLPGPU
+
+const CUDA_FUNCTIONAL = CUDA.functional()
+const ON_GPU_RUNNER = any(
+    gpu -> occursin(gpu, get(ENV, "RUNNER_NAME", "")), ("kkt", "occidata")
+)
+# `isdefined`, not CTSolvers' `MadNLPGPU.CUDSSSolver isa Type`: the symbol only exists
+# once MadNLPGPUCUDAExt loads, and an UndefVarError at module load would abort the whole
+# run instead of failing one assertion.
+const GPU_SOLVER_ARMED = isdefined(MadNLPGPU, :CUDSSSolver)
+end
+
+if TestCapabilities.CUDA_FUNCTIONAL
+    println("✓ CUDA functional, GPU tests enabled")
+else
+    println("⚠️  CUDA not functional, GPU device tests will be skipped (Test.@test_skip)")
+end
+
 include("utils.jl")
 
 # Controls nested testset output formatting (used by individual test files)
