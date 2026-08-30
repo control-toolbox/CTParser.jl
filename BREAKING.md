@@ -4,6 +4,14 @@
 Breaking changes in CTParser releases, and how to migrate. Tracked from the 0.8.15
 baseline onward; see [CHANGELOG.md](CHANGELOG.md) for the full record.
 
+## [0.9.3-beta] - 2026-08-30
+
+No breaking changes in this release.
+
+- Documentation-only fix ([#341](https://github.com/control-toolbox/CTParser.jl/issues/341)):
+  examples in docstrings now use static `julia` fences so they render correctly when
+  transcluded into consumer documentation. Runtime behavior and the public API are unchanged.
+
 ## [0.9.2-beta] - 2026-08-28
 
 No breaking changes in this release.

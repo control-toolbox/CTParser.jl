@@ -6,6 +6,16 @@ All notable changes to CTParser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3-beta] - 2026-08-30
+
+### 🐛 Bug Fixes
+
+- **Docstring examples no longer trigger Documenter warnings** ([#341](https://github.com/control-toolbox/CTParser.jl/issues/341)). Examples embedded in docstrings now use static `julia` fences instead of `@example` fences, because Documenter does not execute `@example` blocks when those docstrings are transcluded into a consumer's `@docs` block.
+
+### ✅ Compatibility
+
+- **No breaking changes**: this release only adjusts docstring rendering and release metadata. See [BREAKING.md](BREAKING.md).
+
 ## [0.9.2-beta] - 2026-08-28
 
 ### 🧪 Testing

@@ -205,7 +205,7 @@ $(TYPEDSIGNATURES)
 Parse the expression `e` and update the `ParsingInfo` structure `p`.
 
 # Example
-```@example
+```julia
 parse!(p, :p_ocp, :(v ∈ R, variable))
 ```
 """
@@ -1462,7 +1462,7 @@ Define an optimal control problem. One pass parsing of the definition. Can be us
 will display the parsing steps.
 
 # Example
-```@example
+```julia
 ocp = @def begin
     tf ∈ R, variable
     t ∈ [ 0, tf ], time
