@@ -6,7 +6,11 @@ All notable changes to CTParser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.3-beta] - 2026-08-30
+## [0.9.4-beta] - 2026-08-30
+
+### ✅ Compatibility
+
+- **CTBase 0.30 is now supported** alongside CTBase 0.29 ([#342](https://github.com/control-toolbox/CTParser.jl/issues/342)).
 
 ### 🐛 Bug Fixes
 

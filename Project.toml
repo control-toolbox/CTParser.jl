@@ -1,6 +1,6 @@
 name = "CTParser"
 uuid = "32681960-a1b1-40db-9bff-a1ca817385d1"
-version = "0.9.3-beta"
+version = "0.9.4-beta"
 authors = ["Jean-Baptiste Caillau <jean-baptiste.caillau@univ-cotedazur.fr>"]
 
 [deps]
@@ -19,7 +19,7 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 CTParserExaModels = ["ExaModels", "LinearAlgebra"]
 
 [compat]
-CTBase = "0.29"
+CTBase = "0.29, 0.30"
 DocStringExtensions = "0.9"
 ExaModels = "0.12"
 LinearAlgebra = "1"
