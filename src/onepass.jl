@@ -176,18 +176,24 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Wrap a block of generated code with line-aware error reporting.
+Wrap a block of generated code with selective line-aware error reporting.
 
-The returned expression executes `e` inside a `try/catch` block and, in
-case of an exception, prints the originating line number and source
-text before rethrowing.
+The returned expression executes `e` inside a `try/catch` block. Structured
+`CTBase.CTException` values are rethrown unchanged because they already carry
+their own diagnostic information; other exceptions are preceded by the
+originating line number and source text before being rethrown.
 """
-__wrap(e, n, line) = quote
-    try
-        $e
-    catch
-        println("Line ", $n, ": ", $line)
-        rethrow()
+__wrap(e, n, line) = begin
+    ct_exception = CTBase.CTException
+    return quote
+        try
+            $e
+        catch err
+            if !(err isa $ct_exception)
+                println("Line ", $n, ": ", $line)
+            end
+            rethrow()
+        end
     end
 end
 
@@ -199,7 +205,7 @@ $(TYPEDSIGNATURES)
 Parse the expression `e` and update the `ParsingInfo` structure `p`.
 
 # Example
-```@example
+```julia
 parse!(p, :p_ocp, :(v ∈ R, variable))
 ```
 """
@@ -425,9 +431,9 @@ function p_variable_exa!(p, p_ocp, v, q, vv; components_names=nothing)
     pref = prefix_exa()
     code_box = :($(p.l_v) = -Inf * ones($q); $(p.u_v) = Inf * ones($q))
     p.box_v = concat(p.box_v, code_box)
-    code = :($pref.variable($p_ocp, $q; lvar=($(p.l_v)), uvar=($(p.u_v)), start=init[1]))
+    code = :($pref.add_var($p_ocp, $q; lvar=($(p.l_v)), uvar=($(p.u_v)), start=init[1]))
     code = __wrap(code, p.lnum, p.line)
-    code = :($v = $code) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
+    code = :(($p_ocp, $v) = $code) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope); add_var returns (core, var), so the core is rebound here
     return code
 end
 
@@ -539,7 +545,7 @@ function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
     p.box_x = concat(p.box_x, code_box)
     i = __symgen(:i)
     j = __symgen(:j)
-    code = :($pref.variable(
+    code = :($pref.add_var(
         $p_ocp,
         $n,
         0:grid_size;
@@ -550,7 +556,7 @@ function p_state_exa!(p, p_ocp, x, n, xx; components_names=nothing)
     code = __wrap(code, p.lnum, p.line)
     p.dyn_con = __symgen(:dyn_con) # name for the constraints associated with the dynamics
     code = quote
-        $x = $code
+        ($p_ocp, $x) = $code # add_var returns (core, var), so the core is rebound here
         $(p.dyn_con) = Vector{$pref.Constraint}(undef, $n) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
     end
     return code
@@ -608,7 +614,7 @@ function p_control_exa!(p, p_ocp, u, m, uu; components_names=nothing)
     p.box_u = concat(p.box_u, code_box)
     i = __symgen(:i)
     j = __symgen(:j)
-    code = :($pref.variable(
+    code = :($pref.add_var(
         $p_ocp,
         $m,
         0:grid_size;
@@ -617,7 +623,7 @@ function p_control_exa!(p, p_ocp, u, m, uu; components_names=nothing)
         start=init[3],
     ))
     code = __wrap(code, p.lnum, p.line)
-    code = :($u = $code) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope)
+    code = :(($p_ocp, $u) = $code) # affectation must be done outside try ... catch (otherwise declaration known only to try local scope); add_var returns (core, var), so the core is rebound here
     return code
 end
 
@@ -635,6 +641,26 @@ function p_constraint!(
     log && println("constraint ($c_type): $e1 ≤ $e2 ≤ $e3,    ($label)")
     label isa Int && (label = Symbol(:eq, label))
     label isa Symbol || return __throw("forbidden label: $label", p.lnum, p.line)
+    # a constraint bound must be "effective": lb/ub are evaluated once at build time,
+    # so they cannot reference v/x/u/t (doing so leaks an internal gensym — see #343)
+    for (b, side) in ((e1, "lower"), (e3, "upper"))
+        isnothing(b) && continue
+        for (sym, what) in (
+            (p.v, "the variable"),
+            (p.x, "the state"),
+            (p.u, "the control"),
+            (p.t, "the time"),
+        )
+            isnothing(sym) && continue
+            has(b, sym) && return __throw(
+                "the $side bound of a constraint must not depend on $what; " *
+                "write a functional constraint instead by moving the term to the " *
+                "constrained side (e.g. `x₂(0) - v == 0` rather than `x₂(0) == v`)",
+                p.lnum,
+                p.line,
+            )
+        end
+    end
     xut = __symgen(:xut)
     ee2 = replace_call(e2, [p.x, p.u], p.t, [xut, xut])
     has(ee2, p.t) && (p.is_autonomous = false)
@@ -696,6 +722,7 @@ end
 
 function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
     pref = prefix_exa()
+    e_pref = e_prefix()
     isnothing(e1) && (e1 = :(-Inf * ones(length($e3))))
     isnothing(e3) && (e3 = :(Inf * ones(length($e1))))
     code = @match c_type begin
@@ -711,12 +738,25 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = subs2(e2, xf, p.x, :grid_size)
             e2 = subs(e2, xf, :([$(p.x)[$k, grid_size] for $k in 1:($(p.dim_x))]))
             quote
-                length($e1) == length($e3) || throw("wrong bound dimension") # (vs. __throw) since raised at runtime
+                length($e1) == length($e3) || throw(
+                    $e_pref.PreconditionError(
+                        "lower and upper bounds have different lengths";
+                        reason=string(
+                            "lower bound has length ",
+                            length($e1),
+                            ", upper bound has length ",
+                            length($e3),
+                        ),
+                        suggestion="give both bounds the same length",
+                    ),
+                ) # typed, not __throw: raised at run time inside __wrap-ped generated code
                 if length($e1) == 1
-                    $pref.constraint($p_ocp, $e2; lcon=($e1[1]), ucon=($e3[1])) # todo: add _denull
+                    ($p_ocp, _) = $pref.add_con($p_ocp, $e2; lcon=($e1[1]), ucon=($e3[1])) # todo: add _denull
                 else
                     for $l in 1:length($e1)
-                        $pref.constraint($p_ocp, $e2[$l]; lcon=($e1[$l]), ucon=($e3[$l])) # todo: add _denull
+                        ($p_ocp, _) = $pref.add_con(
+                            $p_ocp, $e2[$l]; lcon=($e1[$l]), ucon=($e3[$l])
+                        ) # todo: add _denull
                     end
                 end
             end
@@ -729,7 +769,20 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
                 rg = as_range(rg) # case rg = i (vs i:j or i:p:j)
             end
             code = :(
-                length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
+                length($e1) == length($e3) == length($rg) || throw(
+                    $e_pref.PreconditionError(
+                        "bound lengths do not match the constrained range";
+                        reason=string(
+                            "lower bound has length ",
+                            length($e1),
+                            ", upper bound has length ",
+                            length($e3),
+                            ", range has length ",
+                            length($rg),
+                        ),
+                        suggestion="give both bounds the same length as the range",
+                    ),
+                ) # typed, not __throw: raised at run time inside __wrap-ped generated code
             ) # (vs. __throw) since raised at runtime
             x0 = __symgen(:x0)
             i = __symgen(:i)
@@ -737,7 +790,11 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = subs3(e2, x0, p.x, i, 0)
             concat(
                 code,
-                :($pref.constraint($p_ocp, $e2 for $i in $rg; lcon=($e1), ucon=($e3))),
+                :(
+                    ($p_ocp, _) = $pref.add_con(
+                        $p_ocp, $e2 for $i in $rg; lcon=($e1), ucon=($e3)
+                    )
+                ),
             )
         end
         (:final, rg) => begin
@@ -748,7 +805,20 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
                 rg = as_range(rg) # case rg = i (vs i:j or i:p:j)
             end
             code = :(
-                length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
+                length($e1) == length($e3) == length($rg) || throw(
+                    $e_pref.PreconditionError(
+                        "bound lengths do not match the constrained range";
+                        reason=string(
+                            "lower bound has length ",
+                            length($e1),
+                            ", upper bound has length ",
+                            length($e3),
+                            ", range has length ",
+                            length($rg),
+                        ),
+                        suggestion="give both bounds the same length as the range",
+                    ),
+                ) # typed, not __throw: raised at run time inside __wrap-ped generated code
             ) # (vs. __throw) since raised at runtime
             xf = __symgen(:xf)
             i = __symgen(:i)
@@ -756,7 +826,11 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = subs3(e2, xf, p.x, i, :grid_size)
             concat(
                 code,
-                :($pref.constraint($p_ocp, $e2 for $i in $rg; lcon=($e1), ucon=($e3))),
+                :(
+                    ($p_ocp, _) = $pref.add_con(
+                        $p_ocp, $e2 for $i in $rg; lcon=($e1), ucon=($e3)
+                    )
+                ),
             )
         end
         (:variable_range, rg) => begin
@@ -767,7 +841,20 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
                 rg = as_range(rg) # case rg = i (vs i:j or i:p:j)
             end
             code_box = :(
-                length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
+                length($e1) == length($e3) == length($rg) || throw(
+                    $e_pref.PreconditionError(
+                        "bound lengths do not match the constrained range";
+                        reason=string(
+                            "lower bound has length ",
+                            length($e1),
+                            ", upper bound has length ",
+                            length($e3),
+                            ", range has length ",
+                            length($rg),
+                        ),
+                        suggestion="give both bounds the same length as the range",
+                    ),
+                ) # typed, not __throw: raised at run time inside __wrap-ped generated code
             ) # (vs. __throw) since raised at runtime
             code_box = __wrap(
                 concat(code_box, :($(p.l_v)[$rg] .= $e1; $(p.u_v)[$rg] .= $e3)),
@@ -784,7 +871,20 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
                 rg = as_range(rg) # case rg = i (vs i:j or i:p:j)
             end
             code_box = :(
-                length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
+                length($e1) == length($e3) == length($rg) || throw(
+                    $e_pref.PreconditionError(
+                        "bound lengths do not match the constrained range";
+                        reason=string(
+                            "lower bound has length ",
+                            length($e1),
+                            ", upper bound has length ",
+                            length($e3),
+                            ", range has length ",
+                            length($rg),
+                        ),
+                        suggestion="give both bounds the same length as the range",
+                    ),
+                ) # typed, not __throw: raised at run time inside __wrap-ped generated code
             ) # (vs. __throw) since raised at runtime
             code_box = __wrap(
                 concat(code_box, :($(p.l_x)[$rg] .= $e1; $(p.u_x)[$rg] .= $e3)),
@@ -801,7 +901,20 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
                 rg = as_range(rg) # case rg = i (vs i:j or i:p:j)
             end
             code_box = :(
-                length($e1) == length($e3) == length($rg) || throw("wrong bound dimension")
+                length($e1) == length($e3) == length($rg) || throw(
+                    $e_pref.PreconditionError(
+                        "bound lengths do not match the constrained range";
+                        reason=string(
+                            "lower bound has length ",
+                            length($e1),
+                            ", upper bound has length ",
+                            length($e3),
+                            ", range has length ",
+                            length($rg),
+                        ),
+                        suggestion="give both bounds the same length as the range",
+                    ),
+                ) # typed, not __throw: raised at run time inside __wrap-ped generated code
             ) # (vs. __throw) since raised at runtime
             code_box = __wrap(
                 concat(code_box, :($(p.l_u)[$rg] .= $e1; $(p.u_u)[$rg] .= $e3)),
@@ -824,14 +937,25 @@ function p_constraint_exa!(p, p_ocp, e1, e2, e3, c_type, label)
             e2 = subs(e2, ut, :([$(p.u)[$k, $j] for $k in 1:($(p.dim_u))]))
             e2 = subs(e2, p.t, :($(p.t0) + $j * $(p.dt)))
             quote
-                length($e1) == length($e3) || throw("wrong bound dimension") # (vs. __throw) since raised at runtime
+                length($e1) == length($e3) || throw(
+                    $e_pref.PreconditionError(
+                        "lower and upper bounds have different lengths";
+                        reason=string(
+                            "lower bound has length ",
+                            length($e1),
+                            ", upper bound has length ",
+                            length($e3),
+                        ),
+                        suggestion="give both bounds the same length",
+                    ),
+                ) # typed, not __throw: raised at run time inside __wrap-ped generated code
                 if length($e1) == 1
-                    $pref.constraint(
+                    ($p_ocp, _) = $pref.add_con(
                         $p_ocp, $e2 for $j in 0:grid_size; lcon=($e1[1]), ucon=($e3[1])
                     ) # todo: add _denull
                 else
                     for $l in 1:length($e1)
-                        $pref.constraint(
+                        ($p_ocp, _) = $pref.add_con(
                             $p_ocp,
                             $e2[$l] for $j in 0:grid_size;
                             lcon=($e1[$l]),
@@ -885,6 +1009,7 @@ end
 
 function p_dynamics_exa!(p, p_ocp, x, t, e)
     pref = prefix_exa()
+    e_pref = e_prefix()
     xt = __symgen(:xt)
     ut = __symgen(:ut)
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
@@ -915,31 +1040,38 @@ function p_dynamics_exa!(p, p_ocp, x, t, e)
     i = __symgen(:i)
     code = quote
         for $i in 1:($(p.dim_x))
-            $(p.dyn_con)[$i] = if scheme == :euler # dyn_con already defined outside try catch
-                $pref.constraint(
+            # each branch returns add_con's (core, constraint) pair, so the core is
+            # rebound on every loop iteration alongside the constraint handle
+            ($p_ocp, $(p.dyn_con)[$i]) = if scheme == :euler # dyn_con already defined outside try catch
+                $pref.add_con(
                     $p_ocp,
                     $dxj[$i] - $(p.dt) * $ej1[$i] for $j1 in 0:(grid_size - 1)
                 ) # todo: add _denull
             elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
-                $pref.constraint(
+                $pref.add_con(
                     $p_ocp,
                     $dxj[$i] - $(p.dt) * $ej2[$i] for $j1 in 0:(grid_size - 1)
                 ) # todo: add _denull
             elseif scheme == :midpoint
-                $pref.constraint(
+                $pref.add_con(
                     $p_ocp,
                     $dxj[$i] - $(p.dt) * $ej12[$i] for $j1 in 0:(grid_size - 1)
                 ) # todo: add _denull
             elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
-                $pref.constraint(
+                $pref.add_con(
                     $p_ocp,
                     $dxj[$i] - $(p.dt) * ($ej1[$i] + $ej2[$i]) / 2 for
                     $j1 in 0:(grid_size - 1) # todo: add _denull
                 )
             else
                 throw(
-                    "unknown numerical scheme: $scheme (possible choices are :euler, :euler_implicit, :midpoint, :trapeze)",
-                ) # (vs. __throw) since raised at runtime (and __wrap-ped)
+                    $e_pref.IncorrectArgument(
+                        "unknown numerical scheme";
+                        got=string(scheme),
+                        expected=":euler, :euler_implicit, :midpoint or :trapeze",
+                        suggestion="pass one of the supported schemes to the :exa backend",
+                    ),
+                ) # typed, not __throw: raised at run time inside __wrap-ped generated code
             end
         end
     end
@@ -988,6 +1120,7 @@ end
 
 function p_dynamics_coord_exa!(p, p_ocp, x, i::Integer, t, e) # todo: also also add coord = range for :exa
     pref = prefix_exa()
+    e_pref = e_prefix()
     i ∈ p.dyn_coords &&
         return __throw("dynamics coordinate $i already defined", p.lnum, p.line)
     append!(p.dyn_coords, i)
@@ -1019,21 +1152,28 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i::Integer, t, e) # todo: also also 
     ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
     dxij = :($(p.x)[$i, $j2] - $(p.x)[$i, $j1])
     code = quote
-        $(p.dyn_con)[$i] = if scheme == :euler # dyn_con already defined outside try catch
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1)) # todo: add _denull
+        # each branch returns add_con's (core, constraint) pair, so the core is rebound
+        # alongside the constraint handle
+        ($p_ocp, $(p.dyn_con)[$i]) = if scheme == :euler # dyn_con already defined outside try catch
+            $pref.add_con($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1)) # todo: add _denull
         elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 in 0:(grid_size - 1)) # todo: add _denull
+            $pref.add_con($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 in 0:(grid_size - 1)) # todo: add _denull
         elseif scheme == :midpoint
-            $pref.constraint($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1)) # todo: add _denull
+            $pref.add_con($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1)) # todo: add _denull
         elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
-            $pref.constraint(
+            $pref.add_con(
                 $p_ocp,
                 $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 in 0:(grid_size - 1) # todo: add _denull
             )
         else
             throw(
-                "unknown numerical scheme: $scheme (possible choices are :euler, :euler_implicit, :midpoint, :trapeze)",
-            ) # (vs. __throw) since raised at runtime (and __wrap-ped)
+                $e_pref.IncorrectArgument(
+                    "unknown numerical scheme";
+                    got=string(scheme),
+                    expected=":euler, :euler_implicit, :midpoint or :trapeze",
+                    suggestion="pass one of the supported schemes to the :exa backend",
+                ),
+            ) # typed, not __throw: raised at run time inside __wrap-ped generated code
         end
     end
     return __wrap(code, p.lnum, p.line)
@@ -1070,6 +1210,7 @@ end
 
 function p_lagrange_exa!(p, p_ocp, e, type)
     pref = prefix_exa()
+    e_pref = e_prefix()
     xt = __symgen(:xt)
     ut = __symgen(:ut)
     e = replace_call(e, [p.x, p.u], p.t, [xt, ut])
@@ -1092,19 +1233,26 @@ function p_lagrange_exa!(p, p_ocp, e, type)
     ej12 = subs(ej12, ut, :([$(p.u)[$k, $j1] for $k in 1:($(p.dim_u))]))
     ej12 = subs(ej12, p.t, :($(p.t0) + $j12 * $(p.dt)))
     code = quote
+        # the rebinding sits inside each branch, not around the `if`: the trapeze branch
+        # adds two objectives, and the `if`'s own value is unused here
         if scheme == :euler
-            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1)) # todo: add _denull
+            ($p_ocp, _) = $pref.add_obj($p_ocp, $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1)) # todo: add _denull
         elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
-            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size) # todo: add _denull
+            ($p_ocp, _) = $pref.add_obj($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size) # todo: add _denull
         elseif scheme == :midpoint
-            $pref.objective($p_ocp, $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1)) # todo: add _denull
+            ($p_ocp, _) = $pref.add_obj($p_ocp, $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1)) # todo: add _denull
         elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
-            $pref.objective($p_ocp, $(p.dt) * $ej1 / 2 for $j1 in (0, grid_size)) # todo: add _denull
-            $pref.objective($p_ocp, $(p.dt) * $ej1 for $j1 in 1:(grid_size - 1)) # todo: add _denull
+            ($p_ocp, _) = $pref.add_obj($p_ocp, $(p.dt) * $ej1 / 2 for $j1 in (0, grid_size)) # todo: add _denull
+            ($p_ocp, _) = $pref.add_obj($p_ocp, $(p.dt) * $ej1 for $j1 in 1:(grid_size - 1)) # todo: add _denull
         else
             throw(
-                "unknown numerical scheme: $scheme (possible choices are :euler, :euler_implicit, :midpoint, :trapeze)",
-            ) # (vs. __throw) since raised at runtime (and __wrap-ped)
+                $e_pref.IncorrectArgument(
+                    "unknown numerical scheme";
+                    got=string(scheme),
+                    expected=":euler, :euler_implicit, :midpoint or :trapeze",
+                    suggestion="pass one of the supported schemes to the :exa backend",
+                ),
+            ) # typed, not __throw: raised at run time inside __wrap-ped generated code
         end
     end
     return __wrap(code, p.lnum, p.line)
@@ -1154,7 +1302,7 @@ function p_mayer_exa!(p, p_ocp, e, type)
     e = subs2(e, xf, p.x, :grid_size)
     e = subs(e, xf, :([$(p.x)[$k, grid_size] for $k in 1:($(p.dim_x))]))
     # now, x[i](t0) has been replaced by x[i, 0] and x[i](tf) by x[i, grid_size]
-    code = :($pref.objective($p_ocp, $e)) # todo: add _denull
+    code = :(($p_ocp, _) = $pref.add_obj($p_ocp, $e)) # todo: add _denull
     return __wrap(code, p.lnum, p.line)
 end
 
@@ -1252,8 +1400,20 @@ $(TYPEDSIGNATURES)
 Activate parsing backend. Possible choices: `:exa`.
 """
 function activate_backend(backend)
-    backend ∈ PARSING_BACKENDS || throw("unknown parsing backend")
-    backend == :fun && throw("backend :fun is always active")
+    backend ∈ PARSING_BACKENDS || throw(
+        CTBase.IncorrectArgument(
+            "unknown parsing backend";
+            got=string(backend),
+            expected=join(string.(":", PARSING_BACKENDS), " or "),
+        ),
+    )
+    backend == :fun && throw(
+        CTBase.PreconditionError(
+            "backend :fun cannot be activated or deactivated";
+            reason=":fun is the default parsing backend and is always active",
+            suggestion="only an optional backend such as :exa can be toggled",
+        ),
+    )
     ACTIVE_PARSING_BACKENDS[backend] = true
     return nothing
 end
@@ -1264,8 +1424,20 @@ $(TYPEDSIGNATURES)
 Deactivate parsing backend. Possible choices: `:exa`.
 """
 function deactivate_backend(backend)
-    backend ∈ PARSING_BACKENDS || throw("unknown parsing backend")
-    backend == :fun && throw("backend :fun is always active")
+    backend ∈ PARSING_BACKENDS || throw(
+        CTBase.IncorrectArgument(
+            "unknown parsing backend";
+            got=string(backend),
+            expected=join(string.(":", PARSING_BACKENDS), " or "),
+        ),
+    )
+    backend == :fun && throw(
+        CTBase.PreconditionError(
+            "backend :fun cannot be activated or deactivated";
+            reason=":fun is the default parsing backend and is always active",
+            suggestion="only an optional backend such as :exa can be toggled",
+        ),
+    )
     ACTIVE_PARSING_BACKENDS[backend] = false
     return nothing
 end
@@ -1276,7 +1448,13 @@ $(TYPEDSIGNATURES)
 Check whether backend is active or not.
 """
 function is_active_backend(backend)
-    backend ∈ PARSING_BACKENDS || throw("unknown parsing backend")
+    backend ∈ PARSING_BACKENDS || throw(
+        CTBase.IncorrectArgument(
+            "unknown parsing backend";
+            got=string(backend),
+            expected=join(string.(":", PARSING_BACKENDS), " or "),
+        ),
+    )
     return ACTIVE_PARSING_BACKENDS[backend]
 end
 
@@ -1286,7 +1464,13 @@ $(TYPEDSIGNATURES)
 Call the primitive associated with symbol s (:alias, etc.) for the associated backend.
 """
 function parsing(s, backend)
-    backend ∈ PARSING_BACKENDS || throw("unknown parsing backend")
+    backend ∈ PARSING_BACKENDS || throw(
+        CTBase.IncorrectArgument(
+            "unknown parsing backend";
+            got=string(backend),
+            expected=join(string.(":", PARSING_BACKENDS), " or "),
+        ),
+    )
     return PARSING_DIR[backend][s]
 end
 
@@ -1298,7 +1482,7 @@ Define an optimal control problem. One pass parsing of the definition. Can be us
 will display the parsing steps.
 
 # Example
-```@example
+```julia
 ocp = @def begin
     tf ∈ R, variable
     t ∈ [ 0, tf ], time
@@ -1386,7 +1570,9 @@ function def_fun(e; log=false)
     end
 
     if is_active_backend(:exa)
-        build_exa = def_exa(e; log=log)
+        # log=false: the :fun pass above already emitted the trace; a second one here
+        # would print the whole parsed model twice (#344)
+        build_exa = def_exa(e; log=false)
         code = concat(code, :($pref.build($p_ocp; build_examodel=($build_exa))))
     else
         code = concat(code, :($pref.build($p_ocp)))
@@ -1463,7 +1649,13 @@ function def_exa(e; log=false)
                     $pref.multipliers_U(sol, $(p.v))
                 end
             else
-                throw("unknown value $val for kwarg val")
+                throw(
+                    $e_pref.IncorrectArgument(
+                        "unknown value for kwarg val";
+                        got=string(val),
+                        expected=":state, :control, :variable, :costate, :state_l, :state_u, :control_l, :control_u, :variable_l or :variable_u",
+                    ),
+                )
             end
             return Array(res) # conversion to Array for GPU
         end

@@ -208,7 +208,7 @@ function test_onepass_exa_bis()
         @test f_exa isa Function
 
         # Unknown backend should throw a String error
-        @test_throws String CTParser.parsing(:alias, :unknown_backend)
+        @test_throws CTBase.IncorrectArgument CTParser.parsing(:alias, :unknown_backend)
 
         # Unknown primitive for a valid backend should raise a KeyError
         @test_throws KeyError CTParser.parsing(:unknown_primitive, :fun)

@@ -26,12 +26,12 @@ function test_prefix_bis()
         println("backend activation errors (bis)")
 
         # Unknown backend should throw an error (String from `throw("...")`)
-        @test_throws String activate_backend(:unknown_backend)
-        @test_throws String deactivate_backend(:unknown_backend)
+        @test_throws CTBase.IncorrectArgument activate_backend(:unknown_backend)
+        @test_throws CTBase.IncorrectArgument deactivate_backend(:unknown_backend)
 
         # :fun is always active, so trying to (de)activate it should fail
-        @test_throws String activate_backend(:fun)
-        @test_throws String deactivate_backend(:fun)
+        @test_throws CTBase.PreconditionError activate_backend(:fun)
+        @test_throws CTBase.PreconditionError deactivate_backend(:fun)
     end
 
     @testset "backend activation (twisted sequences)" begin
@@ -55,7 +55,7 @@ function test_prefix_bis()
         @test is_active_backend(:exa)
 
         # is_active_backend on unknown backend should throw
-        @test_throws String is_active_backend(:unknown_backend)
+        @test_throws CTBase.IncorrectArgument is_active_backend(:unknown_backend)
 
         # Sanity check: :fun is never affected by toggling :exa
         @test is_active_backend(:fun)

@@ -155,7 +155,7 @@ function test_exa_linalg()
             real_reinterp2 = reinterpret(Float64, complex_vec2)
             result4 = dot(real_reinterp1, real_reinterp2)
             @test result4 isa Real
-            @test result4 ≈ 1*5 + 2*6 + 3*7 + 4*8  # 70.0
+            @test result4 ≈ 1 * 5 + 2 * 6 + 3 * 7 + 4 * 8  # 70.0
 
             # Test mixed wrapper types
             result5 = dot(v1_view, v2_reshaped)
@@ -497,9 +497,9 @@ function test_exa_linalg()
         end
 
         @testset "ExaCore variable arrays" begin
-            # Create a more realistic test using ExaModels.variable
+            # Create a more realistic test using ExaModels.add_var
             c = ExaModels.ExaCore()
-            xvar = ExaModels.variable(c, 2, 0:10, lvar=0, uvar=1)
+            c, xvar = ExaModels.add_var(c, 2, 0:10; lvar=0, uvar=1)
 
             # Create vector from variable
             v = [xvar[i, 1] for i in 1:2]
