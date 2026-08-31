@@ -2833,6 +2833,37 @@ function test_onepass_fun()
             ẋ(t) == A * x(t) + B * u(t)
             ∫(u(t)^2) / 2 → min # forbidden
         end
+
+        # a constraint bound must be effective: it must not depend on the variable (#343)
+        @test_throws ParsingError @def o begin
+            v ∈ R, variable
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₂(0) == v
+            ẋ(t) == [x₂(t), u(t)]
+        end
+
+        # ... nor on the state (bound side)
+        @test_throws ParsingError @def o begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₁(0) ≤ x₂(0)
+            ẋ(t) == [x₂(t), u(t)]
+        end
+
+        # the documented work-around still builds fine
+        o = @def begin
+            v ∈ R, variable
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₂(0) - v == 0
+            ẋ(t) == [x₂(t), u(t)]
+            ∫(0.5u(t)^2) → min
+        end
+        @test o isa Model
     end
 
     # ---------------------------------------------------------------
