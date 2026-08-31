@@ -6,12 +6,16 @@ All notable changes to CTParser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.9.5-beta] - 2026-08-31
 
 ### 🐛 Bug Fixes
 
 - **A constraint bound that depends on `v`, the state, the control or the time is now rejected with a clear `ParsingError`** ([#343](https://github.com/control-toolbox/CTParser.jl/issues/343)). Previously `x₂(0) == v` (with `v` the optimization variable) failed with an internal `UndefVarError: v##NNNN` leaked from generated code. Such a relation must be written as a functional constraint by moving the term to the constrained side, e.g. `x₂(0) - v == 0`.
 - **Trace mode (`@def name … end true`) no longer prints the parsed model twice** ([#344](https://github.com/control-toolbox/CTParser.jl/issues/344)). When the `:exa` backend is active, `def_fun` parses the definition a second time to build the ExaModels artifact; that second pass was inheriting the `log` flag and re-emitting the whole trace. It now runs with `log=false`.
+
+### ✅ Compatibility
+
+- **No breaking changes**: both fixes only affect inputs that already errored (`#343`) or trace-only output (`#344`). See [BREAKING.md](BREAKING.md).
 
 ## [0.9.4-beta] - 2026-08-30
 

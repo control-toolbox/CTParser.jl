@@ -4,6 +4,20 @@
 Breaking changes in CTParser releases, and how to migrate. Tracked from the 0.8.15
 baseline onward; see [CHANGELOG.md](CHANGELOG.md) for the full record.
 
+## [0.9.5-beta] - 2026-08-31
+
+No breaking changes in this release.
+
+- Constraint bounds that depend on `v`, the state, the control or the time
+  ([#343](https://github.com/control-toolbox/CTParser.jl/issues/343)) are now rejected
+  with a `CTBase.ParsingError` naming the cause. Such definitions already failed to
+  build — previously with an internal `UndefVarError` leaked from generated code — so no
+  working `@def` changes. Rewrite the relation as a functional constraint, e.g.
+  `x₂(0) - v == 0` instead of `x₂(0) == v`.
+- Trace mode (`@def name … end true`) prints the parsed model once instead of twice
+  ([#344](https://github.com/control-toolbox/CTParser.jl/issues/344)). Trace output only;
+  the returned model and the public API are unchanged.
+
 ## [0.9.3-beta] - 2026-08-30
 
 No breaking changes in this release.
