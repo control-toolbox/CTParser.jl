@@ -1570,7 +1570,9 @@ function def_fun(e; log=false)
     end
 
     if is_active_backend(:exa)
-        build_exa = def_exa(e; log=log)
+        # log=false: the :fun pass above already emitted the trace; a second one here
+        # would print the whole parsed model twice (#344)
+        build_exa = def_exa(e; log=false)
         code = concat(code, :($pref.build($p_ocp; build_examodel=($build_exa))))
     else
         code = concat(code, :($pref.build($p_ocp)))
