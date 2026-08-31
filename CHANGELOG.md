@@ -6,6 +6,12 @@ All notable changes to CTParser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### 🐛 Bug Fixes
+
+- **Trace mode (`@def name … end true`) no longer prints the parsed model twice** ([#344](https://github.com/control-toolbox/CTParser.jl/issues/344)). When the `:exa` backend is active, `def_fun` parses the definition a second time to build the ExaModels artifact; that second pass was inheriting the `log` flag and re-emitting the whole trace. It now runs with `log=false`.
+
 ## [0.9.4-beta] - 2026-08-30
 
 ### ✅ Compatibility
