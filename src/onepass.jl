@@ -641,6 +641,26 @@ function p_constraint!(
     log && println("constraint ($c_type): $e1 ≤ $e2 ≤ $e3,    ($label)")
     label isa Int && (label = Symbol(:eq, label))
     label isa Symbol || return __throw("forbidden label: $label", p.lnum, p.line)
+    # a constraint bound must be "effective": lb/ub are evaluated once at build time,
+    # so they cannot reference v/x/u/t (doing so leaks an internal gensym — see #343)
+    for (b, side) in ((e1, "lower"), (e3, "upper"))
+        isnothing(b) && continue
+        for (sym, what) in (
+            (p.v, "the variable"),
+            (p.x, "the state"),
+            (p.u, "the control"),
+            (p.t, "the time"),
+        )
+            isnothing(sym) && continue
+            has(b, sym) && return __throw(
+                "the $side bound of a constraint must not depend on $what; " *
+                "write a functional constraint instead by moving the term to the " *
+                "constrained side (e.g. `x₂(0) - v == 0` rather than `x₂(0) == v`)",
+                p.lnum,
+                p.line,
+            )
+        end
+    end
     xut = __symgen(:xut)
     ee2 = replace_call(e2, [p.x, p.u], p.t, [xut, xut])
     has(ee2, p.t) && (p.is_autonomous = false)

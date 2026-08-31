@@ -1081,6 +1081,21 @@ function __test_onepass_exa(
         end
         @test_throws ParsingError o(; backend=backend)
 
+        # a constraint bound must not depend on the variable (#343)
+        o = @def_exa begin
+            v ∈ R, variable
+            t ∈ [0, 1], time
+            x ∈ R⁴, state
+            u ∈ R⁵, control
+            x₂(0) == v
+            ∂(x₁)(t) == x₁(t)
+            ∂(x₂)(t) == x₁(t)
+            ∂(x₃)(t) == x₁(t)
+            ∂(x₄)(t) == x₁(t)
+            x₁(0) + 2cos(x₂(1)) → min
+        end
+        @test_throws ParsingError o(; backend=backend)
+
         o = @def_exa begin
             t ∈ [0, 1], time
             x ∈ R⁴, state

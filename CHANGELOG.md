@@ -6,6 +6,12 @@ All notable changes to CTParser will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### 🐛 Bug Fixes
+
+- **A constraint bound that depends on `v`, the state, the control or the time is now rejected with a clear `ParsingError`** ([#343](https://github.com/control-toolbox/CTParser.jl/issues/343)). Previously `x₂(0) == v` (with `v` the optimization variable) failed with an internal `UndefVarError: v##NNNN` leaked from generated code. Such a relation must be written as a functional constraint by moving the term to the constrained side, e.g. `x₂(0) - v == 0`.
+
 ## [0.9.4-beta] - 2026-08-30
 
 ### ✅ Compatibility
