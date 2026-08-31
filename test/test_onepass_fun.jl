@@ -124,6 +124,33 @@ function test_onepass_fun()
         end true
         @test initial_time(o) == 0
         @test final_time(o, [0, 2]) == 2
+
+        # trace mode prints the parsed model once, not once per active backend (#344)
+        was_exa = is_active_backend(:exa)
+        was_exa || activate_backend(:exa)
+        try
+            trace = mktemp() do path, io
+                redirect_stdout(io) do
+                    CTParser.def_fun(
+                        :(begin
+                            tf ∈ R, variable
+                            t ∈ [0, tf], time
+                            x = (q, v) ∈ R², state
+                            u ∈ R, control
+                            ẋ(t) == [v(t), u(t)]
+                            ∫(u(t)^2) → min
+                        end);
+                        log=true,
+                    )
+                end
+                flush(io)
+                read(path, String)
+            end
+            @test count("objective (Lagrange)", trace) == 1
+            @test count("state: x, dim: 2", trace) == 1
+        finally
+            was_exa || deactivate_backend(:exa)
+        end
     end
 
     # ---------------------------------------------------------------
