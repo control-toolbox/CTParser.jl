@@ -6,13 +6,22 @@ Quick-reference for any agent working on this repository.
 
 ## Repository Layout
 
-CTParser is a single flat module — no submodule split, no `ext/`.
+CTParser is a single flat module — no submodule split.
 
 ```text
 src/        # onepass.jl (the `@def` parser), defaults.jl, initial_guess.jl, utils.jl
+ext/        # CTParserExaModels.jl only — see below
 test/       # Test suite: flat files (not test/suite/)
 docs/       # Documentation site (DocumenterVitepress)
 ```
+
+`ext/` holds exactly one extension, and it is **temporary**. ExaModels ships the
+linear-algebra glue its expression nodes need (`dot`, `*` on node vectors/matrices,
+`det`, `norm`, `Null` zero elimination) but never declares that extension in its
+`[extensions]`, so Julia never loads it. Until upstream wires it up, CTParser carries
+a port of it, triggered by `ExaModels` + `LinearAlgebra` weak dependencies. Delete
+the file and the two weakdeps when upstream fixes it — see
+[#325](https://github.com/control-toolbox/CTParser.jl/issues/325).
 
 ---
 
