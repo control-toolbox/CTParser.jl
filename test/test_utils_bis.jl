@@ -167,9 +167,8 @@ function test_utils_bis()
         # Block + non-block
         e1 = :(
             begin
-                ;
-                a = 1;
-                b = 2;
+                a = 1
+                b = 2
             end
         )
         e2 = :(c = 3)
@@ -182,9 +181,8 @@ function test_utils_bis()
         e1 = :(z = 0)
         e2 = :(
             begin
-                ;
-                p = 1;
-                q = 2;
+                p = 1
+                q = 2
             end
         )
         e = concat(e1, e2)
