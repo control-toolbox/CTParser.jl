@@ -5,8 +5,8 @@ using Test: Test
 const VERBOSE = isdefined(Main, :TestData) ? Main.TestData.VERBOSE : true
 const SHOWTIMING = isdefined(Main, :TestData) ? Main.TestData.SHOWTIMING : true
 
-# Central enforcement of the Handbook's capability-gated-test contract (philosophy/testing.md
-# §"Capability-gated tests"), the CTParser side of control-toolbox/CTParser.jl#339. CTSolvers
+# Central enforcement of the capability-gated-test contract (ct-conventions TST6,
+# "Capability-gated tests skip visibly"), the CTParser side of control-toolbox/CTParser.jl#339. CTSolvers
 # carries the same file at test/suite/environment/test_environment_contract.jl; two
 # deliberate differences:
 #

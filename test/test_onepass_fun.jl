@@ -129,22 +129,18 @@ function test_onepass_fun()
         was_exa = is_active_backend(:exa)
         was_exa || activate_backend(:exa)
         try
-            trace = mktemp() do path, io
-                redirect_stdout(io) do
-                    CTParser.def_fun(
-                        :(begin
-                            tf ∈ R, variable
-                            t ∈ [0, tf], time
-                            x = (q, v) ∈ R², state
-                            u ∈ R, control
-                            ẋ(t) == [v(t), u(t)]
-                            ∫(u(t)^2) → min
-                        end);
-                        log=true,
-                    )
-                end
-                flush(io)
-                read(path, String)
+            _, trace = capture_stdout() do
+                CTParser.def_fun(
+                    :(begin
+                        tf ∈ R, variable
+                        t ∈ [0, tf], time
+                        x = (q, v) ∈ R², state
+                        u ∈ R, control
+                        ẋ(t) == [v(t), u(t)]
+                        ∫(u(t)^2) → min
+                    end);
+                    log=true,
+                )
             end
             @test count("objective (Lagrange)", trace) == 1
             @test count("state: x, dim: 2", trace) == 1
@@ -2864,6 +2860,40 @@ function test_onepass_fun()
             ∫(0.5u(t)^2) → min
         end
         @test o isa Model
+
+        # ... nor on the control (upper bound side)
+        @test_throws ParsingError @def o begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₁(t) ≤ u(t)
+            ẋ(t) == [x₂(t), u(t)]
+        end
+
+        # ... nor on the time (upper bound side)
+        @test_throws ParsingError @def o begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₁(t) ≤ t
+            ẋ(t) == [x₂(t), u(t)]
+        end
+
+        # the message names the bound side and the cause
+        err = try
+            @def o begin
+                v ∈ R, variable
+                t ∈ [0, 1], time
+                x ∈ R², state
+                u ∈ R, control
+                0 ≤ x₂(0) ≤ v
+                ẋ(t) == [x₂(t), u(t)]
+            end
+        catch e
+            e
+        end
+        @test err isa ParsingError
+        @test occursin("the upper bound of a constraint must not depend on the variable", err.msg)
     end
 
     # ---------------------------------------------------------------

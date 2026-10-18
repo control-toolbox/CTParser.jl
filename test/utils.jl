@@ -5,6 +5,27 @@ macro ignore(e)
     return :()
 end
 
+"""
+    capture_stdout(f) -> (result, output)
+
+Run `f()` with `stdout` redirected to a temporary file. `result` is the value of `f()`,
+or the exception it threw; `output` is everything printed meanwhile. A file rather than
+a `Pipe`, so a large output cannot fill the pipe buffer and block the writer.
+"""
+function capture_stdout(f)
+    return mktemp() do path, io
+        result = redirect_stdout(io) do
+            try
+                f()
+            catch err
+                err
+            end
+        end
+        flush(io)
+        return result, read(path, String)
+    end
+end
+
 # Mock up of CTDirect.discretise for tests
 
 function discretise_exa(

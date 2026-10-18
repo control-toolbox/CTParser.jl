@@ -13,22 +13,32 @@ function test_onepass_exa()
             ∫(u(t)^2) → min
         end
 
-        output = Pipe()
-        err = Base.redirect_stdout(() -> begin
-            try
-                discretise_exa(o; scheme=:gauss_legendre_2)
-            catch caught
-                caught
-            end
-        end, output)
-        close(output.in)
-        captured = read(output.out, String)
+        err, captured = capture_stdout(() -> discretise_exa(o; scheme=:gauss_legendre_2))
 
         @test err isa CTBase.IncorrectArgument
         @test err.got == "gauss_legendre_2"
         @test err.expected == ":euler, :euler_implicit, :midpoint or :trapeze"
         @test err.suggestion == "pass one of the supported schemes to the :exa backend"
         @test !occursin("Line ", captured)
+    end
+
+    @testset "bound-length error names the offending @def line" begin
+        o = @def_exa begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            [0, 0, 0] ≤ x(0) ≤ [1, 1]
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∫(u(t)^2) → min
+        end
+
+        err, captured = capture_stdout(() -> o())
+
+        @test err isa CTBase.PreconditionError
+        @test startswith(err.context, "line ")
+        @test occursin("x(0)", err.context)
+        @test !occursin("Line ", captured) # the line travels in the exception, not on stdout
     end
 
     l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
@@ -1095,6 +1105,55 @@ function __test_onepass_exa(
             x₁(0) + 2cos(x₂(1)) → min
         end
         @test_throws ParsingError o(; backend=backend)
+
+        # ... nor on the state (#343)
+        o = @def_exa begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₁(0) ≤ x₂(0)
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            x₁(1) → min
+        end
+        @test_throws ParsingError o(; backend=backend)
+
+        # ... nor on the control (#343)
+        o = @def_exa begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₁(t) ≤ u(t)
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            x₁(1) → min
+        end
+        @test_throws ParsingError o(; backend=backend)
+
+        # ... nor on the time (#343)
+        o = @def_exa begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₁(t) ≤ t
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            x₁(1) → min
+        end
+        @test_throws ParsingError o(; backend=backend)
+
+        # the documented work-around builds
+        o = @def_exa begin
+            v ∈ R, variable
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₂(0) - v == 0
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            x₁(1) → min
+        end
+        @test o(; backend=backend, scheme=scheme)[1] isa ExaModels.ExaModel
 
         o = @def_exa begin
             t ∈ [0, 1], time

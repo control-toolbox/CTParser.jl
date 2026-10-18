@@ -39,6 +39,11 @@ The method definitions below are ported from that shipped-but-unregistered
   `ExaModels.constraint` on it), and `p_constraint_exa!` never emits the vector
   form — it loops over components instead.
 
+Three deliberate departures from the upstream file: dimension and shape checks throw
+typed `CTBase` errors instead of `@assert` / `error`, `Null(0) + x` folds to `x` like
+`x + Null(0)` already did, and the square-matrix check of `det` is done once rather
+than at every level of the cofactor recursion.
+
 Nothing here overwrites an ExaModels method. ExaModels' core defines arithmetic on
 `AbstractNode` generically; every `Null`-specific method below is strictly more
 specific, and adds the zero/one elimination that keeps a structural zero from
@@ -49,12 +54,21 @@ the derivative kernels, larger than they need to be.
 # Lifetime
 
 Temporary. When ExaModels declares its own extension, delete this file and drop the
-two weak dependencies from `Project.toml`; nothing else references them. Aqua needs
-no exemption — `Aqua.test_all(CTParser)` inspects the package module, not its
-extensions, so `piracies=true` stays on as it is. See control-toolbox/CTParser.jl#325.
+two weak dependencies from `Project.toml`; nothing else references them. See
+control-toolbox/CTParser.jl#325.
+
+This module is type piracy by construction: CTParser owns neither `Base`,
+`LinearAlgebra` nor the ExaModels node types, and `Aqua.Piracy.hunt` on this module
+reports every method below. `Aqua.test_all(CTParser)` does not flag it only because Aqua
+inspects the package module, not its extensions. The piracy is the reason this file
+must go as soon as upstream ships it: if ExaModels ever declares its own
+`ExaModelsOptimalControl` extension, both would define the same methods. The test suite
+carries a sentinel (`test/test_exa_linalg.jl`) that fails as soon as ExaModels declares
+that extension.
 """
 module CTParserExaModels
 
+using CTBase: CTBase
 using ExaModels: ExaModels
 using LinearAlgebra: LinearAlgebra
 
@@ -86,7 +100,7 @@ end
 
 # Null + AbstractNode / AbstractNode + Null (zero elimination)
 @inline function Base.:+(a::ExaModels.Null{T}, b::ExaModels.AbstractNode) where {T<:Real}
-    return ExaModels.Node2(+, a, b)
+    return a.value == zero(T) ? b : ExaModels.Node2(+, a, b)
 end
 @inline function Base.:+(a::ExaModels.AbstractNode, b::ExaModels.Null{T}) where {T<:Real}
     return b.value == zero(T) ? a : ExaModels.Node2(+, a, b)
@@ -243,6 +257,37 @@ const _MAT_PAIRS = [
 ]
 
 # ============================================================================
+# Argument checks
+#
+# Typed CTBase errors rather than upstream's assertions, which can be compiled out:
+# incompatible dimensions relate two operands (`PreconditionError`), a single operand
+# of the wrong shape is an `IncorrectArgument`.
+# ============================================================================
+
+function _dimension_mismatch(op, reason)
+    throw(
+        CTBase.PreconditionError(
+            "operand dimensions do not match for $op";
+            reason=reason,
+            suggestion="pass operands with compatible dimensions",
+            context="linear algebra on ExaModels nodes",
+        ),
+    )
+end
+
+function _bad_operand(op, got, expected)
+    throw(
+        CTBase.IncorrectArgument(
+            "unsupported operand for $op";
+            got=got,
+            expected=expected,
+            suggestion="pass an operand of the expected shape",
+            context="linear algebra on ExaModels nodes",
+        ),
+    )
+end
+
+# ============================================================================
 # Plain Julia scalar decompositions
 #
 # Every operation below rebuilds the result element by element from scalar node
@@ -264,7 +309,8 @@ end
 
 for (T1, T2) in _VEC_PAIRS
     @eval function LinearAlgebra.dot(a::$T1, b::$T2)
-        @assert length(a) == length(b)
+        length(a) == length(b) ||
+            _dimension_mismatch("dot", "lengths $(length(a)) and $(length(b))")
         s = a[1] * b[1]
         for i in 2:length(a)
             s = s + a[i] * b[i]
@@ -313,7 +359,9 @@ for (T1, T2) in [
 ]
     @eval function Base.:*(A::$T1, x::$T2)
         m = size(A, 1)
-        @assert size(A, 2) == length(x)
+        size(A, 2) == length(x) || _dimension_mismatch(
+            "*", "matrix of size $(size(A)) and vector of length $(length(x))"
+        )
         return [_dot_row(A, i, x) for i in 1:m]
     end
 end
@@ -331,7 +379,8 @@ end
 
 for (T1, T2) in _MAT_PAIRS
     @eval function Base.:*(A::$T1, B::$T2)
-        @assert size(A, 2) == size(B, 1)
+        size(A, 2) == size(B, 1) ||
+            _dimension_mismatch("*", "matrices of sizes $(size(A)) and $(size(B))")
         m, n = size(A, 1), size(B, 2)
         return [_dot_col(A, i, B, j) for i in 1:m, j in 1:n]
     end
@@ -342,7 +391,9 @@ end
 for op in (:+, :-)
     for (T1, T2) in _VEC_PAIRS
         @eval function Base.$op(a::$T1, b::$T2)
-            @assert length(a) == length(b)
+            length(a) == length(b) || _dimension_mismatch(
+                $(string(op)), "lengths $(length(a)) and $(length(b))"
+            )
             return [$op(a[i], b[i]) for i in eachindex(a)]
         end
     end
@@ -351,11 +402,13 @@ end
 # Win dispatch over Base's +(::Array, ::Array...) from arraymath.jl
 for (T1, T2) in [(ExaNode, ExaNode), (Real, ExaNode), (ExaNode, Real)]
     @eval function Base.:+(a::Array{<:$T1,1}, b::Array{<:$T2,1})
-        @assert length(a) == length(b)
+        length(a) == length(b) ||
+            _dimension_mismatch("+", "lengths $(length(a)) and $(length(b))")
         return [a[i] + b[i] for i in eachindex(a)]
     end
     @eval function Base.:+(A::Array{<:$T1,2}, B::Array{<:$T2,2})
-        @assert size(A) == size(B)
+        size(A) == size(B) ||
+            _dimension_mismatch("+", "sizes $(size(A)) and $(size(B))")
         return [A[i, j] + B[i, j] for i in axes(A, 1), j in axes(A, 2)]
     end
 end
@@ -369,7 +422,9 @@ Base.:-(A::MatExaNode) = [-A[i, j] for i in axes(A, 1), j in axes(A, 2)]
 for op in (:+, :-)
     for (T1, T2) in _MAT_PAIRS
         @eval function Base.$op(A::$T1, B::$T2)
-            @assert size(A) == size(B)
+            size(A) == size(B) || _dimension_mismatch(
+                $(string(op)), "sizes $(size(A)) and $(size(B))"
+            )
             return [$op(A[i, j], B[i, j]) for i in axes(A, 1), j in axes(A, 2)]
         end
     end
@@ -378,7 +433,8 @@ end
 # --- tr ---
 
 function _tr_impl(A)
-    @assert size(A, 1) == size(A, 2) "Matrix must be square for tr"
+    size(A, 1) == size(A, 2) ||
+        _bad_operand("tr", "matrix of size $(size(A))", "a square matrix")
     n = size(A, 1)
     s = A[1, 1]
     for i in 2:n
@@ -434,7 +490,9 @@ for (TA, TV, TB) in
     [(ExaNode, VecExaNode, MatExaNode), (Real, AbstractVector{<:Real}, MatExaNode)]
     @eval function Base.:*(a::LinearAlgebra.Adjoint{<:$TA,<:$TV}, B::$TB)
         v = parent(a)
-        @assert length(v) == size(B, 1)
+        length(v) == size(B, 1) || _dimension_mismatch(
+            "*", "adjoint vector of length $(length(v)) and matrix of size $(size(B))"
+        )
         n = size(B, 2)
         return adjoint([LinearAlgebra.dot(v, [B[k, j] for k in 1:size(B, 1)]) for j in 1:n])
     end
@@ -443,7 +501,9 @@ function Base.:*(
     a::LinearAlgebra.Adjoint{<:ExaNode,<:VecExaNode}, B::AbstractMatrix{<:Real}
 )
     v = parent(a)
-    @assert length(v) == size(B, 1)
+    length(v) == size(B, 1) || _dimension_mismatch(
+        "*", "adjoint vector of length $(length(v)) and matrix of size $(size(B))"
+    )
     n = size(B, 2)
     return adjoint([LinearAlgebra.dot(v, view(B, :, j)) for j in 1:n])
 end
@@ -510,8 +570,7 @@ end
 
 # General determinant via cofactor expansion (recursive, for N > 4)
 function _det_recursive(A)
-    n = size(A, 1)
-    @assert size(A, 1) == size(A, 2) "Matrix must be square"
+    n = size(A, 1) # square: checked once by det, and every minor of a square matrix is square
     if n == 1
         return _det_1x1(A)
     elseif n == 2
@@ -536,7 +595,8 @@ end
 
 # Dispatch det for matrices containing ExaNode elements
 function LinearAlgebra.det(A::MatExaNode)
-    @assert size(A, 1) == size(A, 2) "Matrix must be square for det"
+    size(A, 1) == size(A, 2) ||
+        _bad_operand("det", "matrix of size $(size(A))", "a square matrix")
     return _det_recursive(A)
 end
 
@@ -562,7 +622,8 @@ function LinearAlgebra.norm(v::VecExaNode, p::Real)
         end
         return s
     elseif p == Inf
-        error("Inf-norm is not differentiable and not supported for ExaNode vectors")
+        # the Inf-norm is not differentiable, so it has no node expression
+        _bad_operand("norm", "p = Inf", "a finite p")
     else
         s = abs(v[1])^p
         for i in 2:length(v)
@@ -586,7 +647,9 @@ end
 
 for (T1, T2) in _VEC_PAIRS
     @eval function LinearAlgebra.cross(a::$T1, b::$T2)
-        @assert length(a) == 3 && length(b) == 3 "Cross product requires 3D vectors"
+        (length(a) == 3 && length(b) == 3) || _bad_operand(
+            "cross", "vectors of lengths $(length(a)) and $(length(b))", "two 3-vectors"
+        )
         return [
             a[2] * b[3] - a[3] * b[2], a[3] * b[1] - a[1] * b[3], a[1] * b[2] - a[2] * b[1]
         ]

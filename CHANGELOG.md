@@ -1,10 +1,35 @@
-<!-- markdownlint-disable MD024 -->
 # Changelog
 
 All notable changes to CTParser will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### 🐛 Bug Fixes
+
+- **A bound-length error raised while building an `:exa` model names its `@def` line again.** Since 0.9.1-beta ([#338](https://github.com/control-toolbox/CTParser.jl/issues/338)) `__wrap` no longer prints `Line n: …` for structured exceptions, and the bound-length `PreconditionError`s carried no `context`, so nothing pointed at the offending line. They now set `context = "line n: <source>"`.
+
+### 🛠 Enhancements
+
+- **Errors raised from generated `:exa` code and the backend-selection errors set `suggestion` and `context`.**
+- **The ExaModels linear-algebra extension throws typed errors.** A dimension mismatch between two operands is a `CTBase.PreconditionError`; a non-square matrix for `det` / `tr`, `norm(v, Inf)` and non-3-vectors for `cross` are a `CTBase.IncorrectArgument`. They were an `AssertionError` or an `ErrorException`.
+- **`Null(0) + x` folds to `x` in the extension**, as `x + Null(0)` already did.
+
+### 🔄 Refactoring
+
+- **One helper per generated error in `src/onepass.jl`.** The bound-length check, the unknown-scheme error and the backend checks were copied 7, 3 and 6 times; the list of `:exa` schemes is now a single constant, `EXA_SCHEMES`.
+
+### 🧪 Testing
+
+- **[#343](https://github.com/control-toolbox/CTParser.jl/issues/343) is covered on both backends** for the state, the control and the time, on the upper-bound side and with its message; the documented work-around is also tested on `:exa`.
+- **A sentinel in `test/test_exa_linalg.jl` fails as soon as ExaModels declares its own `ExaModelsOptimalControl` extension**, the signal to delete `ext/CTParserExaModels.jl` ([#325](https://github.com/control-toolbox/CTParser.jl/issues/325)).
+- **Standard-output capture is one helper, `capture_stdout` in `test/utils.jl`.**
+
+### ✅ Compatibility
+
+- **No breaking changes**: the public API is unchanged. The error types thrown by the ExaModels extension change, see the non-breaking note in [BREAKING.md](BREAKING.md).
 
 ## [0.9.5-beta] - 2026-08-31
 
@@ -19,11 +44,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.9.4-beta] - 2026-08-30
 
-### ✅ Compatibility
+### 📦 Dependencies
 
 - **CTBase 0.30 is now supported** alongside CTBase 0.29 ([#342](https://github.com/control-toolbox/CTParser.jl/issues/342)).
 
-### 🐛 Bug Fixes
+### ✅ Compatibility
+
+- **No breaking changes**: `[compat]` is widened, no source change. See [BREAKING.md](BREAKING.md).
+
+## [0.9.3-beta] - 2026-08-30
+
+### 📚 Documentation
 
 - **Docstring examples no longer trigger Documenter warnings** ([#341](https://github.com/control-toolbox/CTParser.jl/issues/341)). Examples embedded in docstrings now use static `julia` fences instead of `@example` fences, because Documenter does not execute `@example` blocks when those docstrings are transcluded into a consumer's `@docs` block.
 
@@ -72,6 +103,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🐛 Bug Fixes
 
 - **Structured errors no longer print a misleading source line** ([#338](https://github.com/control-toolbox/CTParser.jl/issues/338)). Errors such as an unsupported ExaModels `scheme` are propagated with their structured diagnostic without an unrelated `Line n: ...` message on `stdout`.
+
+### ✅ Compatibility
+
+- **No breaking changes**: exception types are unchanged, only the extra `stdout` line is gone. See [BREAKING.md](BREAKING.md).
 
 ## [0.9.0] - 2026-08-25
 
@@ -202,15 +237,15 @@ CUDA, MadNLP and MadNLPGPU keep their lower bound, mirroring CTSolvers 0.5.3, so
 GitHub-hosted runners are not forced onto a CUDA 6 resolve. The CTBase, CTModels and
 OrderedCollections bumps needed no source change.
 
-### 🧪 Testing
-
-- The 19 `@test_throws String` assertions now assert the concrete exception type.
-- `test/test_exa_linalg.jl` migrated off the removed `ExaModels.variable`.
-
 ### 🔄 Refactoring
 
 - **CI**: the retired self-hosted `kkt` runner replaced by `occidata`, and the trigger
   labels renamed to the ecosystem's `run ci <target>` form.
+
+### 🧪 Testing
+
+- The 19 `@test_throws String` assertions now assert the concrete exception type.
+- `test/test_exa_linalg.jl` migrated off the removed `ExaModels.variable`.
 
 ### ✅ Compatibility
 

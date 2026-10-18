@@ -1,8 +1,16 @@
-<!-- markdownlint-disable MD024 -->
 # Breaking Changes
 
 Breaking changes in CTParser releases, and how to migrate. Tracked from the 0.8.15
 baseline onward; see [CHANGELOG.md](CHANGELOG.md) for the full record.
+
+## Non-breaking note (Unreleased)
+
+- **The ExaModels linear-algebra extension throws `CTBase` errors instead of
+  `AssertionError` / `ErrorException`.** A dimension mismatch between two operands
+  (`dot`, `+`, `-`, `*`) is now a `CTBase.PreconditionError`; a non-square matrix for
+  `det` / `tr`, `norm(v, Inf)` and non-3-vectors for `cross` a `CTBase.IncorrectArgument`.
+  These calls already failed; only the exception type changes. Code catching
+  `AssertionError` or `ErrorException` around them must catch the `CTBase` type instead.
 
 ## [0.9.5-beta] - 2026-08-31
 
@@ -17,6 +25,13 @@ No breaking changes in this release.
 - Trace mode (`@def name … end true`) prints the parsed model once instead of twice
   ([#344](https://github.com/control-toolbox/CTParser.jl/issues/344)). Trace output only;
   the returned model and the public API are unchanged.
+
+## [0.9.4-beta] - 2026-08-30
+
+No breaking changes in this release.
+
+- `[compat]` widened to `CTBase = "0.29, 0.30"`
+  ([#342](https://github.com/control-toolbox/CTParser.jl/issues/342)). No source change.
 
 ## [0.9.3-beta] - 2026-08-30
 

@@ -69,10 +69,11 @@ using CUDSS: CUDSS
 using BenchmarkTools
 using Interpolations
 using NLPModels
+using TOML: TOML
 
 # Capability constants, computed once, here. `CUDA_FUNCTIONAL` is the suite's single
 # CUDA-device predicate — never write a bare `CUDA.functional()` guard in a test file
-# (duplicated copies drift; Handbook philosophy/testing.md §"Capability-gated tests").
+# (duplicated copies drift; ct-conventions TST6, "Capability-gated tests skip visibly").
 # `ON_GPU_RUNNER` turns the device tier from *skipped* into *required* on the self-hosted
 # GPU runners: `RUNNER_NAME` is set by the GitHub Actions runner agent itself (no CI.yml
 # or CTActions change needed) to the runner's *registered* name. Ours are registered as
