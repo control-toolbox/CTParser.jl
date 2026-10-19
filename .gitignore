@@ -37,3 +37,6 @@ CLAUDE.local.md
 
 # ct-conventions, cloned at the tag pinned in AGENTS.md
 .conventions/
+
+# ct-agents, cloned at the tag pinned in AGENTS.md
+.ct-agents/
