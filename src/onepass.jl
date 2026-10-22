@@ -1382,7 +1382,7 @@ function def_fun(e; log=false)
         $p_ocp = $pref.PreModel()
         $code
         $pref.definition!($p_ocp, $ee)
-        $pref.time_dependence!($p_ocp; autonomous=$p.is_autonomous) # not $(p.xxxx) as this info is known statically
+        $pref.time_dependence!($p_ocp; autonomous=($p.is_autonomous)) # not $(p.xxxx) as this info is known statically
     end
 
     if is_active_backend(:exa)
