@@ -1734,7 +1734,7 @@ function __test_onepass_exa(
         @test obj1 - obj2 ≈ 0 atol = __atol
     end
 
-    # todo: test below inactived on GPU because run is unstable
+    # todo: test below inactivated on GPU because run is unstable
     if isnothing(backend)
         test_name = "use case no. 6: vectorised constraints ($backend_name, $scheme)"
         @testset "$test_name" begin
@@ -1796,7 +1796,7 @@ function __test_onepass_exa(
         end
     end
 
-    # todo: test below inactived on GPU because run is unstable
+    # todo: test below inactivated on GPU because run is unstable
     if isnothing(backend)
         test_name = "use case no. 7: mixed vectorisation ($backend_name, $scheme)"
         @testset "$test_name" begin
