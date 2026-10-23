@@ -155,7 +155,7 @@ function test_exa_linalg()
             real_reinterp2 = reinterpret(Float64, complex_vec2)
             result4 = dot(real_reinterp1, real_reinterp2)
             @test result4 isa Real
-            @test result4 ≈ 1*5 + 2*6 + 3*7 + 4*8  # 70.0
+            @test result4 ≈ 1 * 5 + 2 * 6 + 3 * 7 + 4 * 8  # 70.0
 
             # Test mixed wrapper types
             result5 = dot(v1_view, v2_reshaped)
@@ -300,7 +300,7 @@ function test_exa_linalg()
 
             # Test error on non-square matrix
             A_rect = [x y z; y z w]
-            @test_throws AssertionError tr(A_rect)
+            @test_throws CTBase.IncorrectArgument tr(A_rect)
         end
 
         @testset "Norms" begin
@@ -328,7 +328,7 @@ function test_exa_linalg()
             @test result5 isa ExaModels.AbstractNode
 
             # Test that infinity norm raises error
-            @test_throws ErrorException norm(vec_nodes, Inf)
+            @test_throws CTBase.IncorrectArgument norm(vec_nodes, Inf)
         end
 
         @testset "Array addition" begin
@@ -459,47 +459,47 @@ function test_exa_linalg()
             @test result2[1, 1] isa ExaModels.AbstractNode
         end
 
-        @testset "Dimension mismatch errors" begin
+        @testset "Dimension mismatch errors (typed CTBase exceptions)" begin
             # Test dot product dimension mismatch
             v1 = [1.0, 2.0]
             vec_nodes = [x, y, z]
-            @test_throws AssertionError dot(v1, vec_nodes)
+            @test_throws CTBase.PreconditionError dot(v1, vec_nodes)
 
             # Test matrix-vector dimension mismatch
             A = [1.0 2.0; 3.0 4.0]  # 2×2
             v = [x, y, z]  # length 3
-            @test_throws AssertionError A * v
+            @test_throws CTBase.PreconditionError A * v
 
             # Test matrix-matrix dimension mismatch
             A1 = [1.0 2.0; 3.0 4.0]  # 2×2
             A2_nodes = [x y; z w; y x]  # 3×2
-            @test_throws AssertionError A1 * A2_nodes
+            @test_throws CTBase.PreconditionError A1 * A2_nodes
 
             # Test determinant on non-square matrix
             A_rect = [x y z; y z x]  # 2×3
-            @test_throws AssertionError det(A_rect)
+            @test_throws CTBase.IncorrectArgument det(A_rect)
 
             # Test addition dimension mismatch
             v1 = [x, y]
             v2 = [x, y, z]
-            @test_throws AssertionError v1 + v2
+            @test_throws CTBase.PreconditionError v1 + v2
 
             # Test subtraction dimension mismatch
-            @test_throws AssertionError v1 - v2
+            @test_throws CTBase.PreconditionError v1 - v2
 
             # Test matrix addition dimension mismatch
             A1 = [x y; z w]
             A2 = [x y z; w x y]
-            @test_throws AssertionError A1 + A2
+            @test_throws CTBase.PreconditionError A1 + A2
 
             # Test matrix subtraction dimension mismatch
-            @test_throws AssertionError A1 - A2
+            @test_throws CTBase.PreconditionError A1 - A2
         end
 
         @testset "ExaCore variable arrays" begin
-            # Create a more realistic test using ExaModels.variable
+            # Create a more realistic test using ExaModels.add_var
             c = ExaModels.ExaCore()
-            xvar = ExaModels.variable(c, 2, 0:10, lvar=0, uvar=1)
+            c, xvar = ExaModels.add_var(c, 2, 0:10; lvar=0, uvar=1)
 
             # Create vector from variable
             v = [xvar[i, 1] for i in 1:2]
@@ -1023,6 +1023,10 @@ function test_exa_linalg()
                 result3 = e + ExaModels.Null(3)
                 @test result3 isa ExaModels.AbstractNode
                 @test !(result3 isa ExaModels.Null)  # Should be Node2
+
+                # a structural zero is eliminated on either side
+                @test ExaModels.Null(0) + e === e
+                @test e + ExaModels.Null(0) === e
 
                 # e + f = e + f (native from ExaModels)
                 result4 = e + f
@@ -1577,6 +1581,14 @@ function test_exa_linalg()
                 result4 = v_num' * vec_reshaped
                 @test result4 isa ExaModels.AbstractNode
             end
+        end
+
+        @testset "upstream extension sentinel (#325)" begin
+            # ext/CTParserExaModels.jl is a port of ExaModels' shipped-but-unregistered
+            # ExaModelsOptimalControl extension. The day ExaModels declares it, both would
+            # define the same methods: this fails so that the port is deleted then.
+            exa_project = TOML.parsefile(joinpath(pkgdir(ExaModels), "Project.toml"))
+            @test !haskey(get(exa_project, "extensions", Dict()), "ExaModelsOptimalControl")
         end
     end
 end

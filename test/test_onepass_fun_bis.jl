@@ -17,7 +17,22 @@ function test_onepass_fun_bis()
         # __wrap should catch and rethrow the original exception
         wrapped_err = CTParser.__wrap(:(error("boom")), 1, "line")
         @test wrapped_err isa Expr
-        @test_throws ErrorException eval(wrapped_err)
+        err, captured = capture_stdout(() -> eval(wrapped_err))
+        @test err isa ErrorException
+        @test occursin("Line 1: line", captured)
+
+        # Structured CTBase exceptions already carry their own diagnostic context
+        structured = CTBase.IncorrectArgument(
+            "invalid scheme";
+            got="gauss_legendre_2",
+            expected=":euler or :midpoint",
+        )
+        wrapped_structured = CTParser.__wrap(:(throw($structured)), 6, "dynamics")
+        err, captured = capture_stdout(() -> eval(wrapped_structured))
+        @test err === structured
+        @test isempty(captured)
+        @test err.got == "gauss_legendre_2"
+        @test err.expected == ":euler or :midpoint"
     end
 
     @testset "p_dynamics! precondition errors" begin

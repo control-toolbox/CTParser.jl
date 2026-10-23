@@ -124,6 +124,29 @@ function test_onepass_fun()
         end true
         @test initial_time(o) == 0
         @test final_time(o, [0, 2]) == 2
+
+        # trace mode prints the parsed model once, not once per active backend (#344)
+        was_exa = is_active_backend(:exa)
+        was_exa || activate_backend(:exa)
+        try
+            _, trace = capture_stdout() do
+                CTParser.def_fun(
+                    :(begin
+                        tf ∈ R, variable
+                        t ∈ [0, tf], time
+                        x = (q, v) ∈ R², state
+                        u ∈ R, control
+                        ẋ(t) == [v(t), u(t)]
+                        ∫(u(t)^2) → min
+                    end);
+                    log=true,
+                )
+            end
+            @test count("objective (Lagrange)", trace) == 1
+            @test count("state: x, dim: 2", trace) == 1
+        finally
+            was_exa || deactivate_backend(:exa)
+        end
     end
 
     # ---------------------------------------------------------------
@@ -2746,7 +2769,7 @@ function test_onepass_fun()
         # this one is detected by the generated code (and not the parser)
         t0 = 9.0
         tf = 9.1
-        @test_throws PreconditionError @def o begin
+        @test_throws CTBase.PreconditionError @def o begin
             t ∈ [t0, tf], time
             t ∈ [t0, tf], time
         end
@@ -2806,6 +2829,71 @@ function test_onepass_fun()
             ẋ(t) == A * x(t) + B * u(t)
             ∫(u(t)^2) / 2 → min # forbidden
         end
+
+        # a constraint bound must be effective: it must not depend on the variable (#343)
+        @test_throws ParsingError @def o begin
+            v ∈ R, variable
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₂(0) == v
+            ẋ(t) == [x₂(t), u(t)]
+        end
+
+        # ... nor on the state (bound side)
+        @test_throws ParsingError @def o begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₁(0) ≤ x₂(0)
+            ẋ(t) == [x₂(t), u(t)]
+        end
+
+        # the documented work-around still builds fine
+        o = @def begin
+            v ∈ R, variable
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₂(0) - v == 0
+            ẋ(t) == [x₂(t), u(t)]
+            ∫(0.5u(t)^2) → min
+        end
+        @test o isa Model
+
+        # ... nor on the control (upper bound side)
+        @test_throws ParsingError @def o begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₁(t) ≤ u(t)
+            ẋ(t) == [x₂(t), u(t)]
+        end
+
+        # ... nor on the time (upper bound side)
+        @test_throws ParsingError @def o begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₁(t) ≤ t
+            ẋ(t) == [x₂(t), u(t)]
+        end
+
+        # the message names the bound side and the cause
+        err = try
+            @def o begin
+                v ∈ R, variable
+                t ∈ [0, 1], time
+                x ∈ R², state
+                u ∈ R, control
+                0 ≤ x₂(0) ≤ v
+                ẋ(t) == [x₂(t), u(t)]
+            end
+        catch e
+            e
+        end
+        @test err isa ParsingError
+        @test occursin("the upper bound of a constraint must not depend on the variable", err.msg)
     end
 
     # ---------------------------------------------------------------
@@ -3026,7 +3114,7 @@ function test_onepass_fun()
             x1(0) → min
         end
 
-        @test_throws PreconditionError @def begin
+        @test_throws CTBase.PreconditionError @def begin
             t ∈ [0, 1], time
             x ∈ R², state
             u ∈ R², control
@@ -3034,7 +3122,7 @@ function test_onepass_fun()
             x1(0) → min
         end
 
-        @test_throws PreconditionError @def begin
+        @test_throws CTBase.PreconditionError @def begin
             t ∈ [0, 1], time
             x ∈ R³, state
             u ∈ R², control
@@ -3147,10 +3235,10 @@ function test_onepass_fun()
         @test is_active_backend(:exa)
         deactivate_backend(:exa)
         @test !is_active_backend(:exa)
-        @test_throws String activate_backend(:fun)
-        @test_throws String deactivate_backend(:fun)
-        @test_throws String activate_backend(:foo)
-        @test_throws String deactivate_backend(:foo)
+        @test_throws CTBase.PreconditionError activate_backend(:fun)
+        @test_throws CTBase.PreconditionError deactivate_backend(:fun)
+        @test_throws CTBase.IncorrectArgument activate_backend(:foo)
+        @test_throws CTBase.IncorrectArgument deactivate_backend(:foo)
     end
 
     test_name = "dimensions at runtime"

@@ -4,12 +4,57 @@
 activate_backend(:exa) # nota bene: needs to be executed before @def are expanded
 
 function test_onepass_exa()
+    @testset "unsupported scheme does not print a misleading source line" begin
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R, control
+            ∂(x)(t) == u(t)
+            ∫(u(t)^2) → min
+        end
+
+        err, captured = capture_stdout(() -> discretise_exa(o; scheme=:gauss_legendre_2))
+
+        @test err isa CTBase.IncorrectArgument
+        @test err.got == "gauss_legendre_2"
+        @test err.expected == ":euler, :euler_implicit, :midpoint or :trapeze"
+        @test err.suggestion == "pass one of the supported schemes to the :exa backend"
+        @test !occursin("Line ", captured)
+    end
+
+    @testset "bound-length error names the offending @def line" begin
+        o = @def_exa begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            [0, 0, 0] ≤ x(0) ≤ [1, 1]
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∫(u(t)^2) → min
+        end
+
+        err, captured = capture_stdout(() -> o())
+
+        @test err isa CTBase.PreconditionError
+        @test startswith(err.context, "line ")
+        @test occursin("x(0)", err.context)
+        @test !occursin("Line ", captured) # the line travels in the exception, not on stdout
+    end
+
     l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
     #l_scheme = [:midpoint]
     for scheme in l_scheme
         __test_onepass_exa(; scheme=scheme, print_level=MadNLP.WARN)
-        CUDA.functional() &&
+        # Visible skip: short-circuiting on the raw device predicate makes a correctly-skipped
+        # run (no device, as expected on a developer machine) and a silently-broken one (device
+        # missing on a GPU runner) look identical. See test_environment_contract.jl.
+        if Main.TestCapabilities.CUDA_FUNCTIONAL
             __test_onepass_exa(CUDABackend(); scheme=scheme, print_level=MadNLP.WARN)
+        else
+            @testset "onepass exa (GPU, $scheme)" begin
+                @test_skip "GPU :exa solves need a functional CUDA device"
+            end
+        end
     end
 end
 
@@ -783,7 +828,7 @@ function __test_onepass_exa(
             -1 ≤ x₂(0) + x₁(tf) + tf ≤ [1, 2]
             x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws CTBase.PreconditionError o(; backend=backend)
 
         o = @def_exa begin
             tf ∈ R, variable
@@ -1046,6 +1091,70 @@ function __test_onepass_exa(
         end
         @test_throws ParsingError o(; backend=backend)
 
+        # a constraint bound must not depend on the variable (#343)
+        o = @def_exa begin
+            v ∈ R, variable
+            t ∈ [0, 1], time
+            x ∈ R⁴, state
+            u ∈ R⁵, control
+            x₂(0) == v
+            ∂(x₁)(t) == x₁(t)
+            ∂(x₂)(t) == x₁(t)
+            ∂(x₃)(t) == x₁(t)
+            ∂(x₄)(t) == x₁(t)
+            x₁(0) + 2cos(x₂(1)) → min
+        end
+        @test_throws ParsingError o(; backend=backend)
+
+        # ... nor on the state (#343)
+        o = @def_exa begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₁(0) ≤ x₂(0)
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            x₁(1) → min
+        end
+        @test_throws ParsingError o(; backend=backend)
+
+        # ... nor on the control (#343)
+        o = @def_exa begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₁(t) ≤ u(t)
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            x₁(1) → min
+        end
+        @test_throws ParsingError o(; backend=backend)
+
+        # ... nor on the time (#343)
+        o = @def_exa begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₁(t) ≤ t
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            x₁(1) → min
+        end
+        @test_throws ParsingError o(; backend=backend)
+
+        # the documented work-around builds
+        o = @def_exa begin
+            v ∈ R, variable
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            x₂(0) - v == 0
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            x₁(1) → min
+        end
+        @test o(; backend=backend, scheme=scheme)[1] isa ExaModels.ExaModel
+
         o = @def_exa begin
             t ∈ [0, 1], time
             x ∈ R⁴, state
@@ -1085,7 +1194,7 @@ function __test_onepass_exa(
             x(0) + 2cos(x(1)) → min
         end
         @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
-        @test_throws String discretise_exa(o; scheme=:foo)
+        @test_throws CTBase.IncorrectArgument discretise_exa(o; scheme=:foo)
     end
 
     test_name = "lagrange cost ($backend_name, $scheme)"
@@ -1140,7 +1249,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws CTBase.PreconditionError o(; backend=backend)
     end
 
     test_name = "state bounds test"
@@ -1159,7 +1268,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws CTBase.PreconditionError o(; backend=backend)
     end
 
     test_name = "control bounds test"
@@ -1179,7 +1288,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws CTBase.PreconditionError o(; backend=backend)
     end
 
     test_name = "path bounds test"
@@ -1199,7 +1308,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws CTBase.PreconditionError o(; backend=backend)
     end
 
     test_name = "path bounds test"
@@ -1238,7 +1347,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws CTBase.PreconditionError o(; backend=backend)
     end
 
     test_name = "final bounds test"
@@ -1257,7 +1366,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == 0.5u(t)^2
             x₃(1) → min
         end
-        @test_throws String o(; backend=backend)
+        @test_throws CTBase.PreconditionError o(; backend=backend)
     end
 
     test_name = "use case no. 1: simple example (mayer) ($backend_name, $scheme)"
@@ -1314,7 +1423,7 @@ function __test_onepass_exa(
         @test size(getter(s; val=:control_u)) == (1, N + 1)
         @test size(getter(s; val=:variable_l)) == (0,)
         @test size(getter(s; val=:variable_u)) == (0,)
-        @test_throws String getter(s; val=:foo)
+        @test_throws CTBase.IncorrectArgument getter(s; val=:foo)
     end
 
     test_name = "use case no. 1: simple example (mayer), testing getters (2/2) ($backend_name, $scheme)"
@@ -1803,7 +1912,12 @@ function __test_onepass_exa(
         sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
         obj2 = sol2.objective
 
-        __atol = 1e-9
+        # GPU floating-point reduction order differs from CPU's for the A[i,:]' * x(t)
+        # dot products this case is built from (LinearAlgebra.dot, ported in
+        # ext/CTParserExaModels.jl), so obj1 and obj2 -- two independently converged
+        # MadNLP solves -- agree only to the solver's own tolerance on GPU, not to
+        # machine precision as they happen to on CPU.
+        __atol = backend_name == "GPU" ? 1e-5 : 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
     end
 
