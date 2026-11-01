@@ -210,12 +210,26 @@ function _or_list(syms)
 end
 
 """
-Numerical schemes accepted by the `:exa` backend. Deprecated aliases (`:euler_b`,
-`:trapezoidal`) are still accepted by the generated code but not advertised. Keep in
-sync with the `scheme` branches of `p_dynamics_exa!`, `p_dynamics_coord_exa!` and
-`p_lagrange_exa!`.
+Numerical schemes accepted by the `:exa` backend. Their aliases, `EXA_SCHEME_ALIASES`,
+are accepted too but not advertised. Keep in sync with the `scheme` branches of
+`p_dynamics_exa!`, `p_dynamics_coord_exa!` and `p_lagrange_exa!`.
 """
 const EXA_SCHEMES = (:euler, :euler_implicit, :midpoint, :trapeze)
+
+"""
+Aliases of the `:exa` schemes, resolved to their canonical name (`EXA_SCHEMES`) at the
+top of the generated model builder, so the `scheme` branches only know canonical names.
+`:euler_explicit` and `:euler_forward` (aliases of `:euler`) and `:euler_backward`
+(alias of `:euler_implicit`) are the names the `:adnlp` modeler of CTDirect accepts;
+`:euler_b` and `:trapezoidal` are deprecated.
+"""
+const EXA_SCHEME_ALIASES = (
+    euler_explicit=:euler,
+    euler_forward=:euler,
+    euler_backward=:euler_implicit,
+    euler_b=:euler_implicit,
+    trapezoidal=:trapeze,
+)
 
 """
 $(TYPEDSIGNATURES)
@@ -1041,7 +1055,7 @@ function p_dynamics_exa!(p, p_ocp, x, t, e)
                     $p_ocp,
                     $dxj[$i] - $(p.dt) * $ej1[$i] for $j1 in 0:(grid_size - 1)
                 ) # todo: add _denull
-            elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
+            elseif scheme == :euler_implicit
                 $pref.add_con(
                     $p_ocp,
                     $dxj[$i] - $(p.dt) * $ej2[$i] for $j1 in 0:(grid_size - 1)
@@ -1051,7 +1065,7 @@ function p_dynamics_exa!(p, p_ocp, x, t, e)
                     $p_ocp,
                     $dxj[$i] - $(p.dt) * $ej12[$i] for $j1 in 0:(grid_size - 1)
                 ) # todo: add _denull
-            elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
+            elseif scheme == :trapeze
                 $pref.add_con(
                     $p_ocp,
                     $dxj[$i] - $(p.dt) * ($ej1[$i] + $ej2[$i]) / 2 for
@@ -1142,11 +1156,11 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i::Integer, t, e) # todo: also also 
         # alongside the constraint handle
         ($p_ocp, $(p.dyn_con)[$i]) = if scheme == :euler # dyn_con already defined outside try catch
             $pref.add_con($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1)) # todo: add _denull
-        elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
+        elseif scheme == :euler_implicit
             $pref.add_con($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 in 0:(grid_size - 1)) # todo: add _denull
         elseif scheme == :midpoint
             $pref.add_con($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1)) # todo: add _denull
-        elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
+        elseif scheme == :trapeze
             $pref.add_con(
                 $p_ocp,
                 $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 in 0:(grid_size - 1) # todo: add _denull
@@ -1215,11 +1229,11 @@ function p_lagrange_exa!(p, p_ocp, e, type)
         # adds two objectives, and the `if`'s own value is unused here
         if scheme == :euler
             ($p_ocp, _) = $pref.add_obj($p_ocp, $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1)) # todo: add _denull
-        elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
+        elseif scheme == :euler_implicit
             ($p_ocp, _) = $pref.add_obj($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size) # todo: add _denull
         elseif scheme == :midpoint
             ($p_ocp, _) = $pref.add_obj($p_ocp, $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1)) # todo: add _denull
-        elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
+        elseif scheme == :trapeze
             ($p_ocp, _) = $pref.add_obj($p_ocp, $(p.dt) * $ej1 / 2 for $j1 in (0, grid_size)) # todo: add _denull
             ($p_ocp, _) = $pref.add_obj($p_ocp, $(p.dt) * $ej1 for $j1 in 1:(grid_size - 1)) # todo: add _denull
         else
@@ -1641,6 +1655,7 @@ function def_exa(e; log=false)
             init=($default_init),
             base_type=($default_base_type),
         )
+            scheme = scheme isa Symbol ? get($EXA_SCHEME_ALIASES, scheme, scheme) : scheme
             $(p.box_x) # lvar and uvar for state
             $(p.box_u) # lvar and uvar for control
             $(p.box_v) # lvar and uvar for variable (after x and u for compatibility with CTDirect)
