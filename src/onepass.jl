@@ -309,7 +309,8 @@ parse!(p, :p_ocp, :(v ∈ R, variable))
 function parse!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
     #
     p.lnum = p.lnum + 1
-    p.line = string(e)
+    p.line = string(__as_written(e))
+    __is_equation_with_assign(e) && return __throw_equation_with_assign(p, e)
     for a in keys(p.aliases)
         e = subs(e, a, p.aliases[a])
     end
@@ -488,6 +489,38 @@ function __throw_malformed_declaration(p, a, e1)
         suggestion="declare a one-dimensional $kind as `$a ∈ R, $kind`, or name the " *
                    "components of an n-dimensional one as " *
                    "`$a = (name₁, …, nameₙ) ∈ R^n, $kind`",
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Tell whether the statement `e` has the shape `f(args) = body`.
+
+Julia reads it as a short function definition. In the DSL it is a mistake: an alias has a
+name and no arguments, and an equation, for instance the dynamics `ẋ(t) = u(t)`, is
+written with `==`. It is tested before the aliases are substituted, so that the error shows
+what the user wrote (`ẋ(t)`, not the internal `∂(x)(t)`).
+"""
+function __is_equation_with_assign(e)
+    return e isa Expr && e.head == :(=) && e.args[1] isa Expr && e.args[1].head == :call
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the `ParsingError` expression for a statement `f(args) = body`, see
+[`__is_equation_with_assign`](@ref). The suggestion repeats the statement with `==`.
+"""
+function __throw_equation_with_assign(p, e)
+    lhs = __as_written(e.args[1])
+    rhs = __as_written(e.args[2])
+    return __throw(
+        "`=` defines an alias, which is a name without arguments; " *
+        "an equation or a constraint is written with `==`",
+        p.lnum,
+        p.line;
+        suggestion="write `$lhs == $rhs`",
     )
 end
 

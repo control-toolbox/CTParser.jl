@@ -618,6 +618,95 @@ function test_onepass_fun_bis()
         @test control_dimension(ocp) == 1
     end
 
+    @testset "parse! `=` written instead of `==` (#353)" begin
+        println("parse! equation with = (bis)")
+
+        # __as_written: no line-number node, no wrapper around a single statement
+        ex = :(f(t) = u(t))
+        @test ex.args[2] isa Expr && ex.args[2].head == :block  # the lowered form
+        @test CTParser.__as_written(ex) == Expr(:(=), :(f(t)), :(u(t)))
+        @test string(CTParser.__as_written(ex)) == "f(t) = u(t)"
+        @test CTParser.__as_written(:x) === :x
+        @test CTParser.__as_written(:(a + b)) == :(a + b)
+        blk = CTParser.__as_written(Expr(:block, :a, LineNumberNode(1, :f), :b))
+        @test blk.head == :block && length(blk.args) == 2
+
+        # the shape test: only `f(args) = body` is an equation written with `=`
+        @test CTParser.__is_equation_with_assign(:(ẋ(t) = u(t)))
+        @test CTParser.__is_equation_with_assign(:(x₁(0) = 1))
+        @test !CTParser.__is_equation_with_assign(:(a = x₁(t)^2))
+        @test !CTParser.__is_equation_with_assign(:(ẋ(t) == u(t)))
+        @test !CTParser.__is_equation_with_assign(:(a + b))
+
+        function assign_error(src)
+            p = CTParser.ParsingInfo()
+            ex = CTParser.parse!(p, :p_ocp, Meta.parse(src))
+            return try
+                eval(ex)
+                nothing
+            catch e
+                e
+            end
+        end
+
+        for (src, hint) in (
+            ("ẋ(t) = u(t)", "ẋ(t) == u(t)"),
+            ("ẋ₁(t) = x₂(t)", "ẋ₁(t) == x₂(t)"),
+            ("x(0) = [0, 1]", "x(0) == [0, 1]"),
+            ("x₂(t) = 1", "x₂(t) == 1"),
+        )
+            err = assign_error(src)
+            @test err isa ParsingError
+            @test occursin("written with `==`", err.msg)
+            # the line is shown as the user wrote it
+            @test occursin("Line 1: $src", err.msg)
+            @test !occursin("#=", err.msg)
+            @test !occursin("begin", err.msg)
+            @test err.suggestion == "write `$hint`"
+        end
+
+        # through @def, with the derivative of the state
+        err = try
+            @eval @def begin
+                t ∈ [0, 1], time
+                x ∈ R, state
+                u ∈ R, control
+                ẋ(t) = u(t)
+                x(0) == 0
+                x(1) → min
+            end
+            nothing
+        catch e
+            e
+        end
+        @test err isa ParsingError
+        @test occursin("Line 4: ẋ(t) = u(t)", err.msg)
+        @test err.suggestion == "write `ẋ(t) == u(t)`"
+        @test_throws ParsingError @eval @def begin
+            t ∈ [0, 1], time
+            x = (q, v) ∈ R², state
+            u ∈ R, control
+            q̇ = v
+            v̇ = u
+            ẋ(t) = [q̇, v̇]
+            x(0) == [0, 0]
+            x(1) → min
+        end
+
+        # an alias is still an alias, and the equation with == still works
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x = (q, v) ∈ R², state
+            u ∈ R, control
+            q̇ = v(t)
+            v̇ = u(t)
+            ẋ(t) == [q̇, v̇]
+            x(0) == [0, 0]
+            x(1) → min
+        end
+        @test state_dimension(ocp) == 2
+    end
+
     # ============================================================================
     # P_TIME! - Additional precondition errors
     # ============================================================================
