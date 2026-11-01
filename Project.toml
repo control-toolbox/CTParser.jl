@@ -20,7 +20,7 @@ CTParserExaModels = ["ExaModels", "LinearAlgebra"]
 
 [compat]
 CTBase = "0.29, 0.30"
-DocStringExtensions = "0.9"
+DocStringExtensions = "0.9, 0.10"
 ExaModels = "0.12"
 LinearAlgebra = "1"
 MLStyle = "0.4"
