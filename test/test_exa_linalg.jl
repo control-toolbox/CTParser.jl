@@ -298,9 +298,14 @@ function test_exa_linalg()
             result2 = tr(A3)
             @test result2 isa ExaModels.AbstractNode
 
-            # Test error on non-square matrix
+            # The value: x, z, x are Null(1.0), Null(3.0), Null(1.0)
+            @test result2 isa ExaModels.Null
+            @test result2.value == 5.0
+
+            # `tr` is LinearAlgebra's own, which only needs `zero` and `+` on nodes: the
+            # error on a non-square matrix is its `DimensionMismatch`.
             A_rect = [x y z; y z w]
-            @test_throws CTBase.IncorrectArgument tr(A_rect)
+            @test_throws DimensionMismatch tr(A_rect)
         end
 
         @testset "Norms" begin

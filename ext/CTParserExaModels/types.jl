@@ -8,8 +8,23 @@
 const ExaNode = Union{
     ExaModels.AbstractNode,ExaModels.AbstractAdjointNode,ExaModels.AbstractSecondAdjointNode
 }
-const VecExaNode = AbstractVector{<:ExaNode}
-const MatExaNode = AbstractMatrix{<:ExaNode}
+# Arrays of nodes, as `@def` builds them (dense vectors and matrices, from comprehensions)
+# and as user code may slice or reshape them (strided views, reshapes, reinterprets).
+# `Strided`, not `Abstract`: a method on `AbstractVector{<:ExaNode}` is ambiguous with every
+# method another package defines on its own array type (`Diagonal`, sparse, `SMatrix`, …),
+# and those are the constants users write. The constants keep `AbstractVector{<:Real}` /
+# `AbstractMatrix{<:Real}` in the signatures; the few collisions left there have their own
+# methods (structured.jl, and the SparseArrays and StaticArrays extensions).
+const VecExaNode = StridedVector{<:ExaNode}
+const MatExaNode = StridedMatrix{<:ExaNode}
+# CPU arrays of nodes, for `norm`: GPUArrays also defines it on `AnyGPUArray`, which is a
+# `DenseArray`, hence `Strided`, so a `Strided` signature would be ambiguous with it.
+const CPUVecExaNode = Union{
+    Vector{<:ExaNode},SubArray{<:ExaNode,1,<:Array},Base.ReshapedArray{<:ExaNode,1,<:Array}
+}
+const CPUMatExaNode = Union{
+    Matrix{<:ExaNode},SubArray{<:ExaNode,2,<:Array},Base.ReshapedArray{<:ExaNode,2,<:Array}
+}
 
 # Type promotion: [x, 0] should give Vector{AbstractNode} with Null(0), not Vector{Any}
 Base.promote_rule(::Type{<:ExaModels.AbstractNode}, ::Type{<:Real}) = ExaModels.AbstractNode

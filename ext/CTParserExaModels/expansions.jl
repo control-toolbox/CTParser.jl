@@ -96,7 +96,7 @@ end
 # --- norm ---
 
 # 2-norm for vectors of nodes: sqrt(sum(xi^2))
-function LinearAlgebra.norm(v::VecExaNode)
+function LinearAlgebra.norm(v::CPUVecExaNode)
     s = v[1]^2
     for i in 2:length(v)
         s = s + v[i]^2
@@ -105,7 +105,7 @@ function LinearAlgebra.norm(v::VecExaNode)
 end
 
 # p-norm for vectors of nodes: (sum(abs(xi)^p))^(1/p)
-function LinearAlgebra.norm(v::VecExaNode, p::Real)
+function LinearAlgebra.norm(v::CPUVecExaNode, p::Real)
     if p == 2
         return LinearAlgebra.norm(v)
     elseif p == 1
@@ -127,7 +127,7 @@ function LinearAlgebra.norm(v::VecExaNode, p::Real)
 end
 
 # Frobenius norm for matrices of nodes: sqrt(sum(aij^2))
-function LinearAlgebra.norm(A::MatExaNode)
+function LinearAlgebra.norm(A::CPUMatExaNode)
     s = A[1, 1]^2
     for j in axes(A, 2), i in axes(A, 1)
         (i == 1 && j == 1) && continue

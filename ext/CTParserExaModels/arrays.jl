@@ -144,25 +144,6 @@ for op in (:+, :-)
     end
 end
 
-# --- tr ---
-
-function _tr_impl(A)
-    size(A, 1) == size(A, 2) ||
-        _bad_operand("tr", "matrix of size $(size(A))", "a square matrix")
-    n = size(A, 1)
-    s = A[1, 1]
-    for i in 2:n
-        s = s + A[i, i]
-    end
-    return s
-end
-
-LinearAlgebra.tr(A::MatExaNode) = _tr_impl(A)
-# More specific methods to win dispatch over stdlib's tr(::Matrix{T}) (Julia 1.10)
-# and tr(::StridedMatrix{T}) (Julia 1.12+)
-LinearAlgebra.tr(A::Matrix{<:ExaNode}) = _tr_impl(A)
-LinearAlgebra.tr(A::StridedMatrix{<:ExaNode}) = _tr_impl(A)
-
 # --- diag ---
 
 function LinearAlgebra.diag(A::MatExaNode)
