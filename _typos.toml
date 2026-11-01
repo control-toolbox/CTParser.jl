@@ -1,0 +1,11 @@
+[default]
+locale = "en"
+
+[files]
+extend-exclude = [
+    ".ct-conventions/",
+    ".ct-agents/",
+    "*.json",
+    "*.toml",
+    "*.svg",
+]
