@@ -166,11 +166,15 @@ This is used for syntactic and semantic errors detected at macro
 expansion time. It formats the message with line information and wraps
 it in a `throw(ParsingError(...))` expression using the current
 `e_prefix`.
+
+The optional `suggestion` keyword says how to fix the error; it is stored in the
+`suggestion` field of the `ParsingError`.
 """
-__throw(mess, n, line) = begin
+__throw(mess, n, line; suggestion=nothing) = begin
     e_pref = e_prefix()
     info = string("\nLine ", n, ": ", line, "\n", mess)
-    return :(throw($e_pref.ParsingError($info)))
+    isnothing(suggestion) && return :(throw($e_pref.ParsingError($info)))
+    return :(throw($e_pref.ParsingError($info; suggestion=$suggestion)))
 end
 
 """

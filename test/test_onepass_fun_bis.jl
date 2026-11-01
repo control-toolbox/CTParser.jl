@@ -9,6 +9,24 @@ function test_onepass_fun_bis()
         @test ex isa Expr
         @test_throws ParsingError eval(ex)
 
+        # __throw carries the optional suggestion in the ParsingError
+        ex = CTParser.__throw("test message", 42, "dummy line"; suggestion="try this")
+        err = try
+            eval(ex)
+        catch e
+            e
+        end
+        @test err isa ParsingError
+        @test err.suggestion == "try this"
+        @test occursin("Line 42: dummy line", err.msg)
+        @test occursin("test message", err.msg)
+        err = try
+            eval(CTParser.__throw("test message", 42, "dummy line"))
+        catch e
+            e
+        end
+        @test isnothing(err.suggestion)
+
         # __wrap should leave non-throwing code unchanged and propagate its value
         wrapped = CTParser.__wrap(:(1 + 1), 1, "line")
         @test wrapped isa Expr
