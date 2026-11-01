@@ -9,7 +9,16 @@ function test_dynamics_exa()
     l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
     for scheme in l_scheme
         __test_dynamics_exa(; scheme=scheme)
-        CUDA.functional() && __test_dynamics_exa(CUDABackend(); scheme=scheme)
+        # Visible skip: short-circuiting on the raw device predicate makes a correctly-skipped
+        # run (no device, as expected on a developer machine) and a silently-broken one (device
+        # missing on a GPU runner) look identical. See test_environment_contract.jl.
+        if Main.TestCapabilities.CUDA_FUNCTIONAL
+            __test_dynamics_exa(CUDABackend(); scheme=scheme)
+        else
+            @testset "vector-form dynamics (GPU, $scheme)" begin
+                @test_skip "GPU dynamics tests need a functional CUDA device"
+            end
+        end
     end
 end
 

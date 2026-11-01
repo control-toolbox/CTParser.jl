@@ -75,8 +75,8 @@ makedocs(;
     ],
 )
 
-# PR previews are opt-in: CTActions sets DOCUMENTER_PUSH_PREVIEW to "true" only on a PR
-# carrying the `documentation push preview` label.
+# PR previews are opt-in: CTActions sets DOCUMENTER_PUSH_PREVIEW to "true" only on a
+# PR carrying the `documentation push preview` label.
 deploydocs(;
     repo=repo_url * ".git",
     devbranch="main",

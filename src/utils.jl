@@ -40,7 +40,7 @@ $(TYPEDSIGNATURES)
 Expr iterator: apply `_Expr` to nodes and `f` to leaves of the AST.
 
 # Example
-```@example
+```julia
 julia> id(e) = expr_it(e, Expr, x -> x)
 ```
 """
@@ -60,7 +60,7 @@ $(TYPEDSIGNATURES)
 Substitute expression `e1` by expression `e2` in expression `e`.
 
 # Examples
-```@example
+```julia
 julia> e = :( ∫( r(t)^2 + 2u₁(t)) → min )
 :(∫(r(t) ^ 2 + 2 * u₁(t)) → min)
 
@@ -105,7 +105,7 @@ Handles two patterns:
 See also: subs2m.
 
 # Examples
-```@example
+```julia
 julia> # Scalar indexing
 julia> e = :(x0[1] * 2xf[3] - cos(xf[2]) * 2x0[2])
 julia> subs2(subs2(e, :x0, :x, 0), :xf, :x, :N)
@@ -143,7 +143,7 @@ $(TYPEDSIGNATURES)
 Substitute x[rg] by y[i, j], whatever rg, in e. (Note: rg is then expected to be used to loop on i.)
 
 # Examples
-```@example
+```julia
 julia> e = :(x0[1:2:d] * 2xf[1:3])
 :(x0[1:2:d] * (2 * xf[1:3]))
 
@@ -178,7 +178,7 @@ Bare symbols like x (without indexing) are NOT substituted.
 See also: subs2.
 
 # Examples
-```@example
+```julia
 julia> e = :(x0[1] * 2xf[3] - cos(xf[2]) * 2x0[2])
 :(x0[1] * (2 * xf[3]) - cos(xf[2]) * (2 * x0[2]))
 
@@ -219,7 +219,7 @@ $(TYPEDSIGNATURES)
 Replace calls in e of the form `(...x...)(t)` by `(...y...)`.
 
 # Example
-```@example
+```julia
 
 julia> t = :t; t0 = 0; tf = :tf; x = :x; u = :u;
 
@@ -250,7 +250,7 @@ $(TYPEDSIGNATURES)
 Replace calls in e of the form `(...x1...x2...)(t)` by `(...y1...y2...)` for all symbols `x1`, `x2`... in the vector `x`.
 
 # Example
-```@example
+```julia
 
 julia> t = :t; t0 = 0; tf = :tf; x = :x; u = :u;
 
@@ -292,7 +292,7 @@ $(TYPEDSIGNATURES)
 Return true if e contains e1.
 
 # Example
-```@example
+```julia
 julia> e = :( ∫( x[1](t)^2 + 2*u(t) ) → min )
 :(∫((x[1])(t) ^ 2 + 2 * u(t)) → min)
 
@@ -345,7 +345,7 @@ $(TYPEDSIGNATURES)
 Return true if e contains a `(...x...)(t)` call.
 
 # Example
-```@example
+```julia
 julia> e = :( ∫( x[1](t)^2 + 2*u(t) ) → min )
 :(∫((x[1])(t) ^ 2 + 2 * u(t)) → min)
 
@@ -378,7 +378,7 @@ $(TYPEDSIGNATURES)
 Concatenate two expressions without creating extra blocks (as `Expr(:block, e1, e2)` would do).
 
 # Example
-```@example
+```julia
 julia> e1 = :(x = 1; y = 2)
 quote
     x = 1
@@ -425,7 +425,7 @@ together with the appropriate value (range, updated expression...) Expressions l
 is the control and `t0` the initial time return `:other`.
 
 # Example
-```@example
+```julia
 julia> t = :t; t0 = 0; tf = :tf; x = :x; u = :u; v = :v
 
 julia> constraint_type(:( ẏ(t) ), t, t0, tf, x, u, v)

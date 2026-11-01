@@ -8,15 +8,20 @@ on:
       - 'v[0-9]+\.[0-9]+\.[0-9]+'   # v0.8.7 yes, v0.8.7-beta no
   pull_request:
     types: [labeled, synchronize, reopened]
+  # run on a tag by ReleaseTag.yml: a tag it creates triggers no push event
+  workflow_dispatch:
 
 jobs:
   call:
+    # A 'labeled' event fires once per label added, and re-evaluates against the PR's
+    # *current* full label set — so adding several labels in a row would otherwise
+    # re-run this job on every subsequent label add. Only react to 'labeled' when it's
+    # one of the two labels below; for other trigger types (synchronize/reopened), fall
+    # back to checking the current label set as before.
     # On a PR, `run documentation` is the only trigger. `documentation push preview` is a
     # modifier: with `run documentation` present, the build also deploys its preview
     # (CTActions sets DOCUMENTER_PUSH_PREVIEW from it); on its own it does nothing. Adding
     # it to a PR that already has `run documentation` re-runs the build with the preview.
-    # A 'labeled' event fires once per label added, so it reacts only to these two labels;
-    # synchronize/reopened check the current label set.
     if: >
       github.event_name != 'pull_request' ||
       (contains(github.event.pull_request.labels.*.name, 'run documentation') &&

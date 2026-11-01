@@ -34,3 +34,9 @@ Manifest.toml
 CLAUDE.local.md
 .claude/
 .coverage/
+
+# ct-conventions, cloned at the tag pinned in AGENTS.md
+.ct-conventions/
+
+# ct-agents, cloned at the tag pinned in AGENTS.md
+.ct-agents/
