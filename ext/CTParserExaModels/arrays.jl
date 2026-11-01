@@ -91,13 +91,15 @@ function _dot_col(A, i, B, j)
     return s
 end
 
+function _matrix_product(A, B)
+    size(A, 2) == size(B, 1) ||
+        _dimension_mismatch("*", "matrices of sizes $(size(A)) and $(size(B))")
+    m, n = size(A, 1), size(B, 2)
+    return [_dot_col(A, i, B, j) for i in 1:m, j in 1:n]
+end
+
 for (T1, T2) in _MAT_PAIRS
-    @eval function Base.:*(A::$T1, B::$T2)
-        size(A, 2) == size(B, 1) ||
-            _dimension_mismatch("*", "matrices of sizes $(size(A)) and $(size(B))")
-        m, n = size(A, 1), size(B, 2)
-        return [_dot_col(A, i, B, j) for i in 1:m, j in 1:n]
-    end
+    @eval Base.:*(A::$T1, B::$T2) = _matrix_product(A, B)
 end
 
 # --- vector +/- ---
@@ -217,4 +219,33 @@ function Base.:*(D::LinearAlgebra.Diagonal{T}, x::VecExaNode) where {T<:Real}
         "*", "diagonal matrix of size $(size(D)) and vector of length $(length(x))"
     )
     return [d[i] * x[i] for i in eachindex(d, x)]
+end
+
+# --- structured numeric matrices (Julia 1.10) ---
+
+# Up to Julia 1.10, LinearAlgebra defines `*` for a `Diagonal` or a triangular matrix with any
+# `AbstractMatrix` (and for a row vector with them), which meets our methods on
+# `AbstractMatrix{<:Real}` and neither is more specific (control-toolbox/CTParser.jl#365).
+# Julia 1.12 does not define them, so these methods only matter up to 1.10; they are defined
+# whatever the version, so that the same code answers everywhere. They are the exact
+# intersections, computed with `typeintersect`.
+# (The type variables of the diagonal are named: a generated name changes with the Julia
+# version, and it appears in the key under which test/extension_piracies.jl lists the method.)
+const RealDiagonal = LinearAlgebra.Diagonal{T,V} where {T<:Real,V<:AbstractVector{T}}
+const StructuredReal = Union{RealDiagonal,LinearAlgebra.AbstractTriangular{<:Real}}
+
+for (TA, TB) in [(MatExaNode, StructuredReal), (StructuredReal, MatExaNode)]
+    @eval Base.:*(A::$TA, B::$TB) = _matrix_product(A, B)
+end
+
+function Base.:*(A::LinearAlgebra.AbstractTriangular{<:Real}, x::VecExaNode)
+    size(A, 2) == length(x) || _dimension_mismatch(
+        "*", "matrix of size $(size(A)) and vector of length $(length(x))"
+    )
+    return [_dot_row(A, i, x) for i in 1:size(A, 1)]
+end
+
+for TB in (StructuredReal, LinearAlgebra.Adjoint{<:Real,<:AbstractVector})
+    @eval Base.:*(a::LinearAlgebra.Adjoint{<:ExaNode,<:VecExaNode}, B::$TB) =
+        _row_times_matrix(parent(a), B)
 end

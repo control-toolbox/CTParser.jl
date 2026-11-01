@@ -24,11 +24,15 @@ const EXTENSION_PIRACIES = Dict(
             "linear algebra on arrays of nodes; port of ExaModels' linear-algebra extension, which ExaModels ships but does not register (#325)",
         "Tuple{typeof(*), Adjoint{<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}, <:StridedVector{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}}, AbstractVector{<:Real}}" =>
             "linear algebra on arrays of nodes; port of ExaModels' linear-algebra extension, which ExaModels ships but does not register (#325)",
+        "Tuple{typeof(*), Adjoint{<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}, <:StridedVector{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}}, Adjoint{<:Real, <:AbstractVector}}" =>
+            "linear algebra on arrays of nodes; port of ExaModels' linear-algebra extension, which ExaModels ships but does not register (#325)",
         "Tuple{typeof(*), Adjoint{<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}, <:StridedVector{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}}, StridedMatrix{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}}" =>
             "linear algebra on arrays of nodes; port of ExaModels' linear-algebra extension, which ExaModels ships but does not register (#325)",
         "Tuple{typeof(*), Adjoint{<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}, <:StridedVector{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}}, StridedVector{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}}" =>
             "linear algebra on arrays of nodes; port of ExaModels' linear-algebra extension, which ExaModels ships but does not register (#325)",
         "Tuple{typeof(*), Adjoint{<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}, <:StridedVector{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}}, Union{Adjoint{<:Real, <:Transpose{<:Any, <:AbstractVector}}, Transpose{<:Real, <:Adjoint{<:Any, <:AbstractVector}}}}" =>
+            "intersection with a LinearAlgebra method on a structured matrix or a transposed row (#365)",
+        "Tuple{typeof(*), Adjoint{<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}, <:StridedVector{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}}, Union{LinearAlgebra.AbstractTriangular{<:Real}, Diagonal{T, V} where {T<:Real, V<:AbstractVector{T}}}}" =>
             "intersection with a LinearAlgebra method on a structured matrix or a transposed row (#365)",
         "Tuple{typeof(*), Constant{0.0}, Null{T}} where T<:Real" =>
             "Null op Constant: intersection with ExaModels' Constant folding rules (#364)",
@@ -56,6 +60,8 @@ const EXTENSION_PIRACIES = Dict(
             "zero/one elimination on scalar nodes; port of ExaModels' linear-algebra extension, which ExaModels ships but does not register (#325)",
         "Tuple{typeof(*), Integer, Null{T}} where T<:Real" =>
             "zero/one elimination on scalar nodes; port of ExaModels' linear-algebra extension, which ExaModels ships but does not register (#325)",
+        "Tuple{typeof(*), LinearAlgebra.AbstractTriangular{<:Real}, StridedVector{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}}" =>
+            "intersection with a LinearAlgebra method on a structured matrix or a transposed row (#365)",
         "Tuple{typeof(*), Null{T}, Constant{0.0}} where T<:Real" =>
             "Null op Constant: intersection with ExaModels' Constant folding rules (#364)",
         "Tuple{typeof(*), Null{T}, Constant{0.0}} where T<:Real" =>
@@ -98,6 +104,8 @@ const EXTENSION_PIRACIES = Dict(
             "linear algebra on arrays of nodes; port of ExaModels' linear-algebra extension, which ExaModels ships but does not register (#325)",
         "Tuple{typeof(*), StridedMatrix{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}, Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}}" =>
             "linear algebra on arrays of nodes; port of ExaModels' linear-algebra extension, which ExaModels ships but does not register (#325)",
+        "Tuple{typeof(*), StridedMatrix{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}, Union{LinearAlgebra.AbstractTriangular{<:Real}, Diagonal{T, V} where {T<:Real, V<:AbstractVector{T}}}}" =>
+            "intersection with a LinearAlgebra method on a structured matrix or a transposed row (#365)",
         "Tuple{typeof(*), StridedVector{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}, Real}" =>
             "linear algebra on arrays of nodes; port of ExaModels' linear-algebra extension, which ExaModels ships but does not register (#325)",
         "Tuple{typeof(*), StridedVector{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}, Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}}" =>
@@ -114,6 +122,8 @@ const EXTENSION_PIRACIES = Dict(
             "linear algebra on arrays of nodes; port of ExaModels' linear-algebra extension, which ExaModels ships but does not register (#325)",
         "Tuple{typeof(*), Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}, StridedVector{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}}" =>
             "linear algebra on arrays of nodes; port of ExaModels' linear-algebra extension, which ExaModels ships but does not register (#325)",
+        "Tuple{typeof(*), Union{LinearAlgebra.AbstractTriangular{<:Real}, Diagonal{T, V} where {T<:Real, V<:AbstractVector{T}}}, StridedMatrix{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}}" =>
+            "intersection with a LinearAlgebra method on a structured matrix or a transposed row (#365)",
         "Tuple{typeof(+), AbstractMatrix{<:Real}, StridedMatrix{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}}" =>
             "linear algebra on arrays of nodes; port of ExaModels' linear-algebra extension, which ExaModels ships but does not register (#325)",
         "Tuple{typeof(+), AbstractVector{<:Real}, StridedVector{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}}" =>
@@ -301,6 +311,8 @@ const EXTENSION_PIRACIES = Dict(
     ),
     "CTParserExaModelsSparseArrays" => Dict(
         "Tuple{typeof(*), StridedMatrix{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}, SparseArrays.AbstractSparseVector{<:Real}}" =>
+            "sparse constant with an array of nodes: intersection with SparseArrays' own method (#365)",
+        "Tuple{typeof(*), StridedMatrix{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}, Union{SubArray{T, 2, <:SparseArrays.AbstractSparseMatrixCSC{T, Ti}, Tuple{Base.Slice{Base.OneTo{Int64}}, I}} where {T<:Real, Ti, I<:AbstractUnitRange}, Adjoint{<:Real, <:SparseArrays.AbstractSparseMatrixCSC}, Transpose{<:Real, <:SparseArrays.AbstractSparseMatrixCSC}, SparseArrays.AbstractSparseMatrixCSC{T, Ti} where {T<:Real, Ti}}}" =>
             "sparse constant with an array of nodes: intersection with SparseArrays' own method (#365)",
         "Tuple{typeof(dot), StridedVector{T} where T<:Union{ExaModels.AbstractAdjointNode, ExaModels.AbstractNode, ExaModels.AbstractSecondAdjointNode}, Union{SparseArrays.AbstractCompressedVector{T, Ti}, SubArray{T, 1, <:SparseArrays.AbstractSparseMatrixCSC{T, Ti}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, false}, SubArray{T, 1, <:SparseArrays.AbstractSparseVector{T, Ti}, Tuple{Base.Slice{Base.OneTo{Int64}}}, false}} where {T<:Real, Ti}}" =>
             "sparse constant with an array of nodes: intersection with SparseArrays' own method (#365)",

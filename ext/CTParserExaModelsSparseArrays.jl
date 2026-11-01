@@ -84,4 +84,36 @@ function Base.:*(A::MatExaNode, q::SparseArrays.AbstractSparseVector{<:Real})
     return [_row_sum(A, i, entries) for i in 1:size(A, 1)]
 end
 
+# Matrix of nodes times a sparse numeric matrix. Up to Julia 1.10, SparseArrays defines `*`
+# for any dense matrix and a sparse matrix, a column-slice view of one, or its adjoint or
+# transpose, which meets `CTParserExaModels`' method on `AbstractMatrix{<:Real}` with neither
+# more specific (#365). The product is the plain one: unlike for vectors, a sparse matrix
+# product is not worth a stored-entries loop of its own here.
+const RealSparseMatrix = Union{
+    Union{
+        SparseArrays.AbstractSparseMatrixCSC{T,Ti},
+        SubArray{
+            T,2,<:SparseArrays.AbstractSparseMatrixCSC{T,Ti},Tuple{Base.Slice{Base.OneTo{Int}},I}
+        } where {I<:AbstractUnitRange},
+    } where {T<:Real,Ti},
+    LinearAlgebra.Adjoint{<:Real,<:SparseArrays.AbstractSparseMatrixCSC},
+    LinearAlgebra.Transpose{<:Real,<:SparseArrays.AbstractSparseMatrixCSC},
+}
+
+function Base.:*(A::MatExaNode, B::RealSparseMatrix)
+    size(A, 2) == size(B, 1) ||
+        _dimension_mismatch("*", "matrices of sizes $(size(A)) and $(size(B))")
+    return [
+        _row_dot(A, i, view(B, :, j)) for i in 1:size(A, 1), j in 1:size(B, 2)
+    ]
+end
+
+function _row_dot(A, i, b)
+    s = ExaModels.Null(0)
+    for k in eachindex(b)
+        s = s + A[i, k] * b[k]
+    end
+    return s
+end
+
 end # module CTParserExaModelsSparseArrays

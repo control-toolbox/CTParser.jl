@@ -106,6 +106,15 @@ function variable_nodes(n)
     return [x[i] for i in 1:n]
 end
 
+# A 3×3 matrix of variable nodes, and the point it is evaluated at (column-major)
+function variable_matrix3()
+    core = ExaModels.ExaCore()
+    core, x = ExaModels.add_var(core, 9)
+    return [x[(j - 1) * 3 + i] for i in 1:3, j in 1:3]
+end
+
+const POINT9 = collect(1.0:9.0)
+
 evaluate(n::Real) = n
 evaluate(n::ExaModels.AbstractNode) = n(1, POINT, nothing)
 
@@ -171,6 +180,22 @@ function test_exa_linalg_inputs()
         Test.@testset "A * x for a $name matrix" for (name, A, D) in matrices3()
             v = variable_nodes(3)
             Test.@test evaluate.(A * v) ≈ D * POINT
+        end
+
+        # Products of two matrices, a matrix of nodes with a constant on either side. Julia 1.10
+        # defines more of these for structured and sparse matrices than 1.12 does, each one
+        # ambiguous with ours until covered (#365).
+        Test.@testset "X * A and A * X for a $name matrix" for (name, A, D) in matrices3()
+            X = variable_matrix3()
+            Xd = reshape(POINT9, 3, 3)
+            ev(M) = [n(1, POINT9, nothing) for n in M]
+            Test.@test ev(X * A) ≈ Xd * D
+            Test.@test ev(A * X) ≈ D * Xd
+        end
+
+        Test.@testset "x' * A for a $name matrix" for (name, A, D) in matrices3()
+            v = variable_nodes(3)
+            Test.@test evaluate.(v' * A) ≈ POINT' * D
         end
 
         Test.@testset "x' * A * x for a $name matrix" for (name, A, D) in matrices3()
