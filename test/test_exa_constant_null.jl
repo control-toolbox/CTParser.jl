@@ -1,6 +1,6 @@
 module TestExaConstantNull
 
-# `ext/CTParserExaModels.jl` folds structural zeros and ones on `ExaModels.Null`;
+# `ext/CTParserExaModels/` folds structural zeros and ones on `ExaModels.Null`;
 # ExaModels folds them on `ExaModels.Constant{V}` (src/specialization.jl, every 0.12.x).
 # A call mixing the two, such as `Null(2) + Constant(0)`, matched a rule of each side and
 # was ambiguous (#364). These tests pin the intersection methods that resolve it, their
