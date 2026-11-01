@@ -31,7 +31,7 @@ The `CTParser.jl` package is part of the [control-toolbox ecosystem](https://git
 
     ```julia
     module OptimalControl
-        import CTParser: private_fun
+        using CTParser: private_fun
         export private_fun
     end
     ```
