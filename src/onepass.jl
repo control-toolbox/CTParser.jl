@@ -482,12 +482,12 @@ without names, `a ∈ R, kind`, and its only component is named `a`.
 function __throw_malformed_declaration(p, a, e1)
     kind = e1.args[2]
     return __throw(
-        "invalid $kind declaration: named components need a domain `R^n`, " *
-        "but the domain here is `$(e1.args[1].args[3])`",
+        "invalid $kind declaration: named components need a domain `R^n` with " *
+        "n ≥ 2, but the domain here is `$(e1.args[1].args[3])`",
         p.lnum,
         p.line;
         suggestion="declare a one-dimensional $kind as `$a ∈ R, $kind`, or name the " *
-                   "components of an n-dimensional one as " *
+                   "components of an n-dimensional one, n ≥ 2, as " *
                    "`$a = (name₁, …, nameₙ) ∈ R^n, $kind`",
     )
 end
@@ -521,6 +521,37 @@ function __throw_equation_with_assign(p, e)
         p.lnum,
         p.line;
         suggestion="write `$lhs == $rhs`",
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Tell whether a declaration names the components (`components_names`) of an element of
+dimension `q = 1`, for example `u = (z,) ∈ R^1, control`.
+
+A one-dimensional variable, state or control is a scalar whose only component has the name
+of the element: naming it separately would give two names to one scalar, and the
+declaration `u = (z,) ∈ R, control` is already refused. The two spellings of dimension one,
+`R` and `R^1`, are treated alike.
+"""
+__is_named_scalar(components_names, q) = !isnothing(components_names) && q == 1
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the `ParsingError` expression for a declaration that names the components of a
+one-dimensional `kind` (`"variable"`, `"state"` or `"control"`) `a`, see
+[`__is_named_scalar`](@ref).
+"""
+function __throw_named_scalar(p, kind, a)
+    return __throw(
+        "invalid $kind declaration: a one-dimensional $kind has no component names; " *
+        "its only component is named `$a`",
+        p.lnum,
+        p.line;
+        suggestion="declare it as `$a ∈ R, $kind`, or give a dimension n ≥ 2 to name its " *
+                   "components",
     )
 end
 
@@ -560,6 +591,8 @@ function p_variable!(
     p, p_ocp, v, q; components_names=nothing, log=false, backend=__default_parsing_backend()
 )
     log && println("variable: $v, dim: $q")
+    __is_named_scalar(components_names, q) &&
+        return __throw_named_scalar(p, "variable", v)
     v isa Symbol || return __throw("forbidden variable name: $v", p.lnum, p.line)
     vv = QuoteNode(v)
     if q == 1
@@ -672,6 +705,8 @@ function p_state!(
     p, p_ocp, x, n; components_names=nothing, log=false, backend=__default_parsing_backend()
 )
     log && println("state: $x, dim: $n")
+    __is_named_scalar(components_names, n) &&
+        return __throw_named_scalar(p, "state", x)
     x isa Symbol || return __throw("forbidden state name: $x", p.lnum, p.line)
     p.aliases[Symbol(Unicode.normalize(string(x, "̇")))] = :(∂($x))
     xx = QuoteNode(x)
@@ -739,6 +774,8 @@ function p_control!(
     p, p_ocp, u, m; components_names=nothing, log=false, backend=__default_parsing_backend()
 )
     log && println("control: $u, dim: $m")
+    __is_named_scalar(components_names, m) &&
+        return __throw_named_scalar(p, "control", u)
     (p.is_global_dyn || p.is_coord_dyn) &&
         return __throw("control must be declared before dynamics", p.lnum, p.line)
     !isnothing(p.criterion) &&

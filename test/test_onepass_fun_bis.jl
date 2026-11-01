@@ -594,8 +594,25 @@ function test_onepass_fun_bis()
         end
         @test control_dimension(ocp) == 1
         @test control_components(ocp) == ["u"]
-        # a one-component name with an explicit R^1 is still accepted
-        ocp = @eval @def begin
+        # ... and so is a name for the only component with an explicit R^1 (#4): R and R^1
+        # are treated alike, so there is a single way to declare a scalar
+        for (line, kind) in (
+            ("u = (z,) ∈ R^1, control", "control"),
+            ("u = (z) ∈ R^1, control", "control"),
+            ("u = [z] ∈ R^1, control", "control"),
+            ("u = (z,) ∈ R¹, control", "control"),
+            ("x = (q,) ∈ R^1, state", "state"),
+            ("w = (a,) ∈ R^1, variable", "variable"),
+        )
+            p = CTParser.ParsingInfo()
+            ex = CTParser.parse!(p, :p_ocp, Meta.parse(line))
+            err = declaration_error(ex)
+            @test err isa ParsingError
+            @test occursin("invalid $kind declaration", err.msg)
+            @test occursin("a one-dimensional $kind has no component names", err.msg)
+            @test occursin("∈ R, $kind", err.suggestion)
+        end
+        @test_throws ParsingError @eval @def begin
             t ∈ [0, 1], time
             x ∈ R, state
             u = (z,) ∈ R^1, control
@@ -603,8 +620,27 @@ function test_onepass_fun_bis()
             x(0) == 0
             x(1) → min
         end
+        # a symbolic dimension is not looked at: n is not known when the block is parsed
+        n = 2
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u = (a, b) ∈ R^$n, control
+            ẋ(t) == a(t) + b(t)
+            x(0) == 0
+            x(1) → min
+        end
+        @test control_components(ocp) == ["a", "b"]
+        # R^1 without names is still a scalar
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R^1, control
+            ẋ(t) == u(t)
+            x(0) == 0
+            x(1) → min
+        end
         @test control_dimension(ocp) == 1
-        @test control_components(ocp) == ["z"]
         # a plain alias is still an alias
         ocp = @eval @def begin
             t ∈ [0, 1], time

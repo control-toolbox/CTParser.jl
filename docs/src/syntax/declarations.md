@@ -40,34 +40,35 @@ control and variable counterparts return, and what the plots use to label the cu
 
 ## What is refused
 
-A declaration of the form `name = (…) ∈ domain, kind` whose domain is not `R^n` is refused with a
-`ParsingError`:
+A declaration that names the components of a one-dimensional element is refused with a
+`ParsingError`, whether the domain is written `R` or `R^1`:
 
 ```julia
 u = (z,) ∈ R, control      # ParsingError
 u = (z) ∈ R, control       # ParsingError
+u = (z,) ∈ R^1, control    # ParsingError
 x = (q,) ∈ R, state        # ParsingError
-w = (a, b) ∈ R, variable   # ParsingError
+w = (a,) ∈ R^1, variable   # ParsingError
+w = (a, b) ∈ R, variable   # ParsingError: two names, one dimension
 ```
 
-Before this check, such a line was read as an alias (`u` standing for the tuple), nothing was
-declared, and the problem was built without any control. The error now names the line and says what
-to write:
+The first four have a different history. Before this check, `u = (z,) ∈ R, control` was read as an
+alias (`u` standing for the tuple), nothing was declared, and the problem was built without any
+control. `u = (z,) ∈ R^1, control` was accepted, as a control of dimension one whose component is
+named `z`. Both are now errors. The error names the line and says what to write:
 
 - for a one-dimensional element, `u ∈ R, control`; its only component is named `u`;
-- for an `n`-dimensional element, `u = (name₁, …, nameₙ) ∈ R^n, control`.
+- for an `n`-dimensional element, `n ≥ 2`, `u = (name₁, …, nameₙ) ∈ R^n, control`.
+
+A symbolic dimension is not examined: `u = (a, b) ∈ R^n, control` is accepted whatever `n` is when
+the block is evaluated.
 
 ### Why not name a single component?
 
 A name for the element and a second name for its only component would be two names for one scalar.
 In the model and in the plots the curve of a scalar control is labelled with the name of the
 component, so `u = (z,) ∈ R, control` would label it `z` and group it under `u`, with no gain over
-`z ∈ R, control`. Until a use appears, the parser does not accept this notation; the issue
-[#4](https://github.com/control-toolbox/CTParser.jl/issues/4) records the decision and can be
-reopened.
-
-!!! note
-
-    `u = (z,) ∈ R^1, control` is accepted: it declares a one-dimensional control named `u` whose
-    component is named `z`. It is equivalent to a scalar declaration with an extra name, and is not
-    the recommended form.
+`z ∈ R, control`. Having both `R` and `R^1` accept names, or only one of them, would add a second
+inconsistency; both are refused. Until a use appears, the parser does not accept a name for a
+single component; the issue [#4](https://github.com/control-toolbox/CTParser.jl/issues/4) records
+the decision and can be reopened.
