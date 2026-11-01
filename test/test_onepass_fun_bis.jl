@@ -505,6 +505,119 @@ function test_onepass_fun_bis()
         @test_throws ParsingError eval(ex2)
     end
 
+    @testset "parse! malformed declarations (#4)" begin
+        println("parse! malformed declarations (bis)")
+
+        # the shape test: only `(names) ∈ dom, kind` is a malformed declaration
+        @test CTParser.__is_malformed_declaration(:((z,) ∈ R, control))
+        @test CTParser.__is_malformed_declaration(:((z) ∈ R, state))
+        @test CTParser.__is_malformed_declaration(:([z] ∈ R, variable))
+        @test !CTParser.__is_malformed_declaration(:(x₁(t)^2))
+        @test !CTParser.__is_malformed_declaration(:(a, b))
+        @test !CTParser.__is_malformed_declaration(:((z,) ∈ R, other))
+
+        # the error is a ParsingError, with the offending line and a suggestion
+        function declaration_error(ex)
+            return try
+                eval(ex)
+                nothing
+            catch e
+                e
+            end
+        end
+
+        # (Meta.parse: inside a `:( … )` quote, `u = (z,) ∈ R, control` is a tuple, not an
+        # assignment as it is on a line of a @def block)
+        for (line, kind) in (
+            ("u = (z,) ∈ R, control", "control"),
+            ("u = (z) ∈ R, control", "control"),
+            ("x = (q,) ∈ R, state", "state"),
+            ("w = (a,) ∈ R, variable", "variable"),
+            ("u = (z, w) ∈ R, control", "control"),
+        )
+            p = CTParser.ParsingInfo()
+            ex = CTParser.parse!(p, :p_ocp, Meta.parse(line))
+            err = declaration_error(ex)
+            @test err isa ParsingError
+            @test occursin("invalid $kind declaration", err.msg)
+            @test occursin("named components need a domain `R^n`", err.msg)
+            @test occursin("Line 1:", err.msg)
+            @test occursin("∈ R, $kind", err.suggestion)
+        end
+
+        # through @def: no silent alias, whatever the kind
+        @test_throws ParsingError @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u = (z,) ∈ R, control
+            ẋ(t) == [x₂(t), z(t)]
+            x(0) == [0, 0]
+            x₁(1) → min
+        end
+        @test_throws ParsingError @eval @def begin
+            t ∈ [0, 1], time
+            x = (q,) ∈ R, state
+            u ∈ R, control
+            ẋ(t) == u(t)
+            x(0) == 0
+            x(1) → min
+        end
+        @test_throws ParsingError @eval @def begin
+            w = (a,) ∈ R, variable
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R, control
+            ẋ(t) == u(t)
+            x(0) == 0
+            x(1) → min
+        end
+
+        # what is valid is unchanged
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u = (z, w) ∈ R², control
+            ẋ(t) == [z(t), w(t)]
+            x(0) == [0, 0]
+            x₁(1) → min
+        end
+        @test control_dimension(ocp) == 2
+        @test control_name(ocp) == "u"
+        @test control_components(ocp) == ["z", "w"]
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R, control
+            ẋ(t) == u(t)
+            x(0) == 0
+            x(1) → min
+        end
+        @test control_dimension(ocp) == 1
+        @test control_components(ocp) == ["u"]
+        # a one-component name with an explicit R^1 is still accepted
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u = (z,) ∈ R^1, control
+            ẋ(t) == z(t)
+            x(0) == 0
+            x(1) → min
+        end
+        @test control_dimension(ocp) == 1
+        @test control_components(ocp) == ["z"]
+        # a plain alias is still an alias
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            a = x₁(t)^2
+            ẋ(t) == [x₂(t), u(t) + a]
+            x(0) == [0, 0]
+            x₁(1) → min
+        end
+        @test control_dimension(ocp) == 1
+    end
+
     # ============================================================================
     # P_TIME! - Additional precondition errors
     # ============================================================================

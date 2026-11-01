@@ -331,7 +331,10 @@ function parse!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
                 p_control!(p, p_ocp, a, m; components_names=names, log, backend)
             :([$names] ∈ R^$m, control) =>
                 p_control!(p, p_ocp, a, m; components_names=names, log, backend)
-            _ => p_alias!(p, p_ocp, a, e1; log, backend) # alias
+            _ =>
+                __is_malformed_declaration(e1) ?
+                __throw_malformed_declaration(p, a, e1) :
+                p_alias!(p, p_ocp, a, e1; log, backend) # alias
         end
         # variable                    
         :($v ∈ R^$q, variable) => p_variable!(p, p_ocp, v, q; log, backend)
@@ -446,6 +449,46 @@ function parse!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
             end
         end
     end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Tell whether the right-hand side `e1` of `a = e1` has the shape of a declaration with
+named components, `(names) ∈ dom, kind` with `kind` one of `state`, `control` or
+`variable`.
+
+It is called on the right-hand sides that none of the valid declaration patterns of
+[`parse!`](@ref) matched (the domain is not `R^n`). Without this test such a line would
+silently become an alias, and nothing would be declared.
+"""
+function __is_malformed_declaration(e1)
+    e1 isa Expr && e1.head == :tuple && length(e1.args) == 2 || return false
+    e1.args[2] ∈ (:state, :control, :variable) || return false
+    d = e1.args[1]
+    return d isa Expr && d.head == :call && length(d.args) == 3 && d.args[1] == :∈
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the `ParsingError` expression for a declaration `a = (names) ∈ dom, kind` whose
+domain is not `R^n`, for example `u = (z,) ∈ R, control`.
+
+Named components need an explicit dimension; a one-dimensional element is declared
+without names, `a ∈ R, kind`, and its only component is named `a`.
+"""
+function __throw_malformed_declaration(p, a, e1)
+    kind = e1.args[2]
+    return __throw(
+        "invalid $kind declaration: named components need a domain `R^n`, " *
+        "but the domain here is `$(e1.args[1].args[3])`",
+        p.lnum,
+        p.line;
+        suggestion="declare a one-dimensional $kind as `$a ∈ R, $kind`, or name the " *
+                   "components of an n-dimensional one as " *
+                   "`$a = (name₁, …, nameₙ) ∈ R^n, $kind`",
+    )
 end
 
 function p_pragma!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
