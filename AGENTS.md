@@ -10,20 +10,24 @@ CTParser is a single flat module — no submodule split.
 
 ```text
 src/           # onepass.jl (the `@def` parser), defaults.jl, initial_guess.jl, utils.jl
-ext/           # CTParserExaModels/ only (one extension, split in files) — see below
+ext/           # CTParserExaModels/ (split in files), and its two companions for SparseArrays and StaticArrays — see below
 test/          # Test suite: flat files (not test/suite/)
 docs/          # Documentation site (DocumenterVitepress)
 .ct-conventions/  # ct-conventions, cloned at the pinned tag (git-ignored)
 .ct-agents/    # ct-agents, cloned at the pinned tag (git-ignored)
 ```
 
-`ext/` holds exactly one extension, and it is **temporary**. ExaModels ships the
+`ext/` holds the ExaModels glue, and it is **meant to be temporary**. ExaModels ships the
 linear-algebra glue its expression nodes need (`dot`, `*` on node vectors/matrices,
 `det`, `norm`, `Null` zero elimination) but never declares that extension in its
 `[extensions]`, so Julia never loads it. Until upstream wires it up, CTParser carries
-a port of it in `ext/CTParserExaModels/`, triggered by `ExaModels` + `LinearAlgebra`
-weak dependencies. Delete the directory and the two weakdeps when upstream fixes it — see
-[#325](https://github.com/control-toolbox/CTParser.jl/issues/325).
+a port of it in `ext/CTParserExaModels/`, triggered by `ExaModels` + `LinearAlgebra`,
+with two companions for sparse and static constants (`CTParserExaModelsSparseArrays`,
+`CTParserExaModelsStaticArrays`). Its type piracy is accepted: every pirated method is
+listed in `test/extension_piracies.jl` and checked by `TST8` (`test/test_aqua.jl`).
+Delete the three extensions and their weakdeps when upstream fixes it — see
+[#325](https://github.com/control-toolbox/CTParser.jl/issues/325) and
+[#365](https://github.com/control-toolbox/CTParser.jl/issues/365).
 
 ---
 

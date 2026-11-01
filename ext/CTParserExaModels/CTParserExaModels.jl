@@ -39,11 +39,21 @@ The method definitions below are ported from that shipped-but-unregistered
   `ExaModels.constraint` on it), and `p_constraint_exa!` never emits the vector
   form — it loops over components instead.
 
-Four deliberate departures from the upstream file: dimension and shape checks throw
-typed `CTBase` errors instead of `@assert` / `error`, `Null(0) + x` folds to `x` like
-`x + Null(0)` already did, the square-matrix check of `det` is done once rather than at
-every level of the cofactor recursion, and `Null op Constant` has its own methods where
-the `Null` rules met ExaModels' `Constant` folding rules (control-toolbox/CTParser.jl#364).
+Deliberate departures from the upstream file:
+
+- dimension and shape checks throw typed `CTBase` errors instead of `@assert` / `error`;
+- `Null(0) + x` folds to `x`, like `x + Null(0)` already did;
+- the square-matrix check of `det` is done once, not at every level of the recursion;
+- `Null op Constant` has its own methods where the `Null` rules met ExaModels' `Constant`
+  folding rules (control-toolbox/CTParser.jl#364);
+- the array methods take *strided* arrays of nodes (`StridedVector{T} where T<:ExaNode`),
+  not any `AbstractVector` of nodes: an `Abstract` signature is ambiguous with the methods
+  other packages define on their own arrays, which are the constants users write
+  (`Diagonal`, sparse, `SMatrix`). The constants keep `AbstractVector{<:Real}` /
+  `AbstractMatrix{<:Real}`, and the collisions left there have methods on the exact
+  intersection: here for LinearAlgebra, in `CTParserExaModelsSparseArrays` and
+  `CTParserExaModelsStaticArrays` for the other two (control-toolbox/CTParser.jl#365);
+- `tr` is left to LinearAlgebra, whose own method only needs `zero` and `+` on nodes.
 
 Nothing here overwrites an ExaModels method. ExaModels' core defines arithmetic on
 `AbstractNode` generically; every `Null`-specific method below is strictly more
@@ -52,20 +62,26 @@ becoming a `Node2(*, Null(0), x)` left in the expression graph. Without them a
 model still evaluates correctly — the redundant nodes just make the graph, and so
 the derivative kernels, larger than they need to be.
 
-# Lifetime
+# Files
 
-Temporary. When ExaModels declares its own extension, delete this file and drop the
-two weak dependencies from `Project.toml`; nothing else references them. See
-control-toolbox/CTParser.jl#325.
+`types.jl` (what an array of nodes is, promotion, `zero` / `one`, adjoint), `scalar.jl`
+(arithmetic on single nodes), `checks.jl` (typed errors), `arrays.jl` (linear algebra on
+arrays of nodes) and `expansions.jl` (`det`, `norm`, `cross` as one scalar graph). Two
+companion extensions complete it for sparse and static constants:
+`CTParserExaModelsSparseArrays` and `CTParserExaModelsStaticArrays`.
 
-This module is type piracy by construction: CTParser owns neither `Base`,
-`LinearAlgebra` nor the ExaModels node types, and `Aqua.Piracy.hunt` on this module
-reports every method below. `Aqua.test_all(CTParser)` does not flag it only because Aqua
-inspects the package module, not its extensions. The piracy is the reason this file
-must go as soon as upstream ships it: if ExaModels ever declares its own
-`ExaModelsOptimalControl` extension, both would define the same methods. The test suite
-carries a sentinel (`test/test_exa_linalg.jl`) that fails as soon as ExaModels declares
-that extension.
+# Lifetime and piracy
+
+Meant to be temporary: when ExaModels declares its own extension, delete this directory,
+the two companion extensions and their weak dependencies (control-toolbox/CTParser.jl#325).
+Upstream has not said when (madsuite-org/ExaModels.jl#323), so the code is kept to the
+conventions in the meantime, and its type piracy is accepted as long as needed
+(control-toolbox/CTParser.jl#365): CTParser owns neither `Base`, `LinearAlgebra` nor the
+ExaModels node types. Every pirated method is listed with its reason in
+`test/extension_piracies.jl`, and the ct-conventions TST8 check (`test/test_aqua.jl`) fails
+on an unlisted one and on any ambiguity. If ExaModels ever declares its own
+`ExaModelsOptimalControl` extension, both would define the same methods: the sentinel in
+`test/test_exa_linalg.jl` fails as soon as it does.
 """
 module CTParserExaModels
 
