@@ -39,10 +39,11 @@ The method definitions below are ported from that shipped-but-unregistered
   `ExaModels.constraint` on it), and `p_constraint_exa!` never emits the vector
   form — it loops over components instead.
 
-Three deliberate departures from the upstream file: dimension and shape checks throw
+Four deliberate departures from the upstream file: dimension and shape checks throw
 typed `CTBase` errors instead of `@assert` / `error`, `Null(0) + x` folds to `x` like
-`x + Null(0)` already did, and the square-matrix check of `det` is done once rather
-than at every level of the cofactor recursion.
+`x + Null(0)` already did, the square-matrix check of `det` is done once rather than at
+every level of the cofactor recursion, and `Null op Constant` has its own methods where
+the `Null` rules met ExaModels' `Constant` folding rules (control-toolbox/CTParser.jl#364).
 
 Nothing here overwrites an ExaModels method. ExaModels' core defines arithmetic on
 `AbstractNode` generically; every `Null`-specific method below is strictly more

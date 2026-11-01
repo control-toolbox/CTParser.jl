@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Bug Fixes
 
+- **An `:exa` expression mixing `ExaModels.Constant` with a folded zero or one no longer raises an ambiguity error** ([#364](https://github.com/control-toolbox/CTParser.jl/issues/364)). The extension folds structural zeros and ones on `ExaModels.Null`, ExaModels folds them on `ExaModels.Constant`, and a call such as `Null(2) + Constant(0)` matched one rule of each side (`MethodError: … is ambiguous`), for instance from `0 * x₂(t) + ExaModels.Constant(0)` in a `@def`. The 32 intersection methods now fold such a call to a `Null`. Ordinary `@def` code, which never builds a `Constant`, was not affected.
 - **A bound-length error raised while building an `:exa` model names its `@def` line again.** Since 0.9.1-beta ([#338](https://github.com/control-toolbox/CTParser.jl/issues/338)) `__wrap` no longer prints `Line n: …` for structured exceptions, and the bound-length `PreconditionError`s carried no `context`, so nothing pointed at the offending line. They now set `context = "line n: <source>"`.
 
 ### 🛠 Enhancements
@@ -23,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🧪 Testing
 
+- **`test/test_exa_constant_null.jl` pins the `Null`/`Constant` intersections**: each formerly ambiguous call (unit), the scope of the fix with a fake node type (contract), no ambiguity left on the scalar methods of the extension (non-regression), and the `@def` path that reached it, solved against a reference problem on the four schemes (integration).
 - **[#343](https://github.com/control-toolbox/CTParser.jl/issues/343) is covered on both backends** for the state, the control and the time, on the upper-bound side and with its message; the documented work-around is also tested on `:exa`.
 - **A sentinel in `test/test_exa_linalg.jl` fails as soon as ExaModels declares its own `ExaModelsOptimalControl` extension**, the signal to delete `ext/CTParserExaModels.jl` ([#325](https://github.com/control-toolbox/CTParser.jl/issues/325)).
 - **Standard-output capture is one helper, `capture_stdout` in `test/utils.jl`.**
