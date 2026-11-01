@@ -1674,7 +1674,10 @@ function __test_onepass_exa(
         sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
         obj2 = sol2.objective
 
-        __atol = 1e-9
+        # GPU solves are not reproducible at fixed max_iter (CTDirect.jl#531), and with
+        # max_iter = 10 the iterates are not converged: obj1 and obj2 agree to about 1e-7
+        # on GPU, not to 1e-9 as on CPU (CTParser.jl#383).
+        __atol = backend_name == "GPU" ? 1e-5 : 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
     end
 
@@ -1706,7 +1709,6 @@ function __test_onepass_exa(
         m1, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
         @test m1 isa ExaModels.ExaModel
         sol1 = madnlp(m1; tol=tolerance, max_iter=max_iter, kwargs...)
-        sol1 = madnlp(m1; tol=tolerance, max_iter=max_iter, kwargs...)
         obj1 = sol1.objective
 
         # Non-vectorised version using subscripts
@@ -1725,12 +1727,15 @@ function __test_onepass_exa(
             (x₁(1) + x₂(1) + x₃(1))^2 + 0.5∫(u₁(t)^2 + u₂(t)^2) → min
         end
 
-        m2, _ = discretise_exa_full(o1; grid_size=N, backend=backend, scheme=scheme)
+        m2, _ = discretise_exa_full(o2; grid_size=N, backend=backend, scheme=scheme)
         @test m2 isa ExaModels.ExaModel
         sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
         obj2 = sol2.objective
 
-        __atol = 1e-9
+        # GPU solves are not reproducible at fixed max_iter (CTDirect.jl#531), and with
+        # max_iter = 10 the iterates are not converged: obj1 and obj2 agree to about 1e-7
+        # on GPU, not to 1e-9 as on CPU (CTParser.jl#383).
+        __atol = backend_name == "GPU" ? 1e-5 : 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
     end
 
@@ -1963,7 +1968,10 @@ function __test_onepass_exa(
         sol2 = madnlp(m2; tol=tolerance, max_iter=max_iter, kwargs...)
         obj2 = sol2.objective
 
-        __atol = 1e-9
+        # GPU solves are not reproducible at fixed max_iter (CTDirect.jl#531), and with
+        # max_iter = 10 the iterates are not converged: obj1 and obj2 agree to about 1e-7
+        # on GPU, not to 1e-9 as on CPU (CTParser.jl#383).
+        __atol = backend_name == "GPU" ? 1e-5 : 1e-9
         @test obj1 - obj2 ≈ 0 atol = __atol
     end
 
