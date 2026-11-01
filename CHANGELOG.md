@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Bug Fixes
 
+- **The `:exa` backend accepts the scheme aliases of `:adnlp`** ([#355](https://github.com/control-toolbox/CTParser.jl/issues/355)). `:euler_explicit` and `:euler_forward` (for `:euler`) and `:euler_backward` (for `:euler_implicit`) were rejected with `unknown numerical scheme`; the deprecated `:euler_b` and `:trapezoidal` are resolved the same way, in one table, `EXA_SCHEME_ALIASES`.
 - **A bound-length error raised while building an `:exa` model names its `@def` line again.** Since 0.9.1-beta ([#338](https://github.com/control-toolbox/CTParser.jl/issues/338)) `__wrap` no longer prints `Line n: …` for structured exceptions, and the bound-length `PreconditionError`s carried no `context`, so nothing pointed at the offending line. They now set `context = "line n: <source>"`.
 
 ### 🛠 Enhancements
