@@ -30,6 +30,7 @@ makedocs(;
     checkdocs=:none,
     pages=[
         "Introduction" => "index.md",
+        "Syntax" => ["State and control in time" => "syntax/time.md"],
         "API Reference" => [
             CTBase.automatic_reference_documentation(;
                 subdirectory=".",
