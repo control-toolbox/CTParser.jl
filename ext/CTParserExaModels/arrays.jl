@@ -169,36 +169,52 @@ end
 
 # --- adjoint/transpose operations ---
 
+# A row vector of numbers, written `q'` or `transpose(q)`: the same for real entries.
+const RealRow = Union{
+    LinearAlgebra.Adjoint{<:Real,<:AbstractVector},LinearAlgebra.Transpose{<:Real,<:AbstractVector}
+}
+
+# The transposes LinearAlgebra multiplies an adjoint vector by on its own, `transpose(w')` and
+# `transpose(w)'`: with a numeric `w` they are numeric matrices, and ours must answer.
+const RealTransposedRow = Union{
+    LinearAlgebra.Transpose{<:Real,<:LinearAlgebra.Adjoint{<:Any,<:AbstractVector}},
+    LinearAlgebra.Adjoint{<:Real,<:LinearAlgebra.Transpose{<:Any,<:AbstractVector}},
+}
+
 # v' * w = dot(v, w)
-for (TA, TV, TB) in [
-    (ExaNode, VecExaNode, VecExaNode),
-    (ExaNode, VecExaNode, AbstractVector{<:Real}),
-    (Real, AbstractVector{<:Real}, VecExaNode),
+for (TA, TB) in [
+    (LinearAlgebra.Adjoint{<:ExaNode,<:VecExaNode}, VecExaNode),
+    (LinearAlgebra.Adjoint{<:ExaNode,<:VecExaNode}, AbstractVector{<:Real}),
+    (RealRow, VecExaNode),
 ]
-    @eval function Base.:*(a::LinearAlgebra.Adjoint{<:$TA,<:$TV}, b::$TB)
-        return LinearAlgebra.dot(parent(a), b)
-    end
+    @eval Base.:*(a::$TA, b::$TB) = LinearAlgebra.dot(parent(a), b)
 end
 
-# v' * A
-for (TA, TV, TB) in
-    [(ExaNode, VecExaNode, MatExaNode), (Real, AbstractVector{<:Real}, MatExaNode)]
-    @eval function Base.:*(a::LinearAlgebra.Adjoint{<:$TA,<:$TV}, B::$TB)
-        v = parent(a)
-        length(v) == size(B, 1) || _dimension_mismatch(
-            "*", "adjoint vector of length $(length(v)) and matrix of size $(size(B))"
-        )
-        n = size(B, 2)
-        return adjoint([LinearAlgebra.dot(v, [B[k, j] for k in 1:size(B, 1)]) for j in 1:n])
-    end
-end
-function Base.:*(
-    a::LinearAlgebra.Adjoint{<:ExaNode,<:VecExaNode}, B::AbstractMatrix{<:Real}
-)
-    v = parent(a)
+# v' * A, as the row vector of the dots of `v` with the columns of `A`
+function _row_times_matrix(v, B)
     length(v) == size(B, 1) || _dimension_mismatch(
         "*", "adjoint vector of length $(length(v)) and matrix of size $(size(B))"
     )
-    n = size(B, 2)
-    return adjoint([LinearAlgebra.dot(v, view(B, :, j)) for j in 1:n])
+    return adjoint([LinearAlgebra.dot(v, B[:, j]) for j in axes(B, 2)])
+end
+
+for (TA, TB) in [
+    (LinearAlgebra.Adjoint{<:ExaNode,<:VecExaNode}, MatExaNode),
+    (RealRow, MatExaNode),
+    (LinearAlgebra.Adjoint{<:ExaNode,<:VecExaNode}, AbstractMatrix{<:Real}),
+    (LinearAlgebra.Adjoint{<:ExaNode,<:VecExaNode}, RealTransposedRow),
+]
+    @eval Base.:*(a::$TA, B::$TB) = _row_times_matrix(parent(a), B)
+end
+
+# --- diagonal matrix * vector ---
+
+# LinearAlgebra's `*(::Diagonal, ::AbstractVector)` meets ours on `Diagonal{<:Real}` times a
+# vector of nodes. The product is entrywise, with no structural zero to fold.
+function Base.:*(D::LinearAlgebra.Diagonal{<:Real}, x::VecExaNode)
+    d = D.diag
+    length(d) == length(x) || _dimension_mismatch(
+        "*", "diagonal matrix of size $(size(D)) and vector of length $(length(x))"
+    )
+    return [d[i] * x[i] for i in eachindex(d, x)]
 end
