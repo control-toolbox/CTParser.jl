@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🛠 Enhancements
 
+- **The `:fun` functions generated for a vector literal no longer allocate** ([#21](https://github.com/control-toolbox/CTParser.jl/issues/21)). The dynamics, the boundary constraints and the path constraints `[e₁, e₂, …]` were written `@views r[:] .= [e₁, e₂, …]`, which builds a temporary vector at every call (80 bytes, 2 allocations for the double integrator). They now evaluate the entries and assign them one by one, with the same checks. Expressions that are not a plain list (a splat, a function returning a vector) are broadcast as before.
 - **Errors raised from generated `:exa` code and the backend-selection errors set `suggestion` and `context`.**
 - **The ExaModels linear-algebra extension throws typed errors.** A dimension mismatch between two operands is a `CTBase.PreconditionError`; a non-square matrix for `det` / `tr`, `norm(v, Inf)` and non-3-vectors for `cross` are a `CTBase.IncorrectArgument`. They were an `AssertionError` or an `ErrorException`.
 - **`Null(0) + x` folds to `x` in the extension**, as `x + Null(0)` already did.
