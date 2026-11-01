@@ -638,4 +638,73 @@ function test_onepass_fun_bis()
             ∫(u(t)^2) → min
         end
     end
+
+    @testset "symbolic dimensions: R^n works, Rⁿ is rejected (#60)" begin
+        println("symbolic dimensions (bis)")
+
+        # `Rⁿ` is one identifier with a superscript letter, not `R^n`: only the digit
+        # exponents R², R³, … are recognised, so a symbolic dimension cannot be read from it
+        for (src, kind) in (
+            ("x ∈ Rⁿ, state", "state"),
+            ("u ∈ Rᵐ, control", "control"),
+            ("v ∈ Rⁿ, variable", "variable"),
+        )
+            p = CTParser.ParsingInfo()
+            ex = CTParser.parse!(p, :p_ocp, Meta.parse(src))
+            err = try
+                eval(ex)
+                nothing
+            catch e
+                e
+            end
+            @test err isa ParsingError
+            @test occursin("Line 1: ($src)", err.msg) || occursin("Line 1: $src", err.msg)
+            @test occursin("unknown syntax", err.msg)
+        end
+        @test_throws ParsingError @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ Rⁿ, state
+            u ∈ R, control
+            ẋ(t) == u(t)
+            x(0) == 0
+            x₁(1) → min
+        end
+
+        # `R^n` is the spelling of a symbolic dimension, for any expression
+        n = 3
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R^$n, state
+            u ∈ R, control
+            ẋ(t) == -x(t)
+            x(0) == zeros($n)
+            x₁(1) → min
+        end
+        @test state_dimension(ocp) == 3
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R^($n + 1), state
+            u ∈ R, control
+            ẋ(t) == -x(t)
+            x(0) == zeros($n + 1)
+            x₁(1) → min
+        end
+        @test state_dimension(ocp) == 4
+
+        # the automatic aliases of the components: x₁, x₂, … and x1, x2, … for a literal
+        # dimension, up to 9 only for a symbolic one
+        p = CTParser.ParsingInfo()
+        CTParser.parse!(p, :p_ocp, :(x ∈ R^12, state))
+        @test haskey(p.aliases, :x₁₂) && haskey(p.aliases, :x12)
+        p = CTParser.ParsingInfo()
+        CTParser.parse!(p, :p_ocp, :(x ∈ R^n, state))
+        @test haskey(p.aliases, :x₉) && haskey(p.aliases, :x9)
+        @test !haskey(p.aliases, :x₁₀) && !haskey(p.aliases, :x10)
+
+        # R², R³, … are aliases of R^2, R^3, … up to R²⁰
+        p = CTParser.ParsingInfo()
+        @test p.aliases[:R²] == :(R^2)
+        @test p.aliases[:R²⁰] == :(R^20)
+        @test !haskey(p.aliases, :R²¹)
+    end
 end
