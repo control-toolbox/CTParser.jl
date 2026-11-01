@@ -390,6 +390,120 @@ function test_onepass_fun_bis()
         @test p2.criterion == :max
     end
 
+    @testset "state and control must be evaluated at a time (#193, #139)" begin
+        println("stray state and control (bis)")
+
+        # the error raised by the statement `line` in an otherwise valid problem
+        function stray_error(line; dynamics=:(ẋ(t) == [x₂(t), u(t)]), cost=:(x₁(1) → min))
+            body = quote
+                t ∈ [0, 1], time
+                x ∈ R², state
+                u ∈ R, control
+            end
+            push!(body.args, dynamics)
+            push!(body.args, :(x(0) == [0, 0]))
+            isnothing(line) || push!(body.args, line)
+            push!(body.args, cost)
+            return try
+                Core.eval(Main, :(CTParser.@def $body))
+                nothing
+            catch e
+                e
+            end
+        end
+
+        # a state or a control used without a time (#193)
+        for (err, kind, name) in (
+            (stray_error(nothing; cost=:(x₁(1) + u → min)), "control", "u"),
+            (stray_error(nothing; cost=:(x₁ → min)), "state", "x"),
+            (stray_error(nothing; dynamics=:(ẋ(t) == [x₂(t) + x₁, u(t)])), "state", "x"),
+            (stray_error(nothing; dynamics=:(ẋ(t) == [x₂(t), u])), "control", "u"),
+            (stray_error(nothing; cost=:(∫(x₁(t)^2 + u) → min)), "control", "u"),
+            (stray_error(:(x₁(t) + u ≤ 1)), "control", "u"),
+            (stray_error(:(x₁(0) + u == 0)), "control", "u"),
+            (stray_error(:(x₂(t)^2 + x ≤ 1)), "state", "x"),
+        )
+            @test err isa ParsingError
+            @test occursin("The $kind `$name` is used here without being evaluated at a time", err.msg)
+            @test occursin("write `$name(t)`", err.suggestion)
+            @test occursin("Line ", err.msg)
+        end
+
+        # ... the line shown is the one of the user
+        err = stray_error(:(x₁(t) + u ≤ 1))
+        @test occursin("x₁(t) + u ≤ 1", err.msg)
+
+        # a state evaluated at a time that is not t, t0 or tf (#139)
+        for (err, args) in (
+            (stray_error(:(x(0.5) == [0, 0])), "0.5"),
+            (stray_error(:(x(s) == [0, 0])), "s"),
+            (stray_error(:(x(t0) == [0, 0])), "t0"),
+            (stray_error(:(x(0, 1) == [0, 0])), "0, 1"),
+            (stray_error(nothing; cost=:(x₁(0.5) → min)), "0.5"),
+        )
+            @test err isa ParsingError
+            @test occursin("The state `x` is evaluated at `$args`", err.msg)
+            @test occursin("neither the time `t`, nor the initial time, nor the final time", err.msg)
+            @test err.suggestion == "evaluate the state at `t`, `0` or `1`"
+        end
+
+        # ... and a control at a time that is not t
+        err = stray_error(:(x₁(0) + u(0) ≤ 1))
+        @test err isa ParsingError
+        @test occursin("The control `u` is evaluated at `0`, which is not the time `t`", err.msg)
+        @test err.suggestion == "write `u(t)`"
+
+        # a call without argument has no time
+        err = stray_error(:(x() == [0, 0]))
+        @test err isa ParsingError
+        @test occursin("The state `x` is used here without being evaluated at a time", err.msg)
+
+        # the one-dimensional elements are scalars named by the user
+        err = try
+            @eval @def begin
+                t ∈ [0, 1], time
+                y ∈ R, state
+                w ∈ R, control
+                ẏ(t) == w
+                y(0) == 0
+                y(1) → min
+            end
+            nothing
+        catch e
+            e
+        end
+        @test err isa ParsingError
+        @test occursin("The control `w` is used here without being evaluated at a time", err.msg)
+        @test !occursin("##", err.msg)
+
+        # what is valid is unchanged
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            ẋ(t) == [x₂(t), u(t)]
+            x(0) == [0, 0]
+            x₁(1) + x₂(0) ≤ 3
+            x₁(t) + u(t) ≤ 5
+            -1 ≤ u(t) ≤ 1
+            ∫(x₁(t)^2 + u(t)^2) + x₁(1) → min
+        end
+        @test state_dimension(ocp) == 2
+        @test control_dimension(ocp) == 1
+        t0 = 0
+        tf = 1
+        ocp = @eval @def begin
+            t ∈ [$t0, $tf], time
+            x ∈ R², state
+            u ∈ R, control
+            ẋ(t) == [x₂(t), u(t)]
+            x($t0) == [0, 0]
+            x($tf) == [1, 0]
+            ∫(u(t)^2) → min
+        end
+        @test state_dimension(ocp) == 2
+    end
+
     @testset "p_mayer! precondition errors" begin
         println("p_mayer! preconditions (bis)")
 
