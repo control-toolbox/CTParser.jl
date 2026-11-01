@@ -461,7 +461,7 @@ function p_pragma_exa!(p, p_ocp, e)
 end
 
 function p_alias!(p, p_ocp, a, e; log=false, backend=__default_parsing_backend())
-    log && println("alias: $a = $e")
+    log && println("alias: $a = $(__as_user(e))")
     a isa Symbol || return __throw("forbidden alias name: $a", p.lnum, p.line)
     p.aliases[a] = e
     return parsing(:alias, backend)(p, p_ocp, a, e)
@@ -531,7 +531,7 @@ function p_variable_exa!(p, p_ocp, v, q, vv; components_names=nothing)
 end
 
 function p_time!(p, p_ocp, t, t0, tf; log=false, backend=__default_parsing_backend())
-    log && println("time: $t, initial time: $t0, final time: $tf")
+    log && println("time: $t, initial time: $(__as_user(t0)), final time: $(__as_user(tf))")
     t isa Symbol || return __throw("forbidden time name: $t", p.lnum, p.line)
     p.t = t
     p.t0 = t0
@@ -731,7 +731,13 @@ function p_constraint!(
     backend=__default_parsing_backend(),
 )
     c_type = constraint_type(e2, p.t, p.t0, p.tf, p.x, p.u, p.v)
-    log && println("constraint ($c_type): $e1 ≤ $e2 ≤ $e3,    ($label)")
+    if log
+        # an unlabelled constraint has a generated label, which is not worth showing
+        shown_label = occursin("##", string(label)) ? "" : ",    ($label)"
+        println(
+            "constraint ($c_type): $(__as_user(e1)) ≤ $(__as_user(e2)) ≤ $(__as_user(e3))$shown_label",
+        )
+    end
     label isa Int && (label = Symbol(:eq, label))
     label isa Symbol || return __throw("forbidden label: $label", p.lnum, p.line)
     # a constraint bound must be "effective": lb/ub are evaluated once at build time,
@@ -968,7 +974,7 @@ end
 function p_dynamics!(
     p, p_ocp, x, t, e, label=nothing; log=false, backend=__default_parsing_backend()
 )
-    log && println("dynamics: ∂($x)($t) == $e")
+    log && println("dynamics: ∂($(__as_user(x)))($t) == $(__as_user(e))")
     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     # isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
@@ -1068,7 +1074,7 @@ end
 function p_dynamics_coord!(
     p, p_ocp, x, i, t, e, label=nothing; log=false, backend=__default_parsing_backend()
 )
-    log && println("dynamics: ∂($x[$i])($t) == $e")
+    log && println("dynamics: ∂($(__as_user(:($x[$i]))))($t) == $(__as_user(e))")
     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     # isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
@@ -1159,7 +1165,7 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i::Integer, t, e) # todo: also also 
 end
 
 function p_lagrange!(p, p_ocp, e, type; log=false, backend=__default_parsing_backend())
-    log && println("objective (Lagrange): ∫($e) → $type")
+    log && println("objective (Lagrange): ∫($(__as_user(e))) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     # isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
@@ -1230,7 +1236,7 @@ function p_lagrange_exa!(p, p_ocp, e, type)
 end
 
 function p_mayer!(p, p_ocp, e, type; log=false, backend=__default_parsing_backend())
-    log && println("objective (Mayer): $e → $type")
+    log && println("objective (Mayer): $(__as_user(e)) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.t0) && return __throw("time not yet declared", p.lnum, p.line)
     isnothing(p.tf) && return __throw("time not yet declared", p.lnum, p.line)
@@ -1278,7 +1284,7 @@ function p_mayer_exa!(p, p_ocp, e, type)
 end
 
 function p_bolza!(p, p_ocp, e1, e2, type; log=false, backend=__default_parsing_backend())
-    log && println("objective (Bolza): $e1 + ∫($e2) → $type")
+    log && println("objective (Bolza): $(__as_user(e1)) + ∫($(__as_user(e2))) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.t0) && return __throw("time not yet declared", p.lnum, p.line)
     isnothing(p.tf) && return __throw("time not yet declared", p.lnum, p.line)

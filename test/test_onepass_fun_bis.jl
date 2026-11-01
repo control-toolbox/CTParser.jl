@@ -329,6 +329,73 @@ function test_onepass_fun_bis()
     # COST FUNCTIONS - Precondition Errors
     # ============================================================================
 
+    @testset "trace mode shows the names of the user (#354)" begin
+        println("trace mode names (bis)")
+
+        # __as_user: g[1] where g is a generated name is the name before the ##
+        g = Symbol("u##123")
+        @test CTParser.__as_user(Expr(:ref, g, 1)) === :u
+        @test CTParser.__as_user(Expr(:call, Expr(:ref, g, 1), :t)) == :(u(t))
+        @test CTParser.__as_user(:($(Expr(:ref, g, 1))^2 + 1)) == :(u^2 + 1)
+        # ... and nothing else: a component other than the first, a name without ##
+        @test CTParser.__as_user(Expr(:ref, g, 2)) == Expr(:ref, g, 2)
+        @test CTParser.__as_user(:(x[1])) == :(x[1])
+        @test CTParser.__as_user(:(x[2](t))) == :(x[2](t))
+        @test CTParser.__as_user(:a) === :a
+        @test CTParser.__as_user(3) === 3
+
+        # the example of the issue: no generated name, no index on a scalar
+        c(t) = 1.0
+        _, trace = capture_stdout() do
+            CTParser.def_fun(
+                :(
+                    begin
+                        tf ∈ R, variable
+                        t ∈ [0, tf], time
+                        x = (q, v) ∈ R², state
+                        u ∈ R, control
+                        q̇ = v(t)
+                        v̇ = u(t) - c(t) * v(t)
+                        ẋ(t) == [q̇, v̇]
+                        -1 ≤ u(t) ≤ 1
+                        u(t) ≤ 2, (bound)
+                        ∫(u(t)^2) → min
+                    end
+                );
+                log=true,
+            )
+        end
+        @test !occursin("##", trace)
+        @test occursin("time: t, initial time: 0, final time: tf", trace)
+        @test occursin("alias: v̇ = u(t) - c(t) * (x[2])(t)", trace)
+        @test occursin("dynamics: ∂(x)(t) == [(x[2])(t), u(t) - c(t) * (x[2])(t)]", trace)
+        @test occursin("objective (Lagrange): ∫(u(t) ^ 2) → min", trace)
+        @test !occursin("u[1]", trace)
+        # an unlabelled constraint shows no generated label, a labelled one shows it
+        @test occursin("-1 ≤ u(t) ≤ 1\n", trace)
+        @test occursin("≤ u(t) ≤ 2,    (bound)", trace)
+
+        # a one-dimensional state, written ∂(y)(t) == …
+        _, trace = capture_stdout() do
+            CTParser.def_fun(
+                :(
+                    begin
+                        t ∈ [0, 1], time
+                        y ∈ R, state
+                        w ∈ R, control
+                        ∂(y)(t) == w(t)
+                        y(0) == 0
+                        y(1) → min
+                    end
+                );
+                log=true,
+            )
+        end
+        @test !occursin("##", trace)
+        @test occursin("dynamics: ∂(y)(t) == w(t)", trace)
+        @test occursin("objective (Mayer): y(1) → min", trace)
+    end
+
     @testset "p_lagrange! precondition errors" begin
         println("p_lagrange! preconditions (bis)")
 
