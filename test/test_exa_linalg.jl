@@ -1584,7 +1584,7 @@ function test_exa_linalg()
         end
 
         @testset "upstream extension sentinel (#325)" begin
-            # ext/CTParserExaModels.jl is a port of ExaModels' shipped-but-unregistered
+            # ext/CTParserExaModels/ is a port of ExaModels' shipped-but-unregistered
             # ExaModelsOptimalControl extension. The day ExaModels declares it, both would
             # define the same methods: this fails so that the port is deleted then.
             exa_project = TOML.parsefile(joinpath(pkgdir(ExaModels), "Project.toml"))
