@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🧪 Testing
 
+- **`import` is gone from the tests and the docs, and a guard keeps it out** (`MOD3`, `MOD4`, [#303](https://github.com/control-toolbox/CTParser.jl/issues/303)): `test/runtests.jl`, `test/test_control_zero.jl` and a docs snippet now use `using Pkg: sym`; the new `test/test_no_import.jl` fails on any tracked `.jl` or `.md` file with an `import` or a dotted `using Pkg.Sub` (`CHANGELOG.md` and `BREAKING.md` quote past text and are exempt from the dotted check).
 - **`test/test_exa_constant_null.jl` pins the `Null`/`Constant` intersections**: each formerly ambiguous call (unit), the scope of the fix with a fake node type (contract), no ambiguity left on the scalar methods of the extension (non-regression), and the `@def` path that reached it, solved against a reference problem on the four schemes (integration).
 - **[#343](https://github.com/control-toolbox/CTParser.jl/issues/343) is covered on both backends** for the state, the control and the time, on the upper-bound side and with its message; the documented work-around is also tested on `:exa`.
 - **A sentinel in `test/test_exa_linalg.jl` fails as soon as ExaModels declares its own `ExaModelsOptimalControl` extension**, the signal to delete `ext/CTParserExaModels.jl` ([#325](https://github.com/control-toolbox/CTParser.jl/issues/325)).
