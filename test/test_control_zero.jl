@@ -2,8 +2,8 @@ module TestControlZero
 
 using Test: Test
 using CTParser: CTParser
-import CTBase.Exceptions
-import CTModels.Init
+using CTBase: Exceptions
+using CTModels: Init
 
 # for the @def and @init macros
 using CTBase: CTBase
