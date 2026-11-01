@@ -15,8 +15,12 @@ const ExaNode = Union{
 # and those are the constants users write. The constants keep `AbstractVector{<:Real}` /
 # `AbstractMatrix{<:Real}` in the signatures; the few collisions left there have their own
 # methods (structured.jl, and the SparseArrays and StaticArrays extensions).
-const VecExaNode = StridedVector{<:ExaNode}
-const MatExaNode = StridedMatrix{<:ExaNode}
+# The type variables are named (`{T} where {T<:…}`, not `{<:…}`): `StridedVector` is itself a
+# `Union`, so an anonymous `<:` prints as a generated name (`var"#s6"`) that changes from one
+# Julia version to the next, and the TST8 check lists the pirated methods by their printed
+# signature.
+const VecExaNode = StridedVector{T} where {T<:ExaNode}
+const MatExaNode = StridedMatrix{T} where {T<:ExaNode}
 # CPU arrays of nodes, for `norm`: GPUArrays also defines it on `AnyGPUArray`, which is a
 # `DenseArray`, hence `Strided`, so a `Strided` signature would be ambiguous with it.
 const CPUVecExaNode = Union{

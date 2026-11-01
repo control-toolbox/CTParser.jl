@@ -26,8 +26,8 @@ using StaticArrays: StaticArrays
 const ExaNode = Union{
     ExaModels.AbstractNode,ExaModels.AbstractAdjointNode,ExaModels.AbstractSecondAdjointNode
 }
-const VecExaNode = StridedVector{<:ExaNode}
-const MatExaNode = StridedMatrix{<:ExaNode}
+const VecExaNode = StridedVector{T} where {T<:ExaNode}
+const MatExaNode = StridedMatrix{T} where {T<:ExaNode}
 
 # The static arrays exactly as StaticArrays' own `+`, `-` and `*` methods take them, with
 # numeric entries: written like this, and not as `SVector` / `SMatrix`, so that each method

@@ -26,13 +26,13 @@ using SparseArrays: SparseArrays
 const ExaNode = Union{
     ExaModels.AbstractNode,ExaModels.AbstractAdjointNode,ExaModels.AbstractSecondAdjointNode
 }
-const VecExaNode = StridedVector{<:ExaNode}
-const MatExaNode = StridedMatrix{<:ExaNode}
+const VecExaNode = StridedVector{T} where {T<:ExaNode}
+const MatExaNode = StridedMatrix{T} where {T<:ExaNode}
 
 # A sparse numeric vector, or a column or slice view of one. `SparseVectorUnion` is not
 # public, but it is the exact type SparseArrays dispatches `dot` on, unchanged from Julia
 # 1.10 to 1.12.
-const RealSparseVector = SparseArrays.SparseVectorUnion{<:Real}
+const RealSparseVector = SparseArrays.SparseVectorUnion{T} where {T<:Real}
 
 function _dimension_mismatch(op, reason)
     throw(

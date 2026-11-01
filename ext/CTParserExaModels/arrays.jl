@@ -211,7 +211,7 @@ end
 
 # LinearAlgebra's `*(::Diagonal, ::AbstractVector)` meets ours on `Diagonal{<:Real}` times a
 # vector of nodes. The product is entrywise, with no structural zero to fold.
-function Base.:*(D::LinearAlgebra.Diagonal{<:Real}, x::VecExaNode)
+function Base.:*(D::LinearAlgebra.Diagonal{T}, x::VecExaNode) where {T<:Real}
     d = D.diag
     length(d) == length(x) || _dimension_mismatch(
         "*", "diagonal matrix of size $(size(D)) and vector of length $(length(x))"
