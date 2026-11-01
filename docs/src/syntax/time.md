@@ -24,6 +24,15 @@ end
 If the interval is declared with names, `t ∈ [t0, tf], time`, the boundary conditions use these
 names: `x(t0)`, `x(tf)`.
 
+## Why the control is only evaluated at `t`
+
+The state is a trajectory: it has a value at every time, and the problem can fix or bound it at the
+initial or at the final time (`x(0) == [0, 0]`, `x₁(1) + x₂(0) ≤ 3`). The control is not constrained
+at an instant: what the model holds for it is an expression that is valid for every time `t`
+(`-1 ≤ u(t) ≤ 1`, a term of the cost or of the dynamics). `u(0)` or `u(tf)` has no place in this
+description, and a statement that contains it is refused, in the dynamics, in the costs and in the
+constraints.
+
 ## What is refused
 
 A state or a control that is not evaluated at one of these times is a mistake, and the parser

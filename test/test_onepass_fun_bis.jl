@@ -453,6 +453,24 @@ function test_onepass_fun_bis()
         @test occursin("The control `u` is evaluated at `0`, which is not the time `t`", err.msg)
         @test err.suggestion == "write `u(t)`"
 
+        # the control is evaluated at the time t only, in every kind of statement: unlike the
+        # state, it has no value to give at the initial or the final time (decision of the
+        # maintainer, see #139)
+        for (err, args) in (
+            (stray_error(:(u(1) ≤ 1)), "1"),
+            (stray_error(:(u(0) == 0)), "0"),
+            (stray_error(:(u₁(0) ≤ 1)), "0"),
+            (stray_error(:(x₁(1) + u(1) ≤ 3)), "1"),
+            (stray_error(nothing; cost=:(x₁(1) + u(1) → min)), "1"),
+            (stray_error(nothing; cost=:(∫(u(0)^2) → min)), "0"),
+            (stray_error(nothing; cost=:(u(1)^2 + ∫(u(t)^2) → min)), "1"),
+            (stray_error(nothing; dynamics=:(ẋ(t) == [x₂(t), u(0)])), "0"),
+        )
+            @test err isa ParsingError
+            @test occursin("The control `u` is evaluated at `$args`, which is not the time `t`", err.msg)
+            @test err.suggestion == "write `u(t)`"
+        end
+
         # a call without argument has no time
         err = stray_error(:(x() == [0, 0]))
         @test err isa ParsingError
