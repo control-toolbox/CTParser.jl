@@ -47,6 +47,21 @@ end
 value_of(n::ExaModels.Null) = n.value
 value_of(::ExaModels.Constant{V}) where {V} = V
 
+# In an ambiguous pair (a, b), the method of the extension and the other one.
+ext_method(a::Method, b::Method) = a.module === EXT ? a : b
+other_method(a::Method, b::Method) = a.module === EXT ? b : a
+
+# Whether a method takes an array argument (a vector, a matrix, an adjoint of a vector):
+# the linear-algebra part of the extension, as opposed to scalar node arithmetic.
+function has_array_arg(m::Method)
+    sig = Base.unwrap_unionall(m.sig)
+    return any(sig.parameters[2:end]) do p
+        q = Base.unwrap_unionall(p)
+        q isa TypeVar && (q = q.ub)
+        return q isa Type && q <: AbstractArray
+    end
+end
+
 # Build the `:exa` model of `ocp` on the CPU, as the getter of CTModels does.
 function build_exa(ocp; scheme=:trapeze, grid_size=20)
     build = CTModels.get_build_examodel(ocp)
@@ -121,17 +136,23 @@ function test_exa_constant_null()
         # ------------------------------------------------------------------
         # Non-regression: no ambiguity left between the extension and ExaModels
         # ------------------------------------------------------------------
-        Test.@testset "no ambiguity between the extension and ExaModels" begin
+        Test.@testset "no ambiguity left on scalar node arithmetic" begin
             Test.@test EXT isa Module
             pairs = Test.detect_ambiguities(EXT; recursive=true)
-            other(a, b) = a.module === EXT ? b : a
-            with_exa = [(a, b) for (a, b) in pairs if other(a, b).module === ExaModels]
+            with_exa = [(a, b) for (a, b) in pairs if other_method(a, b).module === ExaModels]
             Test.@test isempty(with_exa)
-            # What is left involves LinearAlgebra or SparseArrays only, on array types
-            # `@def` does not produce (triangular, symmetric, sparse, …): tracked in #365.
-            # A new ambiguity with any other module fails here.
-            rest = [nameof(other(a, b).module) for (a, b) in pairs]
-            Test.@test all(m -> m in (:LinearAlgebra, :SparseArrays), rest)
+            # What is left pairs a method of the extension on *arrays* of nodes with a
+            # method on another array type (LinearAlgebra's structured matrices,
+            # SparseArrays, and, depending on what the session has loaded, StaticArrays or
+            # GPUArrays): tracked in #365. A scalar method of the extension must not be
+            # ambiguous with anything.
+            scalar = [(a, b) for (a, b) in pairs if !has_array_arg(ext_method(a, b))]
+            Test.@test isempty(scalar) || begin
+                for (a, b) in scalar
+                    println(stderr, "  ambiguous: ", ext_method(a, b), "  vs  ", other_method(a, b))
+                end
+                false
+            end
         end
 
         # ------------------------------------------------------------------
