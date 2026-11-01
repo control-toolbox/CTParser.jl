@@ -6,7 +6,7 @@
 using Test
 using Aqua
 using OrderedCollections: OrderedDict
-import CTParser:
+using CTParser:
     CTParser,
     subs,
     subs2,
@@ -28,8 +28,8 @@ import CTParser:
     deactivate_backend,
     is_active_backend,
     @def_exa # todo: remove __default... (as soon as discretise_exa has been moved to CTDirect)
-import CTBase: CTBase, ParsingError, PreconditionError
-import CTModels:
+using CTBase: CTBase, ParsingError, PreconditionError
+using CTModels:
     CTModels,
     initial_time,
     final_time,
