@@ -138,74 +138,11 @@ Float64
 """
 __default_base_type_exa() = Float64
 
-"""
-$(TYPEDSIGNATURES)
-
-Return the default prefix for functional backends.
-
-The prefix identifies the module that provides the `PreModel` and
-associated routines used by the `@def` macro in functional mode.
-
-# Returns
-
-- `Symbol`: name of the default functional backend module
-  (currently `:CTModels`).
-
-# Example
-
-```julia-repl
-julia> using CTParser
-
-julia> CTParser.__default_prefix_fun()
-:CTModels
-```
-"""
-__default_prefix_fun() = :CTModels
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the default prefix for ExaModels backends.
-
-The prefix identifies the module that provides the ExaModels-based
-discretisation support used when the `:exa` backend is active.
-
-# Returns
-
-- `Symbol`: name of the default ExaModels backend module
-  (currently `:ExaModels`).
-
-# Example
-
-```julia-repl
-julia> using CTParser
-
-julia> CTParser.__default_prefix_exa()
-:ExaModels
-```
-"""
-__default_prefix_exa() = :ExaModels
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the default prefix for error-handling utilities.
-
-The prefix identifies the module that defines error types and
-exceptions used when reporting parsing and modelling issues.
-
-# Returns
-
-- `Symbol`: name of the default error-handling module
-  (currently `:CTBase`).
-
-# Example
-
-```julia-repl
-julia> using CTParser
-
-julia> CTParser.__default_e_prefix()
-:CTBase
-```
-"""
-__default_e_prefix() = :CTBase
+# Modules the generated code calls. They are interpolated into the expressions
+# `@def` and `@init` return, so they are resolved where the macros are defined —
+# a `GlobalRef` to the module itself — and never looked up by name in the
+# caller's module (#356). Being module objects, not `Symbol`s, they are not
+# configurable: there is exactly one provider per concern.
+const FUN = CTModels # functional backend: PreModel, build!, definition!, ...
+const EXA = ExaModels # :exa backend: ExaCore, add_var, add_con, ExaModel, ...
+const ERR = CTBase # exceptions in generated code: ParsingError, ...
