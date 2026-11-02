@@ -46,8 +46,8 @@ function test_onepass_exa()
     # Several tests bound the same component more than once, on purpose (the range tests,
     # the constraint tests): CTModels then warns "Multiple bound declarations … Intersection
     # applied". Only that warning is dropped; any other one still shows (#231).
-    intersection_warning = DropLogger(global_logger(), r"^Multiple bound declarations")
-    with_logger(intersection_warning) do
+    intersection_warning = DropLogger(CoreLogging.global_logger(), r"^Multiple bound declarations")
+    CoreLogging.with_logger(intersection_warning) do
         for scheme in l_scheme
             __test_onepass_exa(; scheme=scheme, print_level=MadNLP.WARN)
             # Visible skip: short-circuiting on the raw device predicate makes a correctly-skipped

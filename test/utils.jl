@@ -3,7 +3,7 @@
 
 # `Logging` is a standard library, but adding it to the test environment makes Pkg.test ask
 # the registry for it ("expected package Logging to be registered"); Base exposes the same API.
-using Base.CoreLogging: CoreLogging, AbstractLogger, global_logger, with_logger
+using Base: CoreLogging
 
 macro ignore(e)
     return :()
@@ -16,7 +16,7 @@ A logger that forwards every message to `inner` except those whose text matches 
 Used to hide a warning that a test provokes on purpose, while any other warning stays
 visible (a global `NullLogger` would hide them all).
 """
-struct DropLogger{L<:AbstractLogger} <: AbstractLogger
+struct DropLogger{L<:CoreLogging.AbstractLogger} <: CoreLogging.AbstractLogger
     inner::L
     pattern::Regex
 end
