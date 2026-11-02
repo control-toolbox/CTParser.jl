@@ -265,7 +265,7 @@ const _MAT_PAIRS = [
 # ============================================================================
 
 function _dimension_mismatch(op, reason)
-    throw(
+    return throw(
         CTBase.PreconditionError(
             "operand dimensions do not match for $op";
             reason=reason,
@@ -276,7 +276,7 @@ function _dimension_mismatch(op, reason)
 end
 
 function _bad_operand(op, got, expected)
-    throw(
+    return throw(
         CTBase.IncorrectArgument(
             "unsupported operand for $op";
             got=got,
@@ -391,9 +391,8 @@ end
 for op in (:+, :-)
     for (T1, T2) in _VEC_PAIRS
         @eval function Base.$op(a::$T1, b::$T2)
-            length(a) == length(b) || _dimension_mismatch(
-                $(string(op)), "lengths $(length(a)) and $(length(b))"
-            )
+            length(a) == length(b) ||
+                _dimension_mismatch($(string(op)), "lengths $(length(a)) and $(length(b))")
             return [$op(a[i], b[i]) for i in eachindex(a)]
         end
     end
@@ -407,8 +406,7 @@ for (T1, T2) in [(ExaNode, ExaNode), (Real, ExaNode), (ExaNode, Real)]
         return [a[i] + b[i] for i in eachindex(a)]
     end
     @eval function Base.:+(A::Array{<:$T1,2}, B::Array{<:$T2,2})
-        size(A) == size(B) ||
-            _dimension_mismatch("+", "sizes $(size(A)) and $(size(B))")
+        size(A) == size(B) || _dimension_mismatch("+", "sizes $(size(A)) and $(size(B))")
         return [A[i, j] + B[i, j] for i in axes(A, 1), j in axes(A, 2)]
     end
 end
@@ -422,9 +420,8 @@ Base.:-(A::MatExaNode) = [-A[i, j] for i in axes(A, 1), j in axes(A, 2)]
 for op in (:+, :-)
     for (T1, T2) in _MAT_PAIRS
         @eval function Base.$op(A::$T1, B::$T2)
-            size(A) == size(B) || _dimension_mismatch(
-                $(string(op)), "sizes $(size(A)) and $(size(B))"
-            )
+            size(A) == size(B) ||
+                _dimension_mismatch($(string(op)), "sizes $(size(A)) and $(size(B))")
             return [$op(A[i, j], B[i, j]) for i in axes(A, 1), j in axes(A, 2)]
         end
     end

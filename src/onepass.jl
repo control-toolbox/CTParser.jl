@@ -283,7 +283,7 @@ function _unknown_scheme_error()
         $e_pref.IncorrectArgument(
             "unknown numerical scheme";
             got=string(scheme),
-            expected=$(_or_list(EXA_SCHEMES)),
+            expected=($(_or_list(EXA_SCHEMES))),
             suggestion="pass one of the supported schemes to the :exa backend",
             context="scheme keyword of the :exa model builder",
         ),
@@ -1536,7 +1536,7 @@ function def_fun(e; log=false)
         $p_ocp = $pref.PreModel()
         $code
         $pref.definition!($p_ocp, $ee)
-        $pref.time_dependence!($p_ocp; autonomous=$p.is_autonomous) # not $(p.xxxx) as this info is known statically
+        $pref.time_dependence!($p_ocp; autonomous=($p.is_autonomous)) # not $(p.xxxx) as this info is known statically
     end
 
     if is_active_backend(:exa)
