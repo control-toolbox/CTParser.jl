@@ -1559,9 +1559,9 @@ function __test_onepass_exa(
 
         N = 200
         t = (tfs * 0):N
-        xs = _xs.(t);
+        xs = _xs.(t)
         xs = stack(xs[:])
-        us = _us.(t);
+        us = _us.(t)
         us = stack(us[:])
 
         m, _ = discretise_exa_full(
@@ -2009,13 +2009,13 @@ function __test_onepass_exa(
 
         F0(x) = begin
             r, v, m = x
-            D = Cd * v^2 * exp(-β*(r - 1))
-            return [v, -D/m - 1/r^2, 0]
+            D = Cd * v^2 * exp(-β * (r - 1))
+            return [v, -D / m - 1 / r^2, 0]
         end
 
         F1(x) = begin
             r, v, m = x
-            return [0, Tmax/m, -b*Tmax]
+            return [0, Tmax / m, -b * Tmax]
         end
 
         N = 250

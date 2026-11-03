@@ -130,17 +130,16 @@ function test_onepass_fun()
         was_exa || activate_backend(:exa)
         try
             _, trace = capture_stdout() do
-                CTParser.def_fun(
-                    :(begin
+                CTParser.def_fun(:(
+                    begin
                         tf ∈ R, variable
                         t ∈ [0, tf], time
                         x = (q, v) ∈ R², state
                         u ∈ R, control
                         ẋ(t) == [v(t), u(t)]
                         ∫(u(t)^2) → min
-                    end);
-                    log=true,
-                )
+                    end
+                ); log=true)
             end
             @test count("objective (Lagrange)", trace) == 1
             @test count("state: x, dim: 2", trace) == 1
@@ -2893,7 +2892,9 @@ function test_onepass_fun()
             e
         end
         @test err isa ParsingError
-        @test occursin("the upper bound of a constraint must not depend on the variable", err.msg)
+        @test occursin(
+            "the upper bound of a constraint must not depend on the variable", err.msg
+        )
     end
 
     # ---------------------------------------------------------------

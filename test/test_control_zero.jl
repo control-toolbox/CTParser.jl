@@ -17,7 +17,7 @@ const VERBOSE = isdefined(Main, :TestData) ? Main.TestData.VERBOSE : true
 const SHOWTIMING = isdefined(Main, :TestData) ? Main.TestData.SHOWTIMING : true
 
 function test_control_zero()
-    Test.@testset "Control Zero Dimension Tests" verbose=VERBOSE showtiming=SHOWTIMING begin
+    Test.@testset "Control Zero Dimension Tests" verbose = VERBOSE showtiming = SHOWTIMING begin
 
         # Build a Model without control
         function get_model(; variable=false)
@@ -215,7 +215,7 @@ function test_control_zero()
             # Test state retrieval (should work)
             state_result = exa_getter(sol, val=:state)
             Test.@test state_result isa Matrix
-            Test.@test size(state_result) == (2, N+1)  # N grid points
+            Test.@test size(state_result) == (2, N + 1)  # N grid points
 
             # Test control retrieval (should return empty array, not throw error)
             control_result = exa_getter(sol, val=:control)
