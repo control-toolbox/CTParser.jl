@@ -75,6 +75,12 @@ end
 const ig = @init ocp begin
     u(t) := 0.0
 end
+
+# Same as Bare.broken_init: the expansion-time ParsingError must resolve CTBase
+# by object, not through the junk binding above.
+broken_init(ocp) = @init ocp begin
+    (q + v) := 1.0
+end
 end # module Shadowed
 
 function test_hygiene()
@@ -107,6 +113,7 @@ function test_hygiene()
         exa2, getter2 = CTModels.get_build_examodel(Shadowed.ocp)(; grid_size=5)
         Test.@test exa2 isa ExaModels.ExaModel
         Test.@test_throws CTBase.IncorrectArgument getter2(nothing; val=:bogus)
+        Test.@test_throws CTBase.ParsingError Shadowed.broken_init(Shadowed.ocp)
     end
 end
 

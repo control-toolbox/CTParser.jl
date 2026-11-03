@@ -97,7 +97,7 @@ This function dispatches based on the specification kind (`:constant` or
 
 # Arguments
 
-- `pref::Symbol`: backend module prefix.
+- `pref::Module`: module providing the backend (see `FUN`).
 - `ocp`: symbolic OCP variable.
 - `spec::Tuple`: specification tuple, either `(:constant, rhs)` or
   `(:temporal, arg, rhs, arg_in_rhs)`.
