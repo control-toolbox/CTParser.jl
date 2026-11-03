@@ -1,8 +1,12 @@
-# test_prefix_bis
+# test_backends
+# Backend activation and parser defaults. The prefix machinery this file used to
+# exercise (PREFIX_FUN / PREFIX_EXA / E_PREFIX / INIT_PREFIX and their setters)
+# was removed in #356: the generated code now interpolates the FUN / EXA / ERR
+# module objects directly, so there is nothing left to configure.
 
-function test_prefix_bis()
+function test_backends()
     @testset "backend activation (happy path)" begin
-        println("backend activation (bis)")
+        println("backend activation")
 
         # By design, :fun should always be active
         @test is_active_backend(:fun)
@@ -23,7 +27,7 @@ function test_prefix_bis()
     end
 
     @testset "backend activation (errors)" begin
-        println("backend activation errors (bis)")
+        println("backend activation errors")
 
         # Unknown backend should throw an error (String from `throw("...")`)
         @test_throws CTBase.IncorrectArgument activate_backend(:unknown_backend)
@@ -35,7 +39,7 @@ function test_prefix_bis()
     end
 
     @testset "backend activation (twisted sequences)" begin
-        println("backend activation twisted (bis)")
+        println("backend activation twisted")
 
         # Start from a clean state where :exa is active (default)
         activate_backend(:exa)
@@ -65,67 +69,42 @@ function test_prefix_bis()
         @test is_active_backend(:exa)
     end
 
-    @testset "prefix setters (fun, exa, e_prefix)" begin
-        println("prefix setters (bis)")
+    @testset "generated-code modules are the packages themselves" begin
+        println("FUN / EXA / ERR contract")
 
-        # Save original values
-        orig_fun = prefix_fun()
-        orig_exa = prefix_exa()
-        orig_e = e_prefix()
+        # The expressions emitted by @def and @init interpolate these objects:
+        # a module value resolves to a GlobalRef at macro-expansion time, which
+        # is what makes the generated code independent of the caller's bindings
+        # (#356). Guard the identity so no name-based prefix can come back.
+        @test CTParser.FUN === CTModels
+        @test CTParser.EXA === ExaModels
+        @test CTParser.ERR === CTBase
 
-        # prefix_fun!
-        @test prefix_fun() == CTParser.__default_prefix_fun()
-        prefix_fun!(:TestModule)
-        @test prefix_fun() == :TestModule
-        prefix_fun!(:AnotherModule)
-        @test prefix_fun() == :AnotherModule
-        prefix_fun!(orig_fun)  # restore
-        @test prefix_fun() == orig_fun
-
-        # prefix_exa!
-        @test prefix_exa() == CTParser.__default_prefix_exa()
-        prefix_exa!(:MyExaModule)
-        @test prefix_exa() == :MyExaModule
-        prefix_exa!(orig_exa)  # restore
-        @test prefix_exa() == orig_exa
-
-        # e_prefix!
-        @test e_prefix() == CTParser.__default_e_prefix()
-        e_prefix!(:CustomExceptions)
-        @test e_prefix() == :CustomExceptions
-        e_prefix!(orig_e)  # restore
-        @test e_prefix() == orig_e
-    end
-
-    @testset "prefix setters (pathological values)" begin
-        println("prefix setters pathological (bis)")
-
-        # Save original values
-        orig_fun = prefix_fun()
-        orig_exa = prefix_exa()
-        orig_e = e_prefix()
-
-        # Setting to unusual but valid symbols
-        prefix_fun!(:_)
-        @test prefix_fun() == :_
-        prefix_fun!(Symbol("with-dash"))
-        @test prefix_fun() == Symbol("with-dash")
-        prefix_fun!(Symbol("with.dot"))
-        @test prefix_fun() == Symbol("with.dot")
-
-        # Restore
-        prefix_fun!(orig_fun)
-        prefix_exa!(orig_exa)
-        e_prefix!(orig_e)
-
-        # Verify restoration
-        @test prefix_fun() == orig_fun
-        @test prefix_exa() == orig_exa
-        @test e_prefix() == orig_e
+        # Regression guard: the removed prefix API must not reappear
+        for sym in (
+            :prefix_fun,
+            :prefix_fun!,
+            :prefix_exa,
+            :prefix_exa!,
+            :e_prefix,
+            :e_prefix!,
+            :init_prefix,
+            :init_prefix!,
+            :PREFIX_FUN,
+            :PREFIX_EXA,
+            :E_PREFIX,
+            :INIT_PREFIX,
+            :__default_prefix_fun,
+            :__default_prefix_exa,
+            :__default_e_prefix,
+            :__default_init_prefix,
+        )
+            @test !isdefined(CTParser, sym)
+        end
     end
 
     @testset "default values consistency" begin
-        println("default values (bis)")
+        println("default values")
 
         # Check all default values from defaults.jl
         @test CTParser.__default_parsing_backend() == :fun
@@ -134,8 +113,5 @@ function test_prefix_bis()
         @test CTParser.__default_backend_exa() === nothing
         @test CTParser.__default_init_exa() == (0.1, 0.1, 0.1)
         @test CTParser.__default_base_type_exa() == Float64
-        @test CTParser.__default_prefix_fun() == :CTModels
-        @test CTParser.__default_prefix_exa() == :ExaModels
-        @test CTParser.__default_e_prefix() == :CTBase
     end
 end

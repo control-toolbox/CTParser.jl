@@ -1,103 +1,6 @@
 """
 $(TYPEDSIGNATURES)
 
-Return the default backend prefix used by `@init`.
-
-The returned symbol identifies the module that implements
-`build_initial_guess` and `validate_initial_guess`. In the current
-implementation this is `:CTModels`.
-
-# Returns
-
-- `Symbol`: name of the default backend module.
-
-# Example
-
-```julia-repl
-julia> using CTParser
-
-julia> CTParser.__default_init_prefix()
-:CTModels
-```
-"""
-function __default_init_prefix()
-    return :CTModels
-end
-
-"""
-Current backend prefix used by `@init`.
-
-This reference stores the symbol of the backend module that provides
-`build_initial_guess` and `validate_initial_guess`. It is initialised
-by `__default_init_prefix` and can be updated at runtime via
-`init_prefix!`.
-"""
-const INIT_PREFIX = Ref(__default_init_prefix())
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the current backend prefix used by `@init`.
-
-This is the symbol of the module that will be used to interpret the
-`NamedTuple` produced by the initialisation DSL, typically `:CTModels`.
-
-# Returns
-
-- `Symbol`: name of the backend module currently used by `@init`.
-
-# Example
-
-```julia-repl
-julia> using CTParser
-
-julia> CTParser.init_prefix()
-:CTModels
-```
-"""
-function init_prefix()
-    return INIT_PREFIX[]
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Set the backend prefix used by `@init`.
-
-This function updates the global `INIT_PREFIX`, thereby changing
-which module is used to build and validate initial guesses.
-
-# Arguments
-
-- `p::Symbol`: name of the backend module to use (e.g. `:CTModels`).
-
-# Returns
-
-- `Nothing`.
-
-# Example
-
-```julia-repl
-julia> using CTParser
-
-julia> old = CTParser.init_prefix();
-
-julia> CTParser.init_prefix!(:MyBackend)
-
-julia> CTParser.init_prefix()
-:MyBackend
-
-julia> CTParser.init_prefix!(old);  # restore
-```
-"""
-function init_prefix!(p)
-    INIT_PREFIX[] = p
-    return nothing
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Generate runtime code for a temporal specification `lhs(arg) := rhs`.
 
 This function produces the Julia expression that will be evaluated at runtime
@@ -106,7 +9,8 @@ or a time grid, based on whether `arg` matches `time_name(ocp)`.
 
 # Arguments
 
-- `pref::Symbol`: backend module prefix (e.g. `:CTModels`).
+- `pref::Module`: module providing `time_name` (interpolated into the
+  generated code, so it resolves where `@init` is defined — see `FUN`).
 - `ocp`: symbolic OCP variable passed from the macro.
 - `arg`: argument used in the specification (e.g. `:t`, `:s`, or a literal array after alias expansion).
 - `rhs`: right-hand side expression.
@@ -193,7 +97,7 @@ This function dispatches based on the specification kind (`:constant` or
 
 # Arguments
 
-- `pref::Symbol`: backend module prefix.
+- `pref::Module`: module providing the backend (see `FUN`).
 - `ocp`: symbolic OCP variable.
 - `spec::Tuple`: specification tuple, either `(:constant, rhs)` or
   `(:temporal, arg, rhs, arg_in_rhs)`.
@@ -403,8 +307,8 @@ Lowering function used by `@init` to build the expanded code.
 Given an optimal control problem `ocp` and the body `e` of an `@init`
 block, this function collects the initialisation specifications, builds
 an appropriate `NamedTuple` expression and constructs the call to
-`build_initial_guess` / `validate_initial_guess` on the current backend
-(prefix returned by `init_prefix`).
+`build_initial_guess` / `validate_initial_guess` on `CTModels` (the module
+is interpolated into the generated code — see `FUN`).
 
 It also produces a compact string representation of the specification,
 used for optional logging when `log = true` is requested at the
@@ -426,7 +330,7 @@ macro level.
 """
 function init_fun(ocp, e, lnum::Int, line_str::String)
     keys, specs = _collect_init_specs(e, lnum, line_str)
-    pref = init_prefix()
+    pref = FUN
 
     # If there is no init specification, delegate to build_initial_guess/validate_initial_guess
     if isempty(keys)
@@ -491,9 +395,8 @@ v(t) := a         # time-dependent function using the alias above
 
 The macro itself only rewrites this DSL into a `NamedTuple`-based
 representation. All dimensional checks, interpretation of aliases and
-construction of the concrete initial guess object are delegated to the
-backend selected by `init_prefix` (by défaut `:CTModels`), via
-`build_initial_guess` and `validate_initial_guess`.
+construction of the concrete initial guess object are delegated to
+`CTModels`, via `build_initial_guess` and `validate_initial_guess`.
 
 An optional keyword-like trailing argument controls logging:
 
@@ -515,8 +418,8 @@ When `log = true`, the macro additionally prints a human-readable
 
 # Returns
 
-- `AbstractInitialGuess`: backend-specific initial guess
-  object produced by the current backend (par défaut `CTModels`).
+- `AbstractInitialGuess`: initial guess
+  object produced by `CTModels`.
 
 # Example
 
