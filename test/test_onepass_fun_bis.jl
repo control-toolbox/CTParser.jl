@@ -638,4 +638,68 @@ function test_onepass_fun_bis()
             ∫(u(t)^2) → min
         end
     end
+
+    @testset "aliases defined from other aliases (#389)" begin
+        println("aliases defined from other aliases")
+        x = [1.0, 2.0]
+        u = 3.0
+
+        function rhs(o)
+            r = zeros(2)
+            CTModels.dynamics(o)(r, 0.0, x, u, Float64[])
+            return r
+        end
+
+        # an alias defined from an alias defined before it
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            a = x₂(t)
+            b = a + u(t)
+            ẋ(t) == [a, b]
+            x(0) == [0, 0]
+            x₁(1) → min
+        end
+        @test rhs(o) == [2.0, 5.0]
+
+        # an alias that names an alias defined after it: the later alias is substituted next
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            a = c
+            c = 5
+            ẋ(t) == [a, u(t)]
+            x(0) == [0, 0]
+            x₁(1) → min
+        end
+        @test rhs(o) == [5.0, 3.0]
+
+        # a chain written backwards
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            a = b
+            b = c
+            c = 3
+            ẋ(t) == [a, u(t)]
+            x(0) == [0, 0]
+            x₁(1) → min
+        end
+        @test rhs(o) == [3.0, 3.0]
+
+        # an alias defined from a component alias of the state
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            a = x₁(t)
+            ẋ(t) == [a, u(t)]
+            x(0) == [0, 0]
+            x₁(1) → min
+        end
+        @test rhs(o) == [1.0, 3.0]
+    end
 end
