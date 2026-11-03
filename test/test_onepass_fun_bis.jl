@@ -9,6 +9,24 @@ function test_onepass_fun_bis()
         @test ex isa Expr
         @test_throws ParsingError eval(ex)
 
+        # __throw carries the optional suggestion in the ParsingError
+        ex = CTParser.__throw("test message", 42, "dummy line"; suggestion="try this")
+        err = try
+            eval(ex)
+        catch e
+            e
+        end
+        @test err isa ParsingError
+        @test err.suggestion == "try this"
+        @test occursin("Line 42: dummy line", err.msg)
+        @test occursin("test message", err.msg)
+        err = try
+            eval(CTParser.__throw("test message", 42, "dummy line"))
+        catch e
+            e
+        end
+        @test isnothing(err.suggestion)
+
         # __wrap should leave non-throwing code unchanged and propagate its value
         wrapped = CTParser.__wrap(:(1 + 1), 1, "line")
         @test wrapped isa Expr
@@ -485,6 +503,244 @@ function test_onepass_fun_bis()
         ex2 = CTParser.parse!(p2, :p_ocp, :(foo ~ bar))
         @test ex2 isa Expr
         @test_throws ParsingError eval(ex2)
+    end
+
+    @testset "parse! malformed declarations (#4)" begin
+        println("parse! malformed declarations (bis)")
+
+        # the shape test: only `(names) ∈ dom, kind` is a malformed declaration
+        @test CTParser.__is_malformed_declaration(:((z,) ∈ R, control))
+        @test CTParser.__is_malformed_declaration(:((z) ∈ R, state))
+        @test CTParser.__is_malformed_declaration(:([z] ∈ R, variable))
+        @test !CTParser.__is_malformed_declaration(:(x₁(t)^2))
+        @test !CTParser.__is_malformed_declaration(:(a, b))
+        @test !CTParser.__is_malformed_declaration(:((z,) ∈ R, other))
+
+        # the error is a ParsingError, with the offending line and a suggestion
+        function declaration_error(ex)
+            return try
+                eval(ex)
+                nothing
+            catch e
+                e
+            end
+        end
+
+        # (Meta.parse: inside a `:( … )` quote, `u = (z,) ∈ R, control` is a tuple, not an
+        # assignment as it is on a line of a @def block)
+        for (line, kind) in (
+            ("u = (z,) ∈ R, control", "control"),
+            ("u = (z) ∈ R, control", "control"),
+            ("x = (q,) ∈ R, state", "state"),
+            ("w = (a,) ∈ R, variable", "variable"),
+            ("u = (z, w) ∈ R, control", "control"),
+        )
+            p = CTParser.ParsingInfo()
+            ex = CTParser.parse!(p, :p_ocp, Meta.parse(line))
+            err = declaration_error(ex)
+            @test err isa ParsingError
+            @test occursin("invalid $kind declaration", err.msg)
+            @test occursin("named components need a domain `R^n`", err.msg)
+            @test occursin("Line 1:", err.msg)
+            @test occursin("∈ R, $kind", err.suggestion)
+        end
+
+        # through @def: no silent alias, whatever the kind
+        @test_throws ParsingError @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u = (z,) ∈ R, control
+            ẋ(t) == [x₂(t), z(t)]
+            x(0) == [0, 0]
+            x₁(1) → min
+        end
+        @test_throws ParsingError @eval @def begin
+            t ∈ [0, 1], time
+            x = (q,) ∈ R, state
+            u ∈ R, control
+            ẋ(t) == u(t)
+            x(0) == 0
+            x(1) → min
+        end
+        @test_throws ParsingError @eval @def begin
+            w = (a,) ∈ R, variable
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R, control
+            ẋ(t) == u(t)
+            x(0) == 0
+            x(1) → min
+        end
+
+        # what is valid is unchanged
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u = (z, w) ∈ R², control
+            ẋ(t) == [z(t), w(t)]
+            x(0) == [0, 0]
+            x₁(1) → min
+        end
+        @test control_dimension(ocp) == 2
+        @test control_name(ocp) == "u"
+        @test control_components(ocp) == ["z", "w"]
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R, control
+            ẋ(t) == u(t)
+            x(0) == 0
+            x(1) → min
+        end
+        @test control_dimension(ocp) == 1
+        @test control_components(ocp) == ["u"]
+        # ... and so is a name for the only component with an explicit R^1 (#4): R and R^1
+        # are treated alike, so there is a single way to declare a scalar
+        for (line, kind) in (
+            ("u = (z,) ∈ R^1, control", "control"),
+            ("u = (z) ∈ R^1, control", "control"),
+            ("u = [z] ∈ R^1, control", "control"),
+            ("u = (z,) ∈ R¹, control", "control"),
+            ("x = (q,) ∈ R^1, state", "state"),
+            ("w = (a,) ∈ R^1, variable", "variable"),
+        )
+            p = CTParser.ParsingInfo()
+            ex = CTParser.parse!(p, :p_ocp, Meta.parse(line))
+            err = declaration_error(ex)
+            @test err isa ParsingError
+            @test occursin("invalid $kind declaration", err.msg)
+            @test occursin("a one-dimensional $kind has no component names", err.msg)
+            @test occursin("∈ R, $kind", err.suggestion)
+        end
+        @test_throws ParsingError @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u = (z,) ∈ R^1, control
+            ẋ(t) == z(t)
+            x(0) == 0
+            x(1) → min
+        end
+        # a symbolic dimension is not looked at: n is not known when the block is parsed
+        n = 2
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u = (a, b) ∈ R^$n, control
+            ẋ(t) == a(t) + b(t)
+            x(0) == 0
+            x(1) → min
+        end
+        @test control_components(ocp) == ["a", "b"]
+        # R^1 without names is still a scalar
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R^1, control
+            ẋ(t) == u(t)
+            x(0) == 0
+            x(1) → min
+        end
+        @test control_dimension(ocp) == 1
+        # a plain alias is still an alias
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            a = x₁(t)^2
+            ẋ(t) == [x₂(t), u(t) + a]
+            x(0) == [0, 0]
+            x₁(1) → min
+        end
+        @test control_dimension(ocp) == 1
+    end
+
+    @testset "parse! `=` written instead of `==` (#353)" begin
+        println("parse! equation with = (bis)")
+
+        # __as_written: no line-number node, no wrapper around a single statement
+        ex = :(f(t) = u(t))
+        @test ex.args[2] isa Expr && ex.args[2].head == :block  # the lowered form
+        @test CTParser.__as_written(ex) == Expr(:(=), :(f(t)), :(u(t)))
+        @test string(CTParser.__as_written(ex)) == "f(t) = u(t)"
+        @test CTParser.__as_written(:x) === :x
+        @test CTParser.__as_written(:(a + b)) == :(a + b)
+        blk = CTParser.__as_written(Expr(:block, :a, LineNumberNode(1, :f), :b))
+        @test blk.head == :block && length(blk.args) == 2
+
+        # the shape test: only `f(args) = body` is an equation written with `=`
+        @test CTParser.__is_equation_with_assign(:(ẋ(t) = u(t)))
+        @test CTParser.__is_equation_with_assign(:(x₁(0) = 1))
+        @test !CTParser.__is_equation_with_assign(:(a = x₁(t)^2))
+        @test !CTParser.__is_equation_with_assign(:(ẋ(t) == u(t)))
+        @test !CTParser.__is_equation_with_assign(:(a + b))
+
+        function assign_error(src)
+            p = CTParser.ParsingInfo()
+            ex = CTParser.parse!(p, :p_ocp, Meta.parse(src))
+            return try
+                eval(ex)
+                nothing
+            catch e
+                e
+            end
+        end
+
+        for (src, hint) in (
+            ("ẋ(t) = u(t)", "ẋ(t) == u(t)"),
+            ("ẋ₁(t) = x₂(t)", "ẋ₁(t) == x₂(t)"),
+            ("x(0) = [0, 1]", "x(0) == [0, 1]"),
+            ("x₂(t) = 1", "x₂(t) == 1"),
+        )
+            err = assign_error(src)
+            @test err isa ParsingError
+            @test occursin("written with `==`", err.msg)
+            # the line is shown as the user wrote it
+            @test occursin("Line 1: $src", err.msg)
+            @test !occursin("#=", err.msg)
+            @test !occursin("begin", err.msg)
+            @test err.suggestion == "write `$hint`"
+        end
+
+        # through @def, with the derivative of the state
+        err = try
+            @eval @def begin
+                t ∈ [0, 1], time
+                x ∈ R, state
+                u ∈ R, control
+                ẋ(t) = u(t)
+                x(0) == 0
+                x(1) → min
+            end
+            nothing
+        catch e
+            e
+        end
+        @test err isa ParsingError
+        @test occursin("Line 4: ẋ(t) = u(t)", err.msg)
+        @test err.suggestion == "write `ẋ(t) == u(t)`"
+        @test_throws ParsingError @eval @def begin
+            t ∈ [0, 1], time
+            x = (q, v) ∈ R², state
+            u ∈ R, control
+            q̇ = v
+            v̇ = u
+            ẋ(t) = [q̇, v̇]
+            x(0) == [0, 0]
+            x(1) → min
+        end
+
+        # an alias is still an alias, and the equation with == still works
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x = (q, v) ∈ R², state
+            u ∈ R, control
+            q̇ = v(t)
+            v̇ = u(t)
+            ẋ(t) == [q̇, v̇]
+            x(0) == [0, 0]
+            x(1) → min
+        end
+        @test state_dimension(ocp) == 2
     end
 
     # ============================================================================

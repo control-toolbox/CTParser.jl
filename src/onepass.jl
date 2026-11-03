@@ -166,11 +166,15 @@ This is used for syntactic and semantic errors detected at macro
 expansion time. It formats the message with line information and wraps
 it in a `throw(ParsingError(...))` expression using the current
 `e_prefix`.
+
+The optional `suggestion` keyword says how to fix the error; it is stored in the
+`suggestion` field of the `ParsingError`.
 """
-__throw(mess, n, line) = begin
+__throw(mess, n, line; suggestion=nothing) = begin
     e_pref = e_prefix()
     info = string("\nLine ", n, ": ", line, "\n", mess)
-    return :(throw($e_pref.ParsingError($info)))
+    isnothing(suggestion) && return :(throw($e_pref.ParsingError($info)))
+    return :(throw($e_pref.ParsingError($info; suggestion=$suggestion)))
 end
 
 """
@@ -305,7 +309,8 @@ parse!(p, :p_ocp, :(v ∈ R, variable))
 function parse!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
     #
     p.lnum = p.lnum + 1
-    p.line = string(e)
+    p.line = string(__as_written(e))
+    __is_equation_with_assign(e) && return __throw_equation_with_assign(p, e)
     for a in keys(p.aliases)
         e = subs(e, a, p.aliases[a])
     end
@@ -327,7 +332,10 @@ function parse!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
                 p_control!(p, p_ocp, a, m; components_names=names, log, backend)
             :([$names] ∈ R^$m, control) =>
                 p_control!(p, p_ocp, a, m; components_names=names, log, backend)
-            _ => p_alias!(p, p_ocp, a, e1; log, backend) # alias
+            _ =>
+                __is_malformed_declaration(e1) ?
+                __throw_malformed_declaration(p, a, e1) :
+                p_alias!(p, p_ocp, a, e1; log, backend) # alias
         end
         # variable                    
         :($v ∈ R^$q, variable) => p_variable!(p, p_ocp, v, q; log, backend)
@@ -444,6 +452,109 @@ function parse!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
     end
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Tell whether the right-hand side `e1` of `a = e1` has the shape of a declaration with
+named components, `(names) ∈ dom, kind` with `kind` one of `state`, `control` or
+`variable`.
+
+It is called on the right-hand sides that none of the valid declaration patterns of
+[`parse!`](@ref) matched (the domain is not `R^n`). Without this test such a line would
+silently become an alias, and nothing would be declared.
+"""
+function __is_malformed_declaration(e1)
+    e1 isa Expr && e1.head == :tuple && length(e1.args) == 2 || return false
+    e1.args[2] ∈ (:state, :control, :variable) || return false
+    d = e1.args[1]
+    return d isa Expr && d.head == :call && length(d.args) == 3 && d.args[1] == :∈
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the `ParsingError` expression for a declaration `a = (names) ∈ dom, kind` whose
+domain is not `R^n`, for example `u = (z,) ∈ R, control`.
+
+Named components need an explicit dimension; a one-dimensional element is declared
+without names, `a ∈ R, kind`, and its only component is named `a`.
+"""
+function __throw_malformed_declaration(p, a, e1)
+    kind = e1.args[2]
+    return __throw(
+        "invalid $kind declaration: named components need a domain `R^n` with " *
+        "n ≥ 2, but the domain here is `$(e1.args[1].args[3])`",
+        p.lnum,
+        p.line;
+        suggestion="declare a one-dimensional $kind as `$a ∈ R, $kind`, or name the " *
+                   "components of an n-dimensional one, n ≥ 2, as " *
+                   "`$a = (name₁, …, nameₙ) ∈ R^n, $kind`",
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Tell whether the statement `e` has the shape `f(args) = body`.
+
+Julia reads it as a short function definition. In the DSL it is a mistake: an alias has a
+name and no arguments, and an equation, for instance the dynamics `ẋ(t) = u(t)`, is
+written with `==`. It is tested before the aliases are substituted, so that the error shows
+what the user wrote (`ẋ(t)`, not the internal `∂(x)(t)`).
+"""
+function __is_equation_with_assign(e)
+    return e isa Expr && e.head == :(=) && e.args[1] isa Expr && e.args[1].head == :call
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the `ParsingError` expression for a statement `f(args) = body`, see
+[`__is_equation_with_assign`](@ref). The suggestion repeats the statement with `==`.
+"""
+function __throw_equation_with_assign(p, e)
+    lhs = __as_written(e.args[1])
+    rhs = __as_written(e.args[2])
+    return __throw(
+        "`=` defines an alias, which is a name without arguments; " *
+        "an equation or a constraint is written with `==`",
+        p.lnum,
+        p.line;
+        suggestion="write `$lhs == $rhs`",
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Tell whether a declaration names the components (`components_names`) of an element of
+dimension `q = 1`, for example `u = (z,) ∈ R^1, control`.
+
+A one-dimensional variable, state or control is a scalar whose only component has the name
+of the element: naming it separately would give two names to one scalar, and the
+declaration `u = (z,) ∈ R, control` is already refused. The two spellings of dimension one,
+`R` and `R^1`, are treated alike.
+"""
+__is_named_scalar(components_names, q) = !isnothing(components_names) && q == 1
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the `ParsingError` expression for a declaration that names the components of a
+one-dimensional `kind` (`"variable"`, `"state"` or `"control"`) `a`, see
+[`__is_named_scalar`](@ref).
+"""
+function __throw_named_scalar(p, kind, a)
+    return __throw(
+        "invalid $kind declaration: a one-dimensional $kind has no component names; " *
+        "its only component is named `$a`",
+        p.lnum,
+        p.line;
+        suggestion="declare it as `$a ∈ R, $kind`, or give a dimension n ≥ 2 to name its " *
+                   "components",
+    )
+end
+
 function p_pragma!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
     log && println("PRAGMA: $e")
     return parsing(:pragma, backend)(p, p_ocp, e)
@@ -480,6 +591,8 @@ function p_variable!(
     p, p_ocp, v, q; components_names=nothing, log=false, backend=__default_parsing_backend()
 )
     log && println("variable: $v, dim: $q")
+    __is_named_scalar(components_names, q) &&
+        return __throw_named_scalar(p, "variable", v)
     v isa Symbol || return __throw("forbidden variable name: $v", p.lnum, p.line)
     vv = QuoteNode(v)
     if q == 1
@@ -592,6 +705,8 @@ function p_state!(
     p, p_ocp, x, n; components_names=nothing, log=false, backend=__default_parsing_backend()
 )
     log && println("state: $x, dim: $n")
+    __is_named_scalar(components_names, n) &&
+        return __throw_named_scalar(p, "state", x)
     x isa Symbol || return __throw("forbidden state name: $x", p.lnum, p.line)
     p.aliases[Symbol(Unicode.normalize(string(x, "̇")))] = :(∂($x))
     xx = QuoteNode(x)
@@ -659,6 +774,8 @@ function p_control!(
     p, p_ocp, u, m; components_names=nothing, log=false, backend=__default_parsing_backend()
 )
     log && println("control: $u, dim: $m")
+    __is_named_scalar(components_names, m) &&
+        return __throw_named_scalar(p, "control", u)
     (p.is_global_dyn || p.is_coord_dyn) &&
         return __throw("control must be declared before dynamics", p.lnum, p.line)
     !isnothing(p.criterion) &&
