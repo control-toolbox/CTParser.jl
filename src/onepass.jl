@@ -166,11 +166,15 @@ This is used for syntactic and semantic errors detected at macro
 expansion time. It formats the message with line information and wraps
 it in a `throw(ParsingError(...))` expression using the current
 `e_prefix`.
+
+The optional `suggestion` keyword says how to fix the error; it is stored in the
+`suggestion` field of the `ParsingError`.
 """
-__throw(mess, n, line) = begin
+__throw(mess, n, line; suggestion=nothing) = begin
     e_pref = e_prefix()
     info = string("\nLine ", n, ": ", line, "\n", mess)
-    return :(throw($e_pref.ParsingError($info)))
+    isnothing(suggestion) && return :(throw($e_pref.ParsingError($info)))
+    return :(throw($e_pref.ParsingError($info; suggestion=$suggestion)))
 end
 
 """
@@ -476,6 +480,84 @@ end
 
 p_alias_exa! = p_alias_fun!
 
+"""
+$(TYPEDSIGNATURES)
+
+Look in the expression `e` of a statement for the state or the control used without being
+evaluated at a time of the problem, and return the `ParsingError` expression for the first
+one found, or `nothing`.
+
+The state and the control are functions of time. In `e`, `x(t)` and `u(t)` (and the same at the
+initial and the final time, `x(t0)`, `x(tf)`) are the legitimate uses; once they are replaced,
+any `x` or `u` left over is a mistake: a bare `x₁` or `u`, or a call with another time, as in
+`x₁(0.5)`. Without this test the mistake goes through the parser, and fails late or not at all,
+if a variable of the same name exists where the model is evaluated.
+"""
+function __stray_error(p, e)
+    xs = __symgen(:xs)
+    us = __symgen(:us)
+    # the legitimate uses: x(t) and u(t), and x at the initial and the final time
+    ee = replace_call(e, [p.x, p.u], p.t, [xs, us])
+    isnothing(p.t0) || (ee = replace_call(ee, p.x, p.t0, xs))
+    isnothing(p.tf) || (ee = replace_call(ee, p.x, p.tf, xs))
+    for (sym, kind) in ((p.x, "state"), (p.u, "control"))
+        isnothing(sym) && continue
+        has(ee, sym) || continue
+        name = first(split(string(sym), "##"))
+        args = __find_call(ee, sym)
+        if isnothing(args)
+            return __throw(
+                "The $kind `$name` is used here without being evaluated at a time; " *
+                "a $kind is a function of time",
+                p.lnum,
+                p.line;
+                suggestion="write `$name($(p.t))` for its value at the time `$(p.t)`" *
+                           (kind == "state" ? ", or evaluate it at the initial or the " *
+                                              "final time of the problem" : ""),
+            )
+        elseif kind == "state"
+            return __throw(
+                "The state `$name` is evaluated at `$args`, which is neither the time " *
+                "`$(p.t)`, nor the initial time, nor the final time of the problem",
+                p.lnum,
+                p.line;
+                suggestion="evaluate the state at `$(p.t)`, `$(p.t0)` or `$(p.tf)`",
+            )
+        else
+            return __throw(
+                "The control `$name` is evaluated at `$args`, which is not the time " *
+                "`$(p.t)`; a control is only evaluated at the time `$(p.t)`",
+                p.lnum,
+                p.line;
+                suggestion="write `$name($(p.t))`",
+            )
+        end
+    end
+    return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the arguments, as a string, of the first call of `sym` (`sym(args)` or
+`sym[i](args)`) found in `e`, or `nothing` if `sym` appears in `e` only without being called
+with an argument.
+"""
+function __find_call(e, sym)
+    e isa Expr || return nothing
+    if e.head == :call && length(e.args) ≥ 2
+        f = e.args[1]
+        if f == sym || (f isa Expr && f.head == :ref && f.args[1] == sym)
+            return join(e.args[2:end], ", ")
+        end
+    end
+    for a in e.args
+        found = __find_call(a, sym)
+        isnothing(found) || return found
+    end
+    return nothing
+end
+
 function p_variable!(
     p, p_ocp, v, q; components_names=nothing, log=false, backend=__default_parsing_backend()
 )
@@ -754,6 +836,8 @@ function p_constraint!(
             )
         end
     end
+    stray = __stray_error(p, e2)
+    isnothing(stray) || return stray
     xut = __symgen(:xut)
     ee2 = replace_call(e2, [p.x, p.u], p.t, [xut, xut])
     has(ee2, p.t) && (p.is_autonomous = false)
@@ -977,6 +1061,8 @@ function p_dynamics!(
     t ≠ p.t && return __throw("wrong time $t for dynamics", p.lnum, p.line)
     p.is_global_dyn && return __throw("dynamics already defined", p.lnum, p.line)
     p.is_coord_dyn && return __throw("dynamics already partially defined", p.lnum, p.line)
+    stray = __stray_error(p, e)
+    isnothing(stray) || return stray
     p.is_global_dyn = true
     xut = __symgen(:xut)
     ee = replace_call(e, [p.x, p.u], p.t, [xut, xut])
@@ -1076,6 +1162,8 @@ function p_dynamics_coord!(
     x ≠ p.x && return __throw("wrong state $x for dynamics", p.lnum, p.line)
     t ≠ p.t && return __throw("wrong time $t for dynamics", p.lnum, p.line)
     p.is_global_dyn && return __throw("dynamics already defined", p.lnum, p.line)
+    stray = __stray_error(p, e)
+    isnothing(stray) || return stray
     p.is_coord_dyn = true
     xut = __symgen(:xut)
     ee = replace_call(e, [p.x, p.u], p.t, [xut, xut])
@@ -1163,6 +1251,8 @@ function p_lagrange!(p, p_ocp, e, type; log=false, backend=__default_parsing_bac
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     # isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
+    stray = __stray_error(p, e)
+    isnothing(stray) || return stray
     xut = __symgen(:xut)
     ee = replace_call(e, [p.x, p.u], p.t, [xut, xut])
     has(ee, p.t) && (p.is_autonomous = false)
@@ -1239,6 +1329,8 @@ function p_mayer!(p, p_ocp, e, type; log=false, backend=__default_parsing_backen
         p.lnum,
         p.line,
     )
+    stray = __stray_error(p, e)
+    isnothing(stray) || return stray
     p.criterion = type
     return parsing(:mayer, backend)(p, p_ocp, e, type)
 end
@@ -1284,6 +1376,10 @@ function p_bolza!(p, p_ocp, e1, e2, type; log=false, backend=__default_parsing_b
     isnothing(p.tf) && return __throw("time not yet declared", p.lnum, p.line)
     # isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
+    stray = __stray_error(p, e1)
+    isnothing(stray) || return stray
+    stray = __stray_error(p, e2)
+    isnothing(stray) || return stray
     xut = __symgen(:xut)
     ee2 = replace_call(e2, [p.x, p.u], p.t, [xut, xut])
     has(ee2, p.t) && (p.is_autonomous = false)

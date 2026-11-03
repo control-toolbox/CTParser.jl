@@ -597,7 +597,7 @@ function test_onepass_fun()
             t ∈ [t0, tf], time
             u ∈ R⁹, state
             v in R, control # generic (untested)
-            derivative(u)(t) == x(u) # generic (untested)
+            derivative(u)(t) == u(t) # generic (untested)
             0 => min # generic (untested)
         end
         @test ocp isa Model

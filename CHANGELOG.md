@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Bug Fixes
 
+- **A state or a control used without being evaluated at a time is rejected with a `ParsingError`** ([#193](https://github.com/control-toolbox/CTParser.jl/issues/193), [#139](https://github.com/control-toolbox/CTParser.jl/issues/139)). Before, `x₁(1) + u → min`, `ẋ(t) == [x₂(t), u]` or `x₁(t) + u ≤ 1` built a model, and the stray `x` or `u` took the value of a variable of the same name in the calling code, or failed late. The same holds for a state evaluated at a time that is neither `t`, the initial nor the final time (`x(0.5)`, `x₁(0.5) → min`, `x(s)`), which was accepted in a cost and refused with `bad constraint declaration` in a constraint, and for a control evaluated at another time than `t` (`u(0)`). The error shows the line as written and says which times are allowed. Code that relied on the stray name now fails at parse time.
 - **A bound-length error raised while building an `:exa` model names its `@def` line again.** Since 0.9.1-beta ([#338](https://github.com/control-toolbox/CTParser.jl/issues/338)) `__wrap` no longer prints `Line n: …` for structured exceptions, and the bound-length `PreconditionError`s carried no `context`, so nothing pointed at the offending line. They now set `context = "line n: <source>"`.
 
 ### 🛠 Enhancements
@@ -21,8 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **One helper per generated error in `src/onepass.jl`.** The bound-length check, the unknown-scheme error and the backend checks were copied 7, 3 and 6 times; the list of `:exa` schemes is now a single constant, `EXA_SCHEMES`.
 
+### 📚 Documentation
+
+- **A page on the state and the control as functions of time**: where each can be evaluated, what is refused and why.
+
 ### 🧪 Testing
 
+- **A stray state or control, and a call at another time, are covered** ([#193](https://github.com/control-toolbox/CTParser.jl/issues/193), [#139](https://github.com/control-toolbox/CTParser.jl/issues/139)): in the dynamics, the three kinds of cost and the constraints, the message and the suggestion, a one-dimensional element, and the valid forms that must stay valid.
 - **Use case no. 5 of `test/test_onepass_exa.jl` compares two different models, and the GPU comparisons of use cases 4, 5 and 9 use a tolerance the solver can meet** ([#383](https://github.com/control-toolbox/CTParser.jl/issues/383)): `m2` was built from `o1` instead of `o2` and `sol1` was solved twice; on GPU the objectives are now compared to `1e-5` (as for use case no. 8), since GPU solves are not reproducible at a fixed `max_iter` ([CTDirect.jl#531](https://github.com/control-toolbox/CTDirect.jl/issues/531)).
 - **`import` is gone from the tests and the docs, and a guard keeps it out** (`MOD3`, `MOD4`, [#303](https://github.com/control-toolbox/CTParser.jl/issues/303)): `test/runtests.jl`, `test/test_control_zero.jl` and a docs snippet now use `using Pkg: sym`; the new `test/test_no_import.jl` fails on any tracked `.jl` or `.md` file with an `import` or a dotted `using Pkg.Sub` (`CHANGELOG.md` and `BREAKING.md` quote past text and are exempt from the dotted check).
 - **[#343](https://github.com/control-toolbox/CTParser.jl/issues/343) is covered on both backends** for the state, the control and the time, on the upper-bound side and with its message; the documented work-around is also tested on `:exa`.
