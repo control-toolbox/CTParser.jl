@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Bug Fixes
 
+- **An `:exa` expression mixing `ExaModels.Constant` with a folded zero or one no longer raises an ambiguity error** ([#364](https://github.com/control-toolbox/CTParser.jl/issues/364)). The extension folds structural zeros and ones on `ExaModels.Null`, ExaModels folds them on `ExaModels.Constant`, and a call such as `Null(2) + Constant(0)` matched one rule of each side (`MethodError: … is ambiguous`), for instance from `0 * x₂(t) + ExaModels.Constant(0)` in a `@def`. The 32 intersection methods now fold such a call to a `Null`. Ordinary `@def` code, which never builds a `Constant`, was not affected.
 - **A bound-length error raised while building an `:exa` model names its `@def` line again.** Since 0.9.1-beta ([#338](https://github.com/control-toolbox/CTParser.jl/issues/338)) `__wrap` no longer prints `Line n: …` for structured exceptions, and the bound-length `PreconditionError`s carried no `context`, so nothing pointed at the offending line. They now set `context = "line n: <source>"`.
 
 ### 🛠 Enhancements
@@ -25,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Use case no. 5 of `test/test_onepass_exa.jl` compares two different models, and the GPU comparisons of use cases 4, 5 and 9 use a tolerance the solver can meet** ([#383](https://github.com/control-toolbox/CTParser.jl/issues/383)): `m2` was built from `o1` instead of `o2` and `sol1` was solved twice; on GPU the objectives are now compared to `1e-5` (as for use case no. 8), since GPU solves are not reproducible at a fixed `max_iter` ([CTDirect.jl#531](https://github.com/control-toolbox/CTDirect.jl/issues/531)).
 - **`import` is gone from the tests and the docs, and a guard keeps it out** (`MOD3`, `MOD4`, [#303](https://github.com/control-toolbox/CTParser.jl/issues/303)): `test/runtests.jl`, `test/test_control_zero.jl` and a docs snippet now use `using Pkg: sym`; the new `test/test_no_import.jl` fails on any tracked `.jl` or `.md` file with an `import` or a dotted `using Pkg.Sub` (`CHANGELOG.md` and `BREAKING.md` quote past text and are exempt from the dotted check).
+- **`test/test_exa_constant_null.jl` pins the `Null`/`Constant` intersections**: each formerly ambiguous call (unit), the scope of the fix with a fake node type (contract), no ambiguity left on the scalar methods of the extension (non-regression), and the `@def` path that reached it, solved against a reference problem on the four schemes (integration).
 - **[#343](https://github.com/control-toolbox/CTParser.jl/issues/343) is covered on both backends** for the state, the control and the time, on the upper-bound side and with its message; the documented work-around is also tested on `:exa`.
 - **A sentinel in `test/test_exa_linalg.jl` fails as soon as ExaModels declares its own `ExaModelsOptimalControl` extension**, the signal to delete `ext/CTParserExaModels.jl` ([#325](https://github.com/control-toolbox/CTParser.jl/issues/325)).
 - **Standard-output capture is one helper, `capture_stdout` in `test/utils.jl`.**
