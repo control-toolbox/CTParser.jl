@@ -21,8 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **One helper per generated error in `src/onepass.jl`.** The bound-length check, the unknown-scheme error and the backend checks were copied 7, 3 and 6 times; the list of `:exa` schemes is now a single constant, `EXA_SCHEMES`.
 
+### 📚 Documentation
+
+- **A page on dimensions and the automatic names of the components**: `R^n` against `Rⁿ` ([#60](https://github.com/control-toolbox/CTParser.jl/issues/60)), the digit exponents up to `R²⁰`, and the limit of the automatic names `xᵢ` / `xi` to `i ≤ 9` for a symbolic dimension.
+
 ### 🧪 Testing
 
+- **`x ∈ Rⁿ` is pinned as rejected, and the limits of the dimension aliases are pinned** ([#60](https://github.com/control-toolbox/CTParser.jl/issues/60)): `R^n` for a global and for an expression, the aliases `xᵢ` up to 12 for a literal dimension and up to 9 for a symbolic one, `R²` to `R²⁰`.
 - **Use case no. 5 of `test/test_onepass_exa.jl` compares two different models, and the GPU comparisons of use cases 4, 5 and 9 use a tolerance the solver can meet** ([#383](https://github.com/control-toolbox/CTParser.jl/issues/383)): `m2` was built from `o1` instead of `o2` and `sol1` was solved twice; on GPU the objectives are now compared to `1e-5` (as for use case no. 8), since GPU solves are not reproducible at a fixed `max_iter` ([CTDirect.jl#531](https://github.com/control-toolbox/CTDirect.jl/issues/531)).
 - **`import` is gone from the tests and the docs, and a guard keeps it out** (`MOD3`, `MOD4`, [#303](https://github.com/control-toolbox/CTParser.jl/issues/303)): `test/runtests.jl`, `test/test_control_zero.jl` and a docs snippet now use `using Pkg: sym`; the new `test/test_no_import.jl` fails on any tracked `.jl` or `.md` file with an `import` or a dotted `using Pkg.Sub` (`CHANGELOG.md` and `BREAKING.md` quote past text and are exempt from the dotted check).
 - **[#343](https://github.com/control-toolbox/CTParser.jl/issues/343) is covered on both backends** for the state, the control and the time, on the upper-bound side and with its message; the documented work-around is also tested on `:exa`.
