@@ -23,9 +23,7 @@ function test_onepass_fun_bis()
 
         # Structured CTBase exceptions already carry their own diagnostic context
         structured = CTBase.IncorrectArgument(
-            "invalid scheme";
-            got="gauss_legendre_2",
-            expected=":euler or :midpoint",
+            "invalid scheme"; got="gauss_legendre_2", expected=":euler or :midpoint"
         )
         wrapped_structured = CTParser.__wrap(:(throw($structured)), 6, "dynamics")
         err, captured = capture_stdout(() -> eval(wrapped_structured))
