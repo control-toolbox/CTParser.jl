@@ -22,6 +22,50 @@ function test_onepass_exa()
         @test !occursin("Line ", captured)
     end
 
+    @testset "scheme aliases resolve to their canonical scheme (#355)" begin
+        # global dynamics + Lagrange cost, and dynamics by coordinates + Lagrange cost:
+        # the three code paths that read `scheme`
+        global_dyn = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            ẋ(t) == [x₂(t), u(t)]
+            ∫(0.5u(t)^2 + x₁(t)) → min
+        end
+        coord_dyn = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∫(0.5u(t)^2 + x₁(t)) → min
+        end
+        aliases = (
+            euler_explicit=:euler,
+            euler_forward=:euler,
+            euler_backward=:euler_implicit,
+            euler_b=:euler_implicit,
+            trapezoidal=:trapeze,
+        )
+        for ocp in (global_dyn, coord_dyn), (alias, canonical) in pairs(aliases)
+            m_alias = discretise_exa(ocp; scheme=alias, grid_size=20)
+            m_canon = discretise_exa(ocp; scheme=canonical, grid_size=20)
+            z = [sin(i) for i in 1:NLPModels.get_nvar(m_canon)]
+            @test NLPModels.get_nvar(m_alias) == NLPModels.get_nvar(m_canon)
+            @test NLPModels.get_ncon(m_alias) == NLPModels.get_ncon(m_canon)
+            @test NLPModels.cons(m_alias, z) == NLPModels.cons(m_canon, z)
+            @test NLPModels.obj(m_alias, z) == NLPModels.obj(m_canon, z)
+        end
+        # the aliases do not change the scheme: two different schemes still differ
+        m_euler = discretise_exa(global_dyn; scheme=:euler_forward, grid_size=20)
+        m_trapeze = discretise_exa(global_dyn; scheme=:trapeze, grid_size=20)
+        z = [sin(i) for i in 1:NLPModels.get_nvar(m_euler)]
+        @test NLPModels.cons(m_euler, z) != NLPModels.cons(m_trapeze, z)
+        # an unknown scheme, or a value that is not a symbol, is still an IncorrectArgument
+        @test_throws CTBase.IncorrectArgument discretise_exa(global_dyn; scheme=:euler_sideways)
+        @test_throws CTBase.IncorrectArgument discretise_exa(global_dyn; scheme="euler")
+    end
+
     @testset "bound-length error names the offending @def line" begin
         o = @def_exa begin
             t ∈ [0, 1], time
