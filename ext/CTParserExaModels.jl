@@ -39,10 +39,11 @@ The method definitions below are ported from that shipped-but-unregistered
   `ExaModels.constraint` on it), and `p_constraint_exa!` never emits the vector
   form — it loops over components instead.
 
-Three deliberate departures from the upstream file: dimension and shape checks throw
+Four deliberate departures from the upstream file: dimension and shape checks throw
 typed `CTBase` errors instead of `@assert` / `error`, `Null(0) + x` folds to `x` like
-`x + Null(0)` already did, and the square-matrix check of `det` is done once rather
-than at every level of the cofactor recursion.
+`x + Null(0)` already did, the square-matrix check of `det` is done once rather than at
+every level of the cofactor recursion, and `Null op Constant` has its own methods where
+the `Null` rules met ExaModels' `Constant` folding rules (control-toolbox/CTParser.jl#364).
 
 Nothing here overwrites an ExaModels method. ExaModels' core defines arithmetic on
 `AbstractNode` generically; every `Null`-specific method below is strictly more
@@ -132,6 +133,47 @@ end
 end
 @inline function Base.:-(a::ExaModels.AbstractNode, b::ExaModels.Null{T}) where {T<:Real}
     return b.value == zero(T) ? a : ExaModels.Node2(-, a, b)
+end
+
+# ----------------------------------------------------------------------------
+# Null op Constant: intersections with ExaModels' Constant folding rules
+#
+# ExaModels folds a structural zero or one written as a `Constant{V}`
+# (src/specialization.jl, every 0.12.x): `+(::Constant{0}, ::AbstractNode)`,
+# `*(::AbstractNode, ::Constant{1})`, … for the zero and one of Int, Float64, Float32 and
+# Float16 — `+` and `-` for the zeros, `*` for the zeros and the ones. A call with a
+# `Null` on the other side matched one of those and one of the `Null` rules above, and
+# neither was more specific (control-toolbox/CTParser.jl#364).
+#
+# Both operands are constants, so the result is folded to a `Null`, as for `Null op Real`
+# below; the value is the one both sides agree on (`Null(a) - Constant(0)` is `Null(a)`,
+# `Constant(0) * Null(a)` is `Null(0)`). Exactly these 32 signatures: a `Constant` with
+# any other value is not ambiguous and stays with the `Null op AbstractNode` rules.
+# ----------------------------------------------------------------------------
+
+for z in (0, 0.0, Float32(0), Float16(0)), op in (:+, :-, :*)
+    @eval @inline function Base.$op(
+        a::ExaModels.Null{T}, ::ExaModels.Constant{$z}
+    ) where {T<:Real}
+        return ExaModels.Null(Base.$op(a.value, $z))
+    end
+    @eval @inline function Base.$op(
+        ::ExaModels.Constant{$z}, b::ExaModels.Null{T}
+    ) where {T<:Real}
+        return ExaModels.Null(Base.$op($z, b.value))
+    end
+end
+for o in (1, 1.0, Float32(1), Float16(1))
+    @eval @inline function Base.:*(
+        a::ExaModels.Null{T}, ::ExaModels.Constant{$o}
+    ) where {T<:Real}
+        return ExaModels.Null(a.value * $o)
+    end
+    @eval @inline function Base.:*(
+        ::ExaModels.Constant{$o}, b::ExaModels.Null{T}
+    ) where {T<:Real}
+        return ExaModels.Null($o * b.value)
+    end
 end
 
 # Null op Real / Real op Null
