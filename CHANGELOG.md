@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🧪 Testing
 
+- **The `:exa` test file no longer prints 124 `Multiple bound declarations` warnings** ([#231](https://github.com/control-toolbox/CTParser.jl/issues/231)). CTModels emits them when several constraints bound the same component, which the range and constraint tests do on purpose; a logger (`DropLogger`) drops only that message, so any other warning still shows. The `wrong dim` case of the issue is checked with `@test_logs`: no `Overwriting bound` warning, nor any other log.
 - **The suggestions of the dependent-bound error are covered** in `test/test_onepass_fun_bis.jl` ([#352](https://github.com/control-toolbox/CTParser.jl/issues/352)): the three shapes, a labelled constraint, and the roles of the operands of every constraint form.
 - **The errors of [#4](https://github.com/control-toolbox/CTParser.jl/issues/4) and [#353](https://github.com/control-toolbox/CTParser.jl/issues/353) are covered** in `test/test_onepass_fun_bis.jl`: the three kinds of declaration, the forms that must stay valid, and the message and the suggestion.
 - **`test/test_exa_linalg_inputs.jl`**: the linear algebra a user may write with every usual kind of constant (dense, `Diagonal`, `Symmetric`, triangular, `Tridiagonal`, sparse, static, `transpose`, `adjoint`, views, ranges), unit (evaluated against the numbers) and integration (`@def` solved against its dense version).

@@ -43,16 +43,22 @@ function test_onepass_exa()
 
     l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
     #l_scheme = [:midpoint]
-    for scheme in l_scheme
-        __test_onepass_exa(; scheme=scheme, print_level=MadNLP.WARN)
-        # Visible skip: short-circuiting on the raw device predicate makes a correctly-skipped
-        # run (no device, as expected on a developer machine) and a silently-broken one (device
-        # missing on a GPU runner) look identical. See test_environment_contract.jl.
-        if Main.TestCapabilities.CUDA_FUNCTIONAL
-            __test_onepass_exa(CUDABackend(); scheme=scheme, print_level=MadNLP.WARN)
-        else
-            @testset "onepass exa (GPU, $scheme)" begin
-                @test_skip "GPU :exa solves need a functional CUDA device"
+    # Several tests bound the same component more than once, on purpose (the range tests,
+    # the constraint tests): CTModels then warns "Multiple bound declarations … Intersection
+    # applied". Only that warning is dropped; any other one still shows (#231).
+    intersection_warning = DropLogger(CoreLogging.global_logger(), r"^Multiple bound declarations")
+    CoreLogging.with_logger(intersection_warning) do
+        for scheme in l_scheme
+            __test_onepass_exa(; scheme=scheme, print_level=MadNLP.WARN)
+            # Visible skip: short-circuiting on the raw device predicate makes a correctly-skipped
+            # run (no device, as expected on a developer machine) and a silently-broken one (device
+            # missing on a GPU runner) look identical. See test_environment_contract.jl.
+            if Main.TestCapabilities.CUDA_FUNCTIONAL
+                __test_onepass_exa(CUDABackend(); scheme=scheme, print_level=MadNLP.WARN)
+            else
+                @testset "onepass exa (GPU, $scheme)" begin
+                    @test_skip "GPU :exa solves need a functional CUDA device"
+                end
             end
         end
     end
@@ -876,7 +882,8 @@ function __test_onepass_exa(
             x₁(t) + u(t) == [1, 2] # wrong dim
             x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws MethodError o(; backend=backend)
+        # no "Overwriting bound" warning from CTModels (#231), nor any other log
+        @test_logs @test_throws MethodError o(; backend=backend)
 
         o = @def begin
             tf ∈ R, variable
