@@ -32,7 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 📚 Documentation
 
-- **A page on the constraints of `@def` and the rule on their bounds** (a bound cannot depend on the state, the control, the variable or the time, and what to write instead).- **Two pages on the syntax of `@def`: declarations (dimension, names of the components, what is refused and why) and aliases versus equations (`=` against `==`).**- **A page on dimensions and the automatic names of the components**: `R^n` against `Rⁿ` ([#60](https://github.com/control-toolbox/CTParser.jl/issues/60)), the digit exponents up to `R²⁰`, and the limit of the automatic names `xᵢ` / `xi` to `i ≤ 9` for a symbolic dimension.
+- **A page on the constraints of `@def` and the rule on their bounds** (a bound cannot depend on the state, the control, the variable or the time, and what to write instead).
+- **Two pages on the syntax of `@def`: declarations (dimension, names of the components, what is refused and why) and aliases versus equations (`=` against `==`).**
+- **A page on dimensions and the automatic names of the components**: `R^n` against `Rⁿ` ([#60](https://github.com/control-toolbox/CTParser.jl/issues/60)), the digit exponents up to `R²⁰`, and the limit of the automatic names `xᵢ` / `xi` to `i ≤ 9` for a symbolic dimension.
 
 ### 🧪 Testing
 
