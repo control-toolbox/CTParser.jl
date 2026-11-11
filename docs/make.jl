@@ -30,7 +30,13 @@ makedocs(;
     checkdocs=:none,
     pages=[
         "Introduction" => "index.md",
-        "Syntax" => ["Trace mode" => "syntax/trace.md"],
+        "Syntax" => [
+            "Constraints" => "syntax/constraints.md",
+            "Declarations" => "syntax/declarations.md",
+            "Aliases and equations" => "syntax/equations.md",
+            "Dimensions" => "syntax/dimensions.md",
+            "Trace mode" => "syntax/trace.md",
+        ],
         "API Reference" => [
             CTBase.automatic_reference_documentation(;
                 subdirectory=".",

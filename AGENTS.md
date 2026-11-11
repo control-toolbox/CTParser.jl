@@ -10,20 +10,24 @@ CTParser is a single flat module — no submodule split.
 
 ```text
 src/           # onepass.jl (the `@def` parser), defaults.jl, initial_guess.jl, utils.jl
-ext/           # CTParserExaModels.jl only — see below
+ext/           # CTParserExaModels/ (split in files), and its two companions for SparseArrays and StaticArrays — see below
 test/          # Test suite: flat files (not test/suite/)
 docs/          # Documentation site (DocumenterVitepress)
 .ct-conventions/  # ct-conventions, cloned at the pinned tag (git-ignored)
 .ct-agents/    # ct-agents, cloned at the pinned tag (git-ignored)
 ```
 
-`ext/` holds exactly one extension, and it is **temporary**. ExaModels ships the
+`ext/` holds the ExaModels glue, and it is **meant to be temporary**. ExaModels ships the
 linear-algebra glue its expression nodes need (`dot`, `*` on node vectors/matrices,
 `det`, `norm`, `Null` zero elimination) but never declares that extension in its
 `[extensions]`, so Julia never loads it. Until upstream wires it up, CTParser carries
-a port of it, triggered by `ExaModels` + `LinearAlgebra` weak dependencies. Delete
-the file and the two weakdeps when upstream fixes it — see
-[#325](https://github.com/control-toolbox/CTParser.jl/issues/325).
+a port of it in `ext/CTParserExaModels/`, triggered by `ExaModels` + `LinearAlgebra`,
+with two companions for sparse and static constants (`CTParserExaModelsSparseArrays`,
+`CTParserExaModelsStaticArrays`). Its type piracy is accepted: every pirated method is
+listed in `test/extension_piracies.jl` and checked by `TST8` (`test/test_aqua.jl`).
+Delete the three extensions and their weakdeps when upstream fixes it — see
+[#325](https://github.com/control-toolbox/CTParser.jl/issues/325) and
+[#365](https://github.com/control-toolbox/CTParser.jl/issues/365).
 
 ---
 
@@ -37,10 +41,10 @@ is not the pinned tag, (re)create it:
 
 ```bash
 rm -rf .ct-conventions
-git -c advice.detachedHead=false clone --quiet --depth 1 --branch v0.9.0 https://github.com/control-toolbox/ct-conventions.git .ct-conventions
+git -c advice.detachedHead=false clone --quiet --depth 1 --branch v0.10.0 https://github.com/control-toolbox/ct-conventions.git .ct-conventions
 ```
 
-**Pinned version: ct-conventions v0.9.0.** Cite rules by identifier (`MOD3`, `TST1`), and
+**Pinned version: ct-conventions v0.10.0.** Cite rules by identifier (`MOD3`, `TST1`), and
 state the version you applied in plans and reports.
 
 Read in this order:
