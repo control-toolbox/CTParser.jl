@@ -22,6 +22,50 @@ function test_onepass_exa()
         @test !occursin("Line ", captured)
     end
 
+    @testset "scheme aliases resolve to their canonical scheme (#355)" begin
+        # global dynamics + Lagrange cost, and dynamics by coordinates + Lagrange cost:
+        # the three code paths that read `scheme`
+        global_dyn = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            ẋ(t) == [x₂(t), u(t)]
+            ∫(0.5u(t)^2 + x₁(t)) → min
+        end
+        coord_dyn = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            ∂(x₁)(t) == x₂(t)
+            ∂(x₂)(t) == u(t)
+            ∫(0.5u(t)^2 + x₁(t)) → min
+        end
+        aliases = (
+            euler_explicit=:euler,
+            euler_forward=:euler,
+            euler_backward=:euler_implicit,
+            euler_b=:euler_implicit,
+            trapezoidal=:trapeze,
+        )
+        for ocp in (global_dyn, coord_dyn), (alias, canonical) in pairs(aliases)
+            m_alias = discretise_exa(ocp; scheme=alias, grid_size=20)
+            m_canon = discretise_exa(ocp; scheme=canonical, grid_size=20)
+            z = [sin(i) for i in 1:NLPModels.get_nvar(m_canon)]
+            @test NLPModels.get_nvar(m_alias) == NLPModels.get_nvar(m_canon)
+            @test NLPModels.get_ncon(m_alias) == NLPModels.get_ncon(m_canon)
+            @test NLPModels.cons(m_alias, z) == NLPModels.cons(m_canon, z)
+            @test NLPModels.obj(m_alias, z) == NLPModels.obj(m_canon, z)
+        end
+        # the aliases do not change the scheme: two different schemes still differ
+        m_euler = discretise_exa(global_dyn; scheme=:euler_forward, grid_size=20)
+        m_trapeze = discretise_exa(global_dyn; scheme=:trapeze, grid_size=20)
+        z = [sin(i) for i in 1:NLPModels.get_nvar(m_euler)]
+        @test NLPModels.cons(m_euler, z) != NLPModels.cons(m_trapeze, z)
+        # an unknown scheme, or a value that is not a symbol, is still an IncorrectArgument
+        @test_throws CTBase.IncorrectArgument discretise_exa(global_dyn; scheme=:euler_sideways)
+        @test_throws CTBase.IncorrectArgument discretise_exa(global_dyn; scheme="euler")
+    end
+
     @testset "bound-length error names the offending @def line" begin
         o = @def_exa begin
             t ∈ [0, 1], time
@@ -43,16 +87,22 @@ function test_onepass_exa()
 
     l_scheme = [:euler, :euler_implicit, :midpoint, :trapeze]
     #l_scheme = [:midpoint]
-    for scheme in l_scheme
-        __test_onepass_exa(; scheme=scheme, print_level=MadNLP.WARN)
-        # Visible skip: short-circuiting on the raw device predicate makes a correctly-skipped
-        # run (no device, as expected on a developer machine) and a silently-broken one (device
-        # missing on a GPU runner) look identical. See test_environment_contract.jl.
-        if Main.TestCapabilities.CUDA_FUNCTIONAL
-            __test_onepass_exa(CUDABackend(); scheme=scheme, print_level=MadNLP.WARN)
-        else
-            @testset "onepass exa (GPU, $scheme)" begin
-                @test_skip "GPU :exa solves need a functional CUDA device"
+    # Several tests bound the same component more than once, on purpose (the range tests,
+    # the constraint tests): CTModels then warns "Multiple bound declarations … Intersection
+    # applied". Only that warning is dropped; any other one still shows (#231).
+    intersection_warning = DropLogger(CoreLogging.global_logger(), r"^Multiple bound declarations")
+    CoreLogging.with_logger(intersection_warning) do
+        for scheme in l_scheme
+            __test_onepass_exa(; scheme=scheme, print_level=MadNLP.WARN)
+            # Visible skip: short-circuiting on the raw device predicate makes a correctly-skipped
+            # run (no device, as expected on a developer machine) and a silently-broken one (device
+            # missing on a GPU runner) look identical. See test_environment_contract.jl.
+            if Main.TestCapabilities.CUDA_FUNCTIONAL
+                __test_onepass_exa(CUDABackend(); scheme=scheme, print_level=MadNLP.WARN)
+            else
+                @testset "onepass exa (GPU, $scheme)" begin
+                    @test_skip "GPU :exa solves need a functional CUDA device"
+                end
             end
         end
     end
@@ -876,7 +926,8 @@ function __test_onepass_exa(
             x₁(t) + u(t) == [1, 2] # wrong dim
             x₁(0) + 2cos(x₂(tf)) → min
         end
-        @test_throws MethodError o(; backend=backend)
+        # no "Overwriting bound" warning from CTModels (#231), nor any other log
+        @test_logs @test_throws MethodError o(; backend=backend)
 
         o = @def begin
             tf ∈ R, variable
@@ -1919,7 +1970,7 @@ function __test_onepass_exa(
 
         # GPU floating-point reduction order differs from CPU's for the A[i,:]' * x(t)
         # dot products this case is built from (LinearAlgebra.dot, ported in
-        # ext/CTParserExaModels.jl), so obj1 and obj2 -- two independently converged
+        # ext/CTParserExaModels/), so obj1 and obj2 -- two independently converged
         # MadNLP solves -- agree only to the solver's own tolerance on GPU, not to
         # machine precision as they happen to on CPU.
         __atol = backend_name == "GPU" ? 1e-5 : 1e-9

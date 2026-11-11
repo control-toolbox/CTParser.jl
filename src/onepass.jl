@@ -119,6 +119,7 @@ $(TYPEDEF)
     aliases::OrderedDict{Union{Symbol,Expr},Union{Real,Symbol,Expr}} = __init_aliases() # Dict ordered by Symbols *and Expr* just for scalar variable / state / control
     lnum::Int = 0
     line::String = ""
+    expr::Any = nothing # the current statement as written, see `__as_written`
     dt::Symbol = __symgen(:dt)
     is_global_dyn::Bool = false
     is_coord_dyn::Bool = false
@@ -204,6 +205,37 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Build the code that writes the value of `e` into the output array `r` of a generated
+function (dynamics, boundary or path constraint).
+
+When `e` is a vector literal without splat, `[e₁, e₂, …]`, the generated code evaluates the
+`n` entries into local variables, checks that `r` has `n` entries, then assigns them one by
+one: the temporary vector that `@views r[:] .= [e₁, e₂, …]` allocates at every call is
+avoided. The entries are evaluated before any assignment, so the result is the same when `r`
+shares memory with an input. Any other expression is broadcast, as before.
+"""
+function __fill(r, e)
+    if e isa Expr &&
+        e.head == :vect &&
+        !isempty(e.args) &&
+        !any(a -> a isa Expr && a.head in (:..., :parameters, :kw, :(=)), e.args)
+        n = length(e.args)
+        vals = [__symgen(:val) for _ in 1:n]
+        evals = [:($(vals[i]) = @views $(e.args[i])) for i in 1:n]
+        sets = [:($r[$i] = $(vals[i])) for i in 1:n]
+        msg = "the output of the generated function has $n entries, not "
+        return quote
+            $(evals...)
+            length($r) == $n || throw(DimensionMismatch($msg * string(length($r))))
+            $(sets...)
+        end
+    end
+    return :(@views $r[:] .= $e)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Render a tuple of symbols as the human-readable list `":a, :b or :c"` used in the
 `expected` field of generated errors.
 """
@@ -214,12 +246,26 @@ function _or_list(syms)
 end
 
 """
-Numerical schemes accepted by the `:exa` backend. Deprecated aliases (`:euler_b`,
-`:trapezoidal`) are still accepted by the generated code but not advertised. Keep in
-sync with the `scheme` branches of `p_dynamics_exa!`, `p_dynamics_coord_exa!` and
-`p_lagrange_exa!`.
+Numerical schemes accepted by the `:exa` backend. Their aliases, `EXA_SCHEME_ALIASES`,
+are accepted too but not advertised. Keep in sync with the `scheme` branches of
+`p_dynamics_exa!`, `p_dynamics_coord_exa!` and `p_lagrange_exa!`.
 """
 const EXA_SCHEMES = (:euler, :euler_implicit, :midpoint, :trapeze)
+
+"""
+Aliases of the `:exa` schemes, resolved to their canonical name (`EXA_SCHEMES`) at the
+top of the generated model builder, so the `scheme` branches only know canonical names.
+`:euler_explicit` and `:euler_forward` (aliases of `:euler`) and `:euler_backward`
+(alias of `:euler_implicit`) are the names the `:adnlp` modeler of CTDirect accepts;
+`:euler_b` and `:trapezoidal` are deprecated.
+"""
+const EXA_SCHEME_ALIASES = (
+    euler_explicit=:euler,
+    euler_forward=:euler,
+    euler_backward=:euler_implicit,
+    euler_b=:euler_implicit,
+    trapezoidal=:trapeze,
+)
 
 """
 $(TYPEDSIGNATURES)
@@ -301,6 +347,13 @@ $(TYPEDSIGNATURES)
 
 Parse the expression `e` and update the `ParsingInfo` structure `p`.
 
+The aliases are substituted in a single pass, in the order in which they were defined
+(`p.aliases` is ordered). This is enough because the right-hand side of an alias is itself
+parsed, hence expanded with the aliases known at that point: an alias value never contains
+an alias defined before it, and a name used before it is defined is substituted by the
+later alias since the later keys come after in the pass. See the tests "aliases defined
+from other aliases".
+
 # Example
 ```julia
 parse!(p, :p_ocp, :(v ∈ R, variable))
@@ -309,7 +362,9 @@ parse!(p, :p_ocp, :(v ∈ R, variable))
 function parse!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
     #
     p.lnum = p.lnum + 1
-    p.line = string(e)
+    p.expr = e
+    p.line = string(__as_written(e))
+    __is_equation_with_assign(e) && return __throw_equation_with_assign(p, e)
     for a in keys(p.aliases)
         e = subs(e, a, p.aliases[a])
     end
@@ -331,7 +386,10 @@ function parse!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
                 p_control!(p, p_ocp, a, m; components_names=names, log, backend)
             :([$names] ∈ R^$m, control) =>
                 p_control!(p, p_ocp, a, m; components_names=names, log, backend)
-            _ => p_alias!(p, p_ocp, a, e1; log, backend) # alias
+            _ =>
+                __is_malformed_declaration(e1) ?
+                __throw_malformed_declaration(p, a, e1) :
+                p_alias!(p, p_ocp, a, e1; log, backend) # alias
         end
         # variable                    
         :($v ∈ R^$q, variable) => p_variable!(p, p_ocp, v, q; log, backend)
@@ -448,6 +506,109 @@ function parse!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
     end
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Tell whether the right-hand side `e1` of `a = e1` has the shape of a declaration with
+named components, `(names) ∈ dom, kind` with `kind` one of `state`, `control` or
+`variable`.
+
+It is called on the right-hand sides that none of the valid declaration patterns of
+[`parse!`](@ref) matched (the domain is not `R^n`). Without this test such a line would
+silently become an alias, and nothing would be declared.
+"""
+function __is_malformed_declaration(e1)
+    e1 isa Expr && e1.head == :tuple && length(e1.args) == 2 || return false
+    e1.args[2] ∈ (:state, :control, :variable) || return false
+    d = e1.args[1]
+    return d isa Expr && d.head == :call && length(d.args) == 3 && d.args[1] == :∈
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the `ParsingError` expression for a declaration `a = (names) ∈ dom, kind` whose
+domain is not `R^n`, for example `u = (z,) ∈ R, control`.
+
+Named components need an explicit dimension; a one-dimensional element is declared
+without names, `a ∈ R, kind`, and its only component is named `a`.
+"""
+function __throw_malformed_declaration(p, a, e1)
+    kind = e1.args[2]
+    return __throw(
+        "invalid $kind declaration: named components need a domain `R^n` with " *
+        "n ≥ 2, but the domain here is `$(e1.args[1].args[3])`",
+        p.lnum,
+        p.line;
+        suggestion="declare a one-dimensional $kind as `$a ∈ R, $kind`, or name the " *
+                   "components of an n-dimensional one, n ≥ 2, as " *
+                   "`$a = (name₁, …, nameₙ) ∈ R^n, $kind`",
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Tell whether the statement `e` has the shape `f(args) = body`.
+
+Julia reads it as a short function definition. In the DSL it is a mistake: an alias has a
+name and no arguments, and an equation, for instance the dynamics `ẋ(t) = u(t)`, is
+written with `==`. It is tested before the aliases are substituted, so that the error shows
+what the user wrote (`ẋ(t)`, not the internal `∂(x)(t)`).
+"""
+function __is_equation_with_assign(e)
+    return e isa Expr && e.head == :(=) && e.args[1] isa Expr && e.args[1].head == :call
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the `ParsingError` expression for a statement `f(args) = body`, see
+[`__is_equation_with_assign`](@ref). The suggestion repeats the statement with `==`.
+"""
+function __throw_equation_with_assign(p, e)
+    lhs = __as_written(e.args[1])
+    rhs = __as_written(e.args[2])
+    return __throw(
+        "`=` defines an alias, which is a name without arguments; " *
+        "an equation or a constraint is written with `==`",
+        p.lnum,
+        p.line;
+        suggestion="write `$lhs == $rhs`",
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Tell whether a declaration names the components (`components_names`) of an element of
+dimension `q = 1`, for example `u = (z,) ∈ R^1, control`.
+
+A one-dimensional variable, state or control is a scalar whose only component has the name
+of the element: naming it separately would give two names to one scalar, and the
+declaration `u = (z,) ∈ R, control` is already refused. The two spellings of dimension one,
+`R` and `R^1`, are treated alike.
+"""
+__is_named_scalar(components_names, q) = !isnothing(components_names) && q == 1
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the `ParsingError` expression for a declaration that names the components of a
+one-dimensional `kind` (`"variable"`, `"state"` or `"control"`) `a`, see
+[`__is_named_scalar`](@ref).
+"""
+function __throw_named_scalar(p, kind, a)
+    return __throw(
+        "invalid $kind declaration: a one-dimensional $kind has no component names; " *
+        "its only component is named `$a`",
+        p.lnum,
+        p.line;
+        suggestion="declare it as `$a ∈ R, $kind`, or give a dimension n ≥ 2 to name its " *
+                   "components",
+    )
+end
+
 function p_pragma!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
     log && println("PRAGMA: $e")
     return parsing(:pragma, backend)(p, p_ocp, e)
@@ -465,7 +626,7 @@ function p_pragma_exa!(p, p_ocp, e)
 end
 
 function p_alias!(p, p_ocp, a, e; log=false, backend=__default_parsing_backend())
-    log && println("alias: $a = $e")
+    log && println("alias: $a = $(__as_user(e))")
     a isa Symbol || return __throw("forbidden alias name: $a", p.lnum, p.line)
     p.aliases[a] = e
     return parsing(:alias, backend)(p, p_ocp, a, e)
@@ -562,6 +723,8 @@ function p_variable!(
     p, p_ocp, v, q; components_names=nothing, log=false, backend=__default_parsing_backend()
 )
     log && println("variable: $v, dim: $q")
+    __is_named_scalar(components_names, q) &&
+        return __throw_named_scalar(p, "variable", v)
     v isa Symbol || return __throw("forbidden variable name: $v", p.lnum, p.line)
     vv = QuoteNode(v)
     if q == 1
@@ -613,7 +776,7 @@ function p_variable_exa!(p, p_ocp, v, q, vv; components_names=nothing)
 end
 
 function p_time!(p, p_ocp, t, t0, tf; log=false, backend=__default_parsing_backend())
-    log && println("time: $t, initial time: $t0, final time: $tf")
+    log && println("time: $t, initial time: $(__as_user(t0)), final time: $(__as_user(tf))")
     t isa Symbol || return __throw("forbidden time name: $t", p.lnum, p.line)
     p.t = t
     p.t0 = t0
@@ -674,6 +837,8 @@ function p_state!(
     p, p_ocp, x, n; components_names=nothing, log=false, backend=__default_parsing_backend()
 )
     log && println("state: $x, dim: $n")
+    __is_named_scalar(components_names, n) &&
+        return __throw_named_scalar(p, "state", x)
     x isa Symbol || return __throw("forbidden state name: $x", p.lnum, p.line)
     p.aliases[Symbol(Unicode.normalize(string(x, "̇")))] = :(∂($x))
     xx = QuoteNode(x)
@@ -741,6 +906,8 @@ function p_control!(
     p, p_ocp, u, m; components_names=nothing, log=false, backend=__default_parsing_backend()
 )
     log && println("control: $u, dim: $m")
+    __is_named_scalar(components_names, m) &&
+        return __throw_named_scalar(p, "control", u)
     (p.is_global_dyn || p.is_coord_dyn) &&
         return __throw("control must be declared before dynamics", p.lnum, p.line)
     !isnothing(p.criterion) &&
@@ -813,7 +980,13 @@ function p_constraint!(
     backend=__default_parsing_backend(),
 )
     c_type = constraint_type(e2, p.t, p.t0, p.tf, p.x, p.u, p.v)
-    log && println("constraint ($c_type): $e1 ≤ $e2 ≤ $e3,    ($label)")
+    if log
+        # an unlabelled constraint has a generated label, which is not worth showing
+        shown_label = occursin("##", string(label)) ? "" : ",    ($label)"
+        println(
+            "constraint ($c_type): $(__as_user(e1)) ≤ $(__as_user(e2)) ≤ $(__as_user(e3))$shown_label",
+        )
+    end
     label isa Int && (label = Symbol(:eq, label))
     label isa Symbol || return __throw("forbidden label: $label", p.lnum, p.line)
     # a constraint bound must be "effective": lb/ub are evaluated once at build time,
@@ -827,13 +1000,8 @@ function p_constraint!(
             (p.t, "the time"),
         )
             isnothing(sym) && continue
-            has(b, sym) && return __throw(
-                "the $side bound of a constraint must not depend on $what; " *
-                "write a functional constraint instead by moving the term to the " *
-                "constrained side (e.g. `x₂(0) - v == 0` rather than `x₂(0) == v`)",
-                p.lnum,
-                p.line,
-            )
+            has(b, sym) &&
+                return __throw_dependent_bound(p, e1, e2, e3, side, b, what)
         end
     end
     stray = __stray_error(p, e2)
@@ -842,6 +1010,76 @@ function p_constraint!(
     ee2 = replace_call(e2, [p.x, p.u], p.t, [xut, xut])
     has(ee2, p.t) && (p.is_autonomous = false)
     return parsing(:constraint, backend)(p, p_ocp, e1, e2, e3, c_type, label)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the operands `(e1, e2, e3)` of a constraint statement `e` as they are passed to
+[`p_constraint!`](@ref): the lower bound `e1`, the constrained expression `e2` and the
+upper bound `e3`, where a missing bound is `nothing` and an equality `a == b` has the
+bound `b` on both sides. Return `nothing` if `e` is not a constraint.
+
+It mirrors the constraint patterns of [`parse!`](@ref) and is used on the statement as
+the user wrote it, to show the operands in an error message.
+"""
+function __constraint_parts(e)
+    return @match e begin
+        :($a == $b) || :($a == $b, $_) => (b, a, b)
+        :($a ≤ $b ≤ $c) || :($a ≤ $b ≤ $c, $_) => (a, b, c)
+        :($b ≤ $c) || :($b ≤ $c, $_) => (nothing, b, c)
+        :($c ≥ $b ≥ $a) || :($c ≥ $b ≥ $a, $_) => (a, b, c)
+        :($b ≥ $a) || :($b ≥ $a, $_) => (a, b, nothing)
+        _ => nothing
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the `ParsingError` expression for a constraint `e1 ≤ e2 ≤ e3` whose bound `b`
+(`side` is `"lower"` or `"upper"`) depends on `what`, which a bound cannot do: bounds are
+evaluated once, when the model is built.
+
+The suggestion is built from the constraint itself:
+
+- an equality `e2 == b`: `e2 - b == 0`;
+- the constrained expression `e2` does not depend on anything, the bound does (the two
+  sides are in the wrong order, as in `1 ≤ x₂(t)`): the same constraint with the sides
+  swapped, `x₂(t) ≥ 1`;
+- otherwise: the term moved to the constrained side, `e2 - b ≤ 0` (`b - e2 ≤ 0` for a
+  lower bound).
+"""
+function __throw_dependent_bound(p, e1, e2, e3, side, b, what)
+    syms = filter(!isnothing, (p.v, p.x, p.u, p.t))
+    e2_is_free = !any(sym -> has(e2, sym), syms)
+    # by now the expressions are substituted (`x₂` is `x[2]`, `u` is `u##123[1]`); the
+    # error must show what the user wrote, so take the operands from the statement itself
+    written = __constraint_parts(p.expr)
+    if !isnothing(written)
+        w1, w2, w3 = written
+        e1, e2, e3 = w1, w2, w3
+        b = side == "upper" ? w3 : w1
+    end
+    suggestion = if !isnothing(e1) && e1 == e3
+        "move the term to the constrained side: write `$e2 - $b == 0`"
+    elseif e2_is_free && side == "upper" && isnothing(e1)
+        "put the expression that depends on $what first: write `$b ≥ $e2`"
+    elseif e2_is_free && side == "lower" && isnothing(e3)
+        "put the expression that depends on $what first: write `$b ≤ $e2`"
+    elseif side == "upper"
+        "move the term to the constrained side: write `$e2 - $b ≤ 0`"
+    else
+        "move the term to the constrained side: write `$b - $e2 ≤ 0`"
+    end
+    return __throw(
+        "The $side bound `$b` of this constraint depends on $what; a bound is " *
+        "evaluated once, when the model is built, so it cannot depend on the " *
+        "variable, the state, the control or the time",
+        p.lnum,
+        p.line;
+        suggestion,
+    )
 end
 
 function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
@@ -858,7 +1096,7 @@ function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
             args = [r, x0, xf, p.v]
             quote
                 function $fun($(args...))
-                    @views $r[:] .= $ee2
+                    $(__fill(r, ee2))
                     return nothing
                 end
                 $pref.constraint!(
@@ -884,7 +1122,7 @@ function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
             args = [r, p.t, xt, ut, p.v]
             quote
                 function $fun($(args...))
-                    @views $r[:] .= $ee2
+                    $(__fill(r, ee2))
                     return nothing
                 end
                 $pref.constraint!(
@@ -1052,7 +1290,7 @@ end
 function p_dynamics!(
     p, p_ocp, x, t, e, label=nothing; log=false, backend=__default_parsing_backend()
 )
-    log && println("dynamics: ∂($x)($t) == $e")
+    log && println("dynamics: ∂($(__as_user(x)))($t) == $(__as_user(e))")
     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     # isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
@@ -1080,7 +1318,7 @@ function p_dynamics_fun!(p, p_ocp, x, t, e)
     args = [r, p.t, xt, ut, p.v]
     code = quote
         function $fun($(args...))
-            @views $r[:] .= $e
+            $(__fill(r, e))
             return nothing
         end
         $pref.dynamics!($p_ocp, $fun)
@@ -1127,7 +1365,7 @@ function p_dynamics_exa!(p, p_ocp, x, t, e)
                     $p_ocp,
                     $dxj[$i] - $(p.dt) * $ej1[$i] for $j1 in 0:(grid_size - 1)
                 ) # todo: add _denull
-            elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
+            elseif scheme == :euler_implicit
                 $pref.add_con(
                     $p_ocp,
                     $dxj[$i] - $(p.dt) * $ej2[$i] for $j1 in 0:(grid_size - 1)
@@ -1137,7 +1375,7 @@ function p_dynamics_exa!(p, p_ocp, x, t, e)
                     $p_ocp,
                     $dxj[$i] - $(p.dt) * $ej12[$i] for $j1 in 0:(grid_size - 1)
                 ) # todo: add _denull
-            elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
+            elseif scheme == :trapeze
                 $pref.add_con(
                     $p_ocp,
                     $dxj[$i] - $(p.dt) * ($ej1[$i] + $ej2[$i]) / 2 for
@@ -1154,7 +1392,7 @@ end
 function p_dynamics_coord!(
     p, p_ocp, x, i, t, e, label=nothing; log=false, backend=__default_parsing_backend()
 )
-    log && println("dynamics: ∂($x[$i])($t) == $e")
+    log && println("dynamics: ∂($(__as_user(:($x[$i]))))($t) == $(__as_user(e))")
     isnothing(label) || return __throw("dynamics cannot be labelled", p.lnum, p.line)
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     # isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
@@ -1181,7 +1419,7 @@ function p_dynamics_coord_fun!(p, p_ocp, x, i, t, e)
     args = [r, p.t, xt, ut, p.v]
     code = quote
         function $fun($(args...))
-            @views $r[:] .= $e # note that i can be a full range for :fun, still todo for :exa 
+            $(__fill(r, e)) # note that i can be a full range for :fun, still todo for :exa
             return nothing
         end
         $pref.dynamics!($p_ocp, $i, $fun)
@@ -1230,11 +1468,11 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i::Integer, t, e) # todo: also also 
         # alongside the constraint handle
         ($p_ocp, $(p.dyn_con)[$i]) = if scheme == :euler # dyn_con already defined outside try catch
             $pref.add_con($p_ocp, $dxij - $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1)) # todo: add _denull
-        elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
+        elseif scheme == :euler_implicit
             $pref.add_con($p_ocp, $dxij - $(p.dt) * $ej2 for $j1 in 0:(grid_size - 1)) # todo: add _denull
         elseif scheme == :midpoint
             $pref.add_con($p_ocp, $dxij - $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1)) # todo: add _denull
-        elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
+        elseif scheme == :trapeze
             $pref.add_con(
                 $p_ocp,
                 $dxij - $(p.dt) * ($ej1 + $ej2) / 2 for $j1 in 0:(grid_size - 1) # todo: add _denull
@@ -1247,7 +1485,7 @@ function p_dynamics_coord_exa!(p, p_ocp, x, i::Integer, t, e) # todo: also also 
 end
 
 function p_lagrange!(p, p_ocp, e, type; log=false, backend=__default_parsing_backend())
-    log && println("objective (Lagrange): ∫($e) → $type")
+    log && println("objective (Lagrange): ∫($(__as_user(e))) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     # isnothing(p.u) && return __throw("control not yet declared", p.lnum, p.line)
     isnothing(p.t) && return __throw("time not yet declared", p.lnum, p.line)
@@ -1305,11 +1543,11 @@ function p_lagrange_exa!(p, p_ocp, e, type)
         # adds two objectives, and the `if`'s own value is unused here
         if scheme == :euler
             ($p_ocp, _) = $pref.add_obj($p_ocp, $(p.dt) * $ej1 for $j1 in 0:(grid_size - 1)) # todo: add _denull
-        elseif scheme ∈ (:euler_implicit, :euler_b) # euler_b is deprecated
+        elseif scheme == :euler_implicit
             ($p_ocp, _) = $pref.add_obj($p_ocp, $(p.dt) * $ej1 for $j1 in 1:grid_size) # todo: add _denull
         elseif scheme == :midpoint
             ($p_ocp, _) = $pref.add_obj($p_ocp, $(p.dt) * $ej12 for $j1 in 0:(grid_size - 1)) # todo: add _denull
-        elseif scheme ∈ (:trapeze, :trapezoidal) # trapezoidal is deprecated
+        elseif scheme == :trapeze
             ($p_ocp, _) = $pref.add_obj($p_ocp, $(p.dt) * $ej1 / 2 for $j1 in (0, grid_size)) # todo: add _denull
             ($p_ocp, _) = $pref.add_obj($p_ocp, $(p.dt) * $ej1 for $j1 in 1:(grid_size - 1)) # todo: add _denull
         else
@@ -1320,7 +1558,7 @@ function p_lagrange_exa!(p, p_ocp, e, type)
 end
 
 function p_mayer!(p, p_ocp, e, type; log=false, backend=__default_parsing_backend())
-    log && println("objective (Mayer): $e → $type")
+    log && println("objective (Mayer): $(__as_user(e)) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.t0) && return __throw("time not yet declared", p.lnum, p.line)
     isnothing(p.tf) && return __throw("time not yet declared", p.lnum, p.line)
@@ -1353,6 +1591,10 @@ function p_mayer_fun!(p, p_ocp, e, type)
     return __wrap(code, p.lnum, p.line)
 end
 
+# `type` (`:min` or `:max`) is not read by `p_mayer_exa!`, `p_lagrange_exa!` and
+# `p_bolza_exa!`: it is part of the signature shared with the `:fun` backend, and the sense
+# of the objective is fixed once, by `ExaCore(...; minimize=(p.criterion == :min))`, from
+# `p.criterion`, which `p_mayer!`, `p_lagrange!` and `p_bolza!` set before dispatching.
 function p_mayer_exa!(p, p_ocp, e, type)
     pref = prefix_exa()
     x0 = __symgen(:x0)
@@ -1370,7 +1612,7 @@ function p_mayer_exa!(p, p_ocp, e, type)
 end
 
 function p_bolza!(p, p_ocp, e1, e2, type; log=false, backend=__default_parsing_backend())
-    log && println("objective (Bolza): $e1 + ∫($e2) → $type")
+    log && println("objective (Bolza): $(__as_user(e1)) + ∫($(__as_user(e2))) → $type")
     isnothing(p.x) && return __throw("state not yet declared", p.lnum, p.line)
     isnothing(p.t0) && return __throw("time not yet declared", p.lnum, p.line)
     isnothing(p.tf) && return __throw("time not yet declared", p.lnum, p.line)
@@ -1610,7 +1852,7 @@ end
 # only used internally to test errors that are otherwise captured by :fun before being captured by :exa parsing
 macro def_exa(e)
     try
-        code = def_exa(e)
+        code = def_exa_code(e)
         return esc(code)
     catch ex
         :(throw($ex)) # can be caught by user
@@ -1638,7 +1880,7 @@ function def_fun(e; log=false)
     if is_active_backend(:exa)
         # log=false: the :fun pass above already emitted the trace; a second one here
         # would print the whole parsed model twice (#344)
-        build_exa = def_exa(e; log=false)
+        build_exa = def_exa_code(e; log=false)
         code = concat(code, :($pref.build($p_ocp; build_examodel=($build_exa))))
     else
         code = concat(code, :($pref.build($p_ocp)))
@@ -1650,8 +1892,12 @@ end
 $(TYPEDSIGNATURES)
 
 Core computation used to discretise, parsing an expression towards an ExaModels.ExaModel.
+
+It is the counterpart of `def_fun`, and is called by the `@def_exa` macro and by `def_fun`
+when the `:exa` backend is active. It does not share its name with the macro, so that the
+function can be found and renamed on its own.
 """
-function def_exa(e; log=false)
+function def_exa_code(e; log=false)
     pref = prefix_exa()
     e_pref = e_prefix()
     p_ocp = __symgen(:p_ocp) # ExaModel name (this is the pre OCP, here)
@@ -1737,6 +1983,7 @@ function def_exa(e; log=false)
             init=($default_init),
             base_type=($default_base_type),
         )
+            scheme = scheme isa Symbol ? get($EXA_SCHEME_ALIASES, scheme, scheme) : scheme
             $(p.box_x) # lvar and uvar for state
             $(p.box_u) # lvar and uvar for control
             $(p.box_v) # lvar and uvar for variable (after x and u for compatibility with CTDirect)

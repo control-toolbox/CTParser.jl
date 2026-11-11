@@ -2893,7 +2893,7 @@ function test_onepass_fun()
             e
         end
         @test err isa ParsingError
-        @test occursin("the upper bound of a constraint must not depend on the variable", err.msg)
+        @test occursin("The upper bound `v` of this constraint depends on the variable", err.msg)
     end
 
     # ---------------------------------------------------------------
