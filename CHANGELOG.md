@@ -32,7 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 📚 Documentation
 
-- **A page on the constraints of `@def` and the rule on their bounds** (a bound cannot depend on the state, the control, the variable or the time, and what to write instead).- **Two pages on the syntax of `@def`: declarations (dimension, names of the components, what is refused and why) and aliases versus equations (`=` against `==`).**
+- **A page on the constraints of `@def` and the rule on their bounds** (a bound cannot depend on the state, the control, the variable or the time, and what to write instead).
+- **Two pages on the syntax of `@def`: declarations (dimension, names of the components, what is refused and why) and aliases versus equations (`=` against `==`).**
+- **A page on dimensions and the automatic names of the components**: `R^n` against `Rⁿ` ([#60](https://github.com/control-toolbox/CTParser.jl/issues/60)), the digit exponents up to `R²⁰`, and the limit of the automatic names `xᵢ` / `xi` to `i ≤ 9` for a symbolic dimension.
 
 ### 🧪 Testing
 
@@ -42,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`test/test_exa_linalg_inputs.jl`**: the linear algebra a user may write with every usual kind of constant (dense, `Diagonal`, `Symmetric`, triangular, `Tridiagonal`, sparse, static, `transpose`, `adjoint`, views, ranges), unit (evaluated against the numbers) and integration (`@def` solved against its dense version).
 - **`test/test_exa_extensions.jl`**: the two companion extensions (loading, shared aliases, values, one term per stored nonzero, typed errors).
 - **The ct-conventions TST8 check runs on the three extensions** (`test/test_aqua.jl`): no ambiguity, and every pirated method listed with its reason in `test/extension_piracies.jl`.
+- **`x ∈ Rⁿ` is pinned as rejected, and the limits of the dimension aliases are pinned** ([#60](https://github.com/control-toolbox/CTParser.jl/issues/60)): `R^n` for a global and for an expression, the aliases `xᵢ` up to 12 for a literal dimension and up to 9 for a symbolic one, `R²` to `R²⁰`.
 - **Use case no. 5 of `test/test_onepass_exa.jl` compares two different models, and the GPU comparisons of use cases 4, 5 and 9 use a tolerance the solver can meet** ([#383](https://github.com/control-toolbox/CTParser.jl/issues/383)): `m2` was built from `o1` instead of `o2` and `sol1` was solved twice; on GPU the objectives are now compared to `1e-5` (as for use case no. 8), since GPU solves are not reproducible at a fixed `max_iter` ([CTDirect.jl#531](https://github.com/control-toolbox/CTDirect.jl/issues/531)).
 - **`import` is gone from the tests and the docs, and a guard keeps it out** (`MOD3`, `MOD4`, [#303](https://github.com/control-toolbox/CTParser.jl/issues/303)): `test/runtests.jl`, `test/test_control_zero.jl` and a docs snippet now use `using Pkg: sym`; the new `test/test_no_import.jl` fails on any tracked `.jl` or `.md` file with an `import` or a dotted `using Pkg.Sub` (`CHANGELOG.md` and `BREAKING.md` quote past text and are exempt from the dotted check).
 - **`test/test_exa_constant_null.jl` pins the `Null`/`Constant` intersections**: each formerly ambiguous call (unit), the scope of the fix with a fake node type (contract), no ambiguity left on the scalar methods of the extension (non-regression), and the `@def` path that reached it, solved against a reference problem on the four schemes (integration).
