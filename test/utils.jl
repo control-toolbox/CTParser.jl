@@ -1,8 +1,31 @@
 # utils.jl (for tests only)
 #
 
+# `Logging` is a standard library, but adding it to the test environment makes Pkg.test ask
+# the registry for it ("expected package Logging to be registered"); Base exposes the same API.
+using Base: CoreLogging
+
 macro ignore(e)
     return :()
+end
+
+"""
+    DropLogger(inner, pattern)
+
+A logger that forwards every message to `inner` except those whose text matches `pattern`.
+Used to hide a warning that a test provokes on purpose, while any other warning stays
+visible (a global `NullLogger` would hide them all).
+"""
+struct DropLogger{L<:CoreLogging.AbstractLogger} <: CoreLogging.AbstractLogger
+    inner::L
+    pattern::Regex
+end
+CoreLogging.min_enabled_level(l::DropLogger) = CoreLogging.min_enabled_level(l.inner)
+CoreLogging.shouldlog(l::DropLogger, args...) = CoreLogging.shouldlog(l.inner, args...)
+CoreLogging.catch_exceptions(l::DropLogger) = CoreLogging.catch_exceptions(l.inner)
+function CoreLogging.handle_message(l::DropLogger, level, message, args...; kwargs...)
+    occursin(l.pattern, string(message)) && return nothing
+    return CoreLogging.handle_message(l.inner, level, message, args...; kwargs...)
 end
 
 """
