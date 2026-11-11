@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🔄 Refactoring
 
+- **The function behind `@def_exa` is renamed `def_exa_code`** ([#389](https://github.com/control-toolbox/CTParser.jl/issues/389)). The macro and the function shared the name `def_exa`; no other package calls it. `p_mayer_exa!`, `p_lagrange_exa!` and `p_bolza_exa!` document why they do not read `type`, and `parse!` documents the single-pass substitution of the aliases.
 - **`ext/CTParserExaModels.jl` is split into `ext/CTParserExaModels/`**: the module file and `types.jl`, `scalar.jl`, `checks.jl`, `arrays.jl`, `expansions.jl`. The array aliases name their type variables, so that a method prints the same signature on every Julia version.
 - **One helper per generated error in `src/onepass.jl`.** The bound-length check, the unknown-scheme error and the backend checks were copied 7, 3 and 6 times; the list of `:exa` schemes is now a single constant, `EXA_SCHEMES`.
 
@@ -39,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🧪 Testing
 
+- **Tests for the leftovers of the #197 review** ([#389](https://github.com/control-toolbox/CTParser.jl/issues/389)): aliases defined from other aliases (in order, forward and backwards), the values of `x(t0)` and `x(tf)` in the `:exa` Mayer cost in vector and scalar form and mixed, and the sense of `min` / `max` for the Mayer, Lagrange and Bolza costs.
 - **The `:exa` test file no longer prints 124 `Multiple bound declarations` warnings** ([#231](https://github.com/control-toolbox/CTParser.jl/issues/231)). CTModels emits them when several constraints bound the same component, which the range and constraint tests do on purpose; a logger (`DropLogger`) drops only that message, so any other warning still shows. The `wrong dim` case of the issue is checked with `@test_logs`: no `Overwriting bound` warning, nor any other log.
 - **The suggestions of the dependent-bound error are covered** in `test/test_onepass_fun_bis.jl` ([#352](https://github.com/control-toolbox/CTParser.jl/issues/352)): the three shapes, a labelled constraint, and the roles of the operands of every constraint form.
 - **The errors of [#4](https://github.com/control-toolbox/CTParser.jl/issues/4) and [#353](https://github.com/control-toolbox/CTParser.jl/issues/353) are covered** in `test/test_onepass_fun_bis.jl`: the three kinds of declaration, the forms that must stay valid, and the message and the suggestion.

@@ -1011,4 +1011,74 @@ function test_onepass_exa_bis()
         end
         @test_throws ParsingError o(; backend=backend)
     end
+
+    # ============================================================================
+    # p_mayer_exa!, p_bolza_exa! - values of the substitutions of x(t0), x(tf), and sense
+    # ============================================================================
+
+    @testset "p_mayer_exa! evaluates x(t0) and x(tf) in vector and scalar form (#389)" begin
+        println("p_mayer_exa! values (bis)")
+
+        # x ∈ R³ with a grid of 10 steps: the variables are laid out step by step, so that
+        # z[3j + k] is x_k at step j; t0 is step 0 (entries 1 to 3), tf is step 10 (31 to 33)
+        function mayer_model(obj; sense=:min)
+            ex = quote
+                t ∈ [0, 1], time
+                x ∈ R³, state
+                u ∈ R, control
+                ẋ(t) == [x₂(t), x₃(t), u(t)]
+                $obj → $sense
+            end
+            build = Core.eval(@__MODULE__, :(CTParser.@def_exa $ex))
+            m = Base.invokelatest(build; scheme=:euler, grid_size=10)[1]
+            return m, [sin(i) for i in 1:NLPModels.get_nvar(m)]
+        end
+        t0 = 1:3
+        tf = 31:33
+        value(obj) = begin
+            m, z = mayer_model(obj)
+            NLPModels.obj(m, z)
+        end
+        _, z = mayer_model(:(x₃(0)))
+
+        # scalar form, bracket and subscript spellings
+        @test value(:(x₃(0))) ≈ z[3]
+        @test value(:(x[3](0))) ≈ z[3]
+        @test value(:(x₃(1))) ≈ z[33]
+        @test value(:(x[3](1))) ≈ z[33]
+        # vector form
+        @test value(:(dot(x(0), x(0)))) ≈ sum(abs2, z[t0])
+        @test value(:(dot(x(1), x(1)))) ≈ sum(abs2, z[tf])
+        @test value(:(sum(x(0)))) ≈ sum(z[t0])
+        # both forms in the same expression, at the same time and at the other end
+        @test value(:(x₃(0) * dot(x(0), x(0)))) ≈ z[3] * sum(abs2, z[t0])
+        @test value(:(dot(x(0), x(1)) + x₃(0))) ≈ sum(z[t0] .* z[tf]) + z[3]
+        @test value(:(x₂(0) * x₃(0) + x₁(1))) ≈ z[2] * z[3] + z[31]
+        @test value(:(x₁(1) * norm(x(1))^2)) ≈ z[31] * sum(abs2, z[tf])
+    end
+
+    @testset "the sense of the objective follows min / max in the three objective forms (#389)" begin
+        println("sense of the objective (bis)")
+
+        function sense_model(cost)
+            ex = quote
+                t ∈ [0, 1], time
+                x ∈ R, state
+                u ∈ R, control
+                ẋ(t) == u(t)
+                $cost
+            end
+            build = Core.eval(@__MODULE__, :(CTParser.@def_exa $ex))
+            return Base.invokelatest(build; scheme=:euler, grid_size=5)[1]
+        end
+        # Mayer, Lagrange and Bolza
+        for (mn, mx) in (
+            (:(x(1) → min), :(x(1) → max)),
+            (:(∫(u(t)^2) → min), :(∫(u(t)^2) → max)),
+            (:(x(1) + ∫(u(t)^2) → min), :(x(1) + ∫(u(t)^2) → max)),
+        )
+            @test NLPModels.get_minimize(sense_model(mn))
+            @test !NLPModels.get_minimize(sense_model(mx))
+        end
+    end
 end

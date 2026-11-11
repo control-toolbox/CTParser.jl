@@ -316,6 +316,13 @@ $(TYPEDSIGNATURES)
 
 Parse the expression `e` and update the `ParsingInfo` structure `p`.
 
+The aliases are substituted in a single pass, in the order in which they were defined
+(`p.aliases` is ordered). This is enough because the right-hand side of an alias is itself
+parsed, hence expanded with the aliases known at that point: an alias value never contains
+an alias defined before it, and a name used before it is defined is substituted by the
+later alias since the later keys come after in the pass. See the tests "aliases defined
+from other aliases".
+
 # Example
 ```julia
 parse!(p, :p_ocp, :(v ∈ R, variable))
@@ -1459,6 +1466,10 @@ function p_mayer_fun!(p, p_ocp, e, type)
     return __wrap(code, p.lnum, p.line)
 end
 
+# `type` (`:min` or `:max`) is not read by `p_mayer_exa!`, `p_lagrange_exa!` and
+# `p_bolza_exa!`: it is part of the signature shared with the `:fun` backend, and the sense
+# of the objective is fixed once, by `ExaCore(...; minimize=(p.criterion == :min))`, from
+# `p.criterion`, which `p_mayer!`, `p_lagrange!` and `p_bolza!` set before dispatching.
 function p_mayer_exa!(p, p_ocp, e, type)
     pref = prefix_exa()
     x0 = __symgen(:x0)
@@ -1712,7 +1723,7 @@ end
 # only used internally to test errors that are otherwise captured by :fun before being captured by :exa parsing
 macro def_exa(e)
     try
-        code = def_exa(e)
+        code = def_exa_code(e)
         return esc(code)
     catch ex
         :(throw($ex)) # can be caught by user
@@ -1740,7 +1751,7 @@ function def_fun(e; log=false)
     if is_active_backend(:exa)
         # log=false: the :fun pass above already emitted the trace; a second one here
         # would print the whole parsed model twice (#344)
-        build_exa = def_exa(e; log=false)
+        build_exa = def_exa_code(e; log=false)
         code = concat(code, :($pref.build($p_ocp; build_examodel=($build_exa))))
     else
         code = concat(code, :($pref.build($p_ocp)))
@@ -1752,8 +1763,12 @@ end
 $(TYPEDSIGNATURES)
 
 Core computation used to discretise, parsing an expression towards an ExaModels.ExaModel.
+
+It is the counterpart of `def_fun`, and is called by the `@def_exa` macro and by `def_fun`
+when the `:exa` backend is active. It does not share its name with the macro, so that the
+function can be found and renamed on its own.
 """
-function def_exa(e; log=false)
+function def_exa_code(e; log=false)
     pref = prefix_exa()
     e_pref = e_prefix()
     p_ocp = __symgen(:p_ocp) # ExaModel name (this is the pre OCP, here)
