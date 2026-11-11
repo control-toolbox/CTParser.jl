@@ -505,6 +505,102 @@ function test_onepass_fun_bis()
         @test_throws ParsingError eval(ex2)
     end
 
+    @testset "constraint bound errors suggest a fix (#352)" begin
+        println("constraint bound errors (bis)")
+
+        # the error of the first constraint that fails, as raised through @def
+        function bound_error(constraint)
+            body = quote
+                v ∈ R, variable
+                t ∈ [0, 2], time
+                x ∈ R², state
+                u ∈ R, control
+            end
+            push!(body.args, constraint)
+            push!(body.args, :(ẋ(t) == [x₂(t), u(t)]))
+            return try
+                Core.eval(Main, :(CTParser.@def $body))
+                nothing
+            catch e
+                e
+            end
+        end
+
+        # the example of the issue: the sides are in the wrong order
+        err = bound_error(:(1 ≤ x₂(t)))
+        @test err isa ParsingError
+        @test occursin("The upper bound `x₂(t)` of this constraint depends on the state", err.msg)
+        @test occursin("Line 5: 1 ≤ x₂(t)", err.msg)
+        @test err.suggestion == "put the expression that depends on the state first: write `x₂(t) ≥ 1`"
+        # ... and the other way round for a lower bound
+        err = bound_error(:(1 ≥ x₂(t)))
+        @test err isa ParsingError
+        @test occursin("The lower bound `x₂(t)`", err.msg)
+        @test err.suggestion == "put the expression that depends on the state first: write `x₂(t) ≤ 1`"
+
+        # an equality: the term moves to the constrained side
+        err = bound_error(:(x₂(0) == v))
+        @test err isa ParsingError
+        @test occursin("depends on the variable", err.msg)
+        @test err.suggestion == "move the term to the constrained side: write `x₂(0) - v == 0`"
+
+        # both sides depend on something: the term moves to the constrained side
+        err = bound_error(:(x₁(t) ≤ u(t)))
+        @test err isa ParsingError
+        @test occursin("The upper bound `u(t)` of this constraint depends on the control", err.msg)
+        @test err.suggestion == "move the term to the constrained side: write `x₁(t) - u(t) ≤ 0`"
+        err = bound_error(:(u(t) ≥ x₁(t)))
+        @test occursin("The lower bound `x₁(t)`", err.msg)
+        @test err.suggestion == "move the term to the constrained side: write `x₁(t) - u(t) ≤ 0`"
+
+        # a bound that depends on the time
+        err = bound_error(:(x₁(t) ≤ t))
+        @test err isa ParsingError
+        @test occursin("depends on the time", err.msg)
+
+        # a two-sided constraint: the dependent bound is named
+        err = bound_error(:(0 ≤ x₂(0) ≤ v))
+        @test err isa ParsingError
+        @test occursin("The upper bound `v` of this constraint depends on the variable", err.msg)
+        @test err.suggestion == "move the term to the constrained side: write `x₂(0) - v ≤ 0`"
+
+        # a labelled constraint is read the same way
+        err = bound_error(:((1 ≤ x₂(t), c1)))
+        @test err isa ParsingError
+        @test err.suggestion == "put the expression that depends on the state first: write `x₂(t) ≥ 1`"
+
+        # the operands of a constraint statement, in the roles of p_constraint!
+        parts = CTParser.__constraint_parts
+        @test parts(:(a == b)) == (:b, :a, :b)
+        @test parts(:((a == b, c1))) == (:b, :a, :b)
+        @test parts(:(l ≤ e ≤ r)) == (:l, :e, :r)
+        @test parts(:((l ≤ e ≤ r, c1))) == (:l, :e, :r)
+        @test parts(:(e ≤ r)) == (nothing, :e, :r)
+        @test parts(:((e ≤ r, c1))) == (nothing, :e, :r)
+        @test parts(:(r ≥ e ≥ l)) == (:l, :e, :r)
+        @test parts(:((r ≥ e ≥ l, c1))) == (:l, :e, :r)
+        @test parts(:(e ≥ l)) == (:l, :e, nothing)
+        @test parts(:((e ≥ l, c1))) == (:l, :e, nothing)
+        @test isnothing(parts(:(∫(u(t)) → min)))
+        @test isnothing(parts(:x))
+
+        # the message no longer carries the hard-coded example of the old suggestion
+        @test !occursin("x₂(0) - v == 0` rather than", err.msg)
+
+        # constraints whose bounds are constants are still fine
+        ocp = @eval @def begin
+            t ∈ [0, 2], time
+            x ∈ R², state
+            u ∈ R, control
+            x₂(t) ≥ 1
+            -1 ≤ u(t) ≤ 1
+            ẋ(t) == [x₂(t), u(t)]
+            x(0) == [0, 1]
+            x₁(2) → min
+        end
+        @test state_dimension(ocp) == 2
+    end
+
     @testset "parse! malformed declarations (#4)" begin
         println("parse! malformed declarations (bis)")
 

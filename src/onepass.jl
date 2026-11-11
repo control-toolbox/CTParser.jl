@@ -119,6 +119,7 @@ $(TYPEDEF)
     aliases::OrderedDict{Union{Symbol,Expr},Union{Real,Symbol,Expr}} = __init_aliases() # Dict ordered by Symbols *and Expr* just for scalar variable / state / control
     lnum::Int = 0
     line::String = ""
+    expr::Any = nothing # the current statement as written, see `__as_written`
     dt::Symbol = __symgen(:dt)
     is_global_dyn::Bool = false
     is_coord_dyn::Bool = false
@@ -309,6 +310,7 @@ parse!(p, :p_ocp, :(v ∈ R, variable))
 function parse!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
     #
     p.lnum = p.lnum + 1
+    p.expr = e
     p.line = string(__as_written(e))
     __is_equation_with_assign(e) && return __throw_equation_with_assign(p, e)
     for a in keys(p.aliases)
@@ -862,19 +864,84 @@ function p_constraint!(
             (p.t, "the time"),
         )
             isnothing(sym) && continue
-            has(b, sym) && return __throw(
-                "the $side bound of a constraint must not depend on $what; " *
-                "write a functional constraint instead by moving the term to the " *
-                "constrained side (e.g. `x₂(0) - v == 0` rather than `x₂(0) == v`)",
-                p.lnum,
-                p.line,
-            )
+            has(b, sym) &&
+                return __throw_dependent_bound(p, e1, e2, e3, side, b, what)
         end
     end
     xut = __symgen(:xut)
     ee2 = replace_call(e2, [p.x, p.u], p.t, [xut, xut])
     has(ee2, p.t) && (p.is_autonomous = false)
     return parsing(:constraint, backend)(p, p_ocp, e1, e2, e3, c_type, label)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the operands `(e1, e2, e3)` of a constraint statement `e` as they are passed to
+[`p_constraint!`](@ref): the lower bound `e1`, the constrained expression `e2` and the
+upper bound `e3`, where a missing bound is `nothing` and an equality `a == b` has the
+bound `b` on both sides. Return `nothing` if `e` is not a constraint.
+
+It mirrors the constraint patterns of [`parse!`](@ref) and is used on the statement as
+the user wrote it, to show the operands in an error message.
+"""
+function __constraint_parts(e)
+    return @match e begin
+        :($a == $b) || :($a == $b, $_) => (b, a, b)
+        :($a ≤ $b ≤ $c) || :($a ≤ $b ≤ $c, $_) => (a, b, c)
+        :($b ≤ $c) || :($b ≤ $c, $_) => (nothing, b, c)
+        :($c ≥ $b ≥ $a) || :($c ≥ $b ≥ $a, $_) => (a, b, c)
+        :($b ≥ $a) || :($b ≥ $a, $_) => (a, b, nothing)
+        _ => nothing
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the `ParsingError` expression for a constraint `e1 ≤ e2 ≤ e3` whose bound `b`
+(`side` is `"lower"` or `"upper"`) depends on `what`, which a bound cannot do: bounds are
+evaluated once, when the model is built.
+
+The suggestion is built from the constraint itself:
+
+- an equality `e2 == b`: `e2 - b == 0`;
+- the constrained expression `e2` does not depend on anything, the bound does (the two
+  sides are in the wrong order, as in `1 ≤ x₂(t)`): the same constraint with the sides
+  swapped, `x₂(t) ≥ 1`;
+- otherwise: the term moved to the constrained side, `e2 - b ≤ 0` (`b - e2 ≤ 0` for a
+  lower bound).
+"""
+function __throw_dependent_bound(p, e1, e2, e3, side, b, what)
+    syms = filter(!isnothing, (p.v, p.x, p.u, p.t))
+    e2_is_free = !any(sym -> has(e2, sym), syms)
+    # by now the expressions are substituted (`x₂` is `x[2]`, `u` is `u##123[1]`); the
+    # error must show what the user wrote, so take the operands from the statement itself
+    written = __constraint_parts(p.expr)
+    if !isnothing(written)
+        w1, w2, w3 = written
+        e1, e2, e3 = w1, w2, w3
+        b = side == "upper" ? w3 : w1
+    end
+    suggestion = if !isnothing(e1) && e1 == e3
+        "move the term to the constrained side: write `$e2 - $b == 0`"
+    elseif e2_is_free && side == "upper" && isnothing(e1)
+        "put the expression that depends on $what first: write `$b ≥ $e2`"
+    elseif e2_is_free && side == "lower" && isnothing(e3)
+        "put the expression that depends on $what first: write `$b ≤ $e2`"
+    elseif side == "upper"
+        "move the term to the constrained side: write `$e2 - $b ≤ 0`"
+    else
+        "move the term to the constrained side: write `$b - $e2 ≤ 0`"
+    end
+    return __throw(
+        "The $side bound `$b` of this constraint depends on $what; a bound is " *
+        "evaluated once, when the model is built, so it cannot depend on the " *
+        "variable, the state, the control or the time",
+        p.lnum,
+        p.line;
+        suggestion,
+    )
 end
 
 function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
