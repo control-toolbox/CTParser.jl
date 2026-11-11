@@ -659,8 +659,8 @@ function __stray_error(p, e)
     us = __symgen(:us)
     # the legitimate uses: x(t) and u(t), and x at the initial and the final time
     ee = replace_call(e, [p.x, p.u], p.t, [xs, us])
-    isnothing(p.t0) || (ee = replace_call(ee, p.x, p.t0, xs))
-    isnothing(p.tf) || (ee = replace_call(ee, p.x, p.tf, xs))
+    isnothing(p.t0) || (ee = replace_call(ee, [p.x], p.t0, [xs]))
+    isnothing(p.tf) || (ee = replace_call(ee, [p.x], p.tf, [xs]))
     for (sym, kind) in ((p.x, "state"), (p.u, "control"))
         isnothing(sym) && continue
         has(ee, sym) || continue
