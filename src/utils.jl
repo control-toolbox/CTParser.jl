@@ -15,6 +15,43 @@ __symgen(s...) = Symbol(s..., gensym())
 """
 $(TYPEDSIGNATURES)
 
+Return `e` with the internal names of the scalar elements replaced by the names the user
+gave them, to show an expression in the trace mode.
+
+A one-dimensional variable, state or control `u` is renamed `u##123` and read as
+`u##123[1]` (it is a scalar, see the aliases of `p_control!`); this function turns every
+`g[1]` where `g` is such a generated name back into the name before the `##`, `u`.
+Expressions that contain no generated name are returned unchanged.
+"""
+function __as_user(e)
+    e isa Expr || return e
+    if e.head == :ref && length(e.args) == 2 && e.args[1] isa Symbol && e.args[2] == 1
+        name = string(e.args[1])
+        occursin("##", name) && return Symbol(first(split(name, "##")))
+    end
+    return Expr(e.head, map(__as_user, e.args)...)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `e` as it was written: without the line-number nodes, and with the blocks that
+hold a single statement unwrapped.
+
+Julia lowers `f(t) = body` to a short function definition whose body is a block
+`begin #= file:line =# body end`; printing it shows the `#= … =#` comment and the
+`begin … end` wrapper, which the user never typed.
+"""
+function __as_written(e)
+    e isa Expr || return e
+    args = Any[__as_written(a) for a in e.args if !(a isa LineNumberNode)]
+    e.head == :block && length(args) == 1 && return only(args)
+    return Expr(e.head, args...)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Return `true` if `x` represents a range.
 
 This predicate is specialised for `AbstractRange` values and for

@@ -27,10 +27,12 @@ CTParser.prefix_exa()  # :MyModule
 
 ## Non-breaking note (Unreleased)
 
-- **The ExaModels linear-algebra glue throws `CTBase` errors instead of
+- **The ExaModels linear-algebra extension throws `CTBase` errors instead of
   `AssertionError` / `ErrorException`.** A dimension mismatch between two operands
   (`dot`, `+`, `-`, `*`) is now a `CTBase.PreconditionError`; a non-square matrix for
-  `det` / `tr`, `norm(v, Inf)` and non-3-vectors for `cross` a `CTBase.IncorrectArgument`.
+  `det`, `norm(v, Inf)` and non-3-vectors for `cross` a `CTBase.IncorrectArgument`.
+- **`tr` of a matrix of nodes is LinearAlgebra's own** (#365): a non-square matrix raises
+  `DimensionMismatch`. This call already failed; only the exception type changes.
   These calls already failed; only the exception type changes. Code catching
   `AssertionError` or `ErrorException` around them must catch the `CTBase` type instead.
 

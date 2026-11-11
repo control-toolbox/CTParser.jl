@@ -17,7 +17,6 @@ using CTBase: CTBase # indices utilities and ParsingError
 using CTModels: CTModels
 using DocStringExtensions
 using ExaModels: ExaModels
-using LinearAlgebra: LinearAlgebra
 using MLStyle
 using OrderedCollections
 using Parameters # @with_kw: to have default values in struct
@@ -28,6 +27,5 @@ include("defaults.jl")
 include("utils.jl")
 include("onepass.jl")
 include("initial_guess.jl")
-include("exa_linalg.jl")
 
 end

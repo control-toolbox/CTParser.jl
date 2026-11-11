@@ -1,65 +1,39 @@
+module TestAqua
+
+# Code quality of the package (Aqua) and of its extensions (ct-conventions TST8). The
+# triggers of every extension are loaded here, since the TST8 check requires each one to be
+# loaded and this file may run before the tests that load them.
+
+using Test: Test
+using Aqua: Aqua
+using CTBase: CTBase
+using CTParser: CTParser
+using ExaModels: ExaModels
+using LinearAlgebra: LinearAlgebra
+using SparseArrays: SparseArrays
+using StaticArrays: StaticArrays
+
+const VERBOSE = isdefined(Main, :TestData) ? Main.TestData.VERBOSE : true
+const SHOWTIMING = isdefined(Main, :TestData) ? Main.TestData.SHOWTIMING : true
+
+include(joinpath(@__DIR__, "extension_piracies.jl"))
+
 function test_aqua()
-    @testset "Aqua.jl" begin
+    Test.@testset "Aqua.jl" verbose = VERBOSE showtiming = SHOWTIMING begin
         Aqua.test_all(
             CTParser;
-            ambiguities=false, # checked below with an explicit exclusion list
-            #stale_deps=(ignore=[:MLStyle],),
-            deps_compat=(ignore=[:Unicode],),
-            # src/exa_linalg.jl is a deliberate, temporary port of ExaModels'
-            # unregistered linear-algebra extension (#325): every method there
-            # extends a Base/LinearAlgebra function on ExaModels node types, so
-            # it is type piracy by construction. Listing the node types as our
-            # own keeps the whitelist precise — a new pirated method on a
-            # signature without one of these types still fails. The file goes
-            # away with the upstream fix, together with this exception.
-            piracies=(
-                treat_as_own=[
-                    ExaModels.Null,
-                    ExaModels.AbstractNode,
-                    ExaModels.AbstractAdjointNode,
-                    ExaModels.AbstractSecondAdjointNode,
-                    ExaModels.SecondAdjointNull,
-                ],
-            ),
-        )
-
-        # Ecosystem pattern (CTModels, CTSolvers, CTDirect): the ambiguity check
-        # runs on the package alone, out of test_all. `exclude` skips the stdlib
-        # functions extended by the temporary port in src/exa_linalg.jl — the 80+
-        # ambiguities they carry are upstream's, ported verbatim, and leave with
-        # the file when #325 is resolved. Every other function of the package is
-        # still checked.
-        Aqua.test_ambiguities(
-            CTParser;
-            exclude=[
-                Base.:*,
-                Base.:+,
-                Base.:-,
-                Base.sum,
-                Base.adjoint,
-                Base.transpose,
-                Base.promote_rule,
-                Base.convert,
-                Base.zero,
-                Base.one,
-                Base.inv,
-                Base.abs,
-                Base.sqrt,
-                Base.cbrt,
-                Base.abs2,
-                Base.exp,
-                Base.log,
-                Base.sin,
-                Base.cos,
-                Base.tan,
-                LinearAlgebra.dot,
-                LinearAlgebra.tr,
-                LinearAlgebra.diag,
-                LinearAlgebra.diagm,
-                LinearAlgebra.det,
-                LinearAlgebra.norm,
-                LinearAlgebra.cross,
-            ],
+            ambiguities=true, # also tests submodules
+            deps_compat=(ignore=[:LinearAlgebra, :Unicode],),
+            piracies=true,
         )
     end
+    # Aqua.test_all does not inspect extensions: no ambiguity, and every pirated method
+    # listed with its reason (extension_piracies.jl).
+    CTBase.DevTools.test_extensions_quality(CTParser; allowed_piracies=EXTENSION_PIRACIES)
+    return nothing
 end
+
+end # module
+
+# CRITICAL: Redefine in outer scope for TestRunner
+test_aqua() = TestAqua.test_aqua()
