@@ -1190,4 +1190,85 @@ function test_onepass_fun_bis()
         @test p.aliases[:R²⁰] == :(R^20)
         @test !haskey(p.aliases, :R²¹)
     end
+
+    @testset "generated :fun functions do not allocate on a vector literal (#21)" begin
+        println("allocations of the generated functions")
+
+        # the call is wrapped in a function: @allocated of a global call would count boxing
+        calls = (f, args...) -> (f(args...); @allocated f(args...))
+
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            x₁(0) + x₂(1) == 1
+            [x₁(0) + x₂(1), x₃(1)] == [1, 2]
+            [x₁(t) + u(t), x₂(t) * x₃(t)] ≤ [1, 2]
+            ẋ(t) == [x₂(t), x₃(t), u(t)]
+            ∫(u(t)^2) → min
+        end
+        x = [0.3, 0.7, 0.5]
+        u = 0.5
+        v = Float64[]
+
+        # values
+        r = zeros(3)
+        CTModels.dynamics(o)(r, 0.0, x, u, v)
+        @test r == [0.7, 0.5, 0.5]
+        _, path, _, _ = CTModels.path_constraints_nl(o)
+        rp = zeros(2)
+        path(rp, 0.0, x, u, v)
+        @test rp == [0.3 + 0.5, 0.7 * 0.5]
+        _, bd, _, _ = CTModels.boundary_constraints_nl(o)
+        rb = zeros(3)
+        bd(rb, x, x, v)
+        @test rb == [0.3 + 0.7, 0.3 + 0.7, 0.5]
+
+        # allocations
+        @test calls(CTModels.dynamics(o), r, 0.0, x, u, v) == 0
+        @test calls(path, rp, 0.0, x, u, v) == 0
+        @test calls(bd, rb, x, x, v) == 0
+
+        # the entries are evaluated before any is written: the output may share the input
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            ẋ(t) == [x₂(t), x₁(t)]
+            ∫(u(t)^2) → min
+        end
+        y = [1.0, 2.0]
+        CTModels.dynamics(o)(y, 0.0, y, u, v)
+        @test y == [2.0, 1.0]
+
+        # a splat is not a plain list of entries: broadcast as before
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            ẋ(t) == [x₂(t), (x₃(t), u(t))...]
+            ∫(u(t)^2) → min
+        end
+        r = zeros(3)
+        CTModels.dynamics(o)(r, 0.0, x, u, v)
+        @test r == [0.7, 0.5, 0.5]
+
+        # the number of entries is still checked
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R³, state
+            u ∈ R, control
+            ẋ(t) == [x₂(t), x₃(t)]
+            ∫(u(t)^2) → min
+        end
+        @test_throws DimensionMismatch CTModels.dynamics(o)(zeros(3), 0.0, x, u, v)
+        o = @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            ẋ(t) == [x₂(t), u(t), x₁(t)]
+            ∫(u(t)^2) → min
+        end
+        @test_throws DimensionMismatch CTModels.dynamics(o)(zeros(2), 0.0, x[1:2], u, v)
+    end
 end

@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🛠 Enhancements
 
+- **The `:fun` functions generated for a vector literal no longer allocate** ([#21](https://github.com/control-toolbox/CTParser.jl/issues/21)). The dynamics, the boundary constraints and the path constraints `[e₁, e₂, …]` were written `@views r[:] .= [e₁, e₂, …]`, which builds a temporary vector at every call (80 bytes, 2 allocations for the double integrator). They now evaluate the entries and assign them one by one, with the same checks. Expressions that are not a plain list (a splat, a function returning a vector) are broadcast as before.
 - **Parse-time errors can carry a `suggestion`.** The internal helper `__throw` takes an optional `suggestion` keyword; the two errors above use it.
 - **Two companion extensions, `CTParserExaModelsSparseArrays` and `CTParserExaModelsStaticArrays`**, loaded with SparseArrays or StaticArrays: sparse constants with nodes sum over the stored nonzeros only, so the expression graph has one term per nonzero; static constants give plain `Vector` / `Matrix` results.
 - **`tr` of a matrix of nodes is LinearAlgebra's own**, which only needs `zero` and `+` on nodes: the extension no longer defines it. A non-square matrix raises its `DimensionMismatch` instead of `CTBase.IncorrectArgument`.

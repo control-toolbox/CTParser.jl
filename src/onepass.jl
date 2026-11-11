@@ -205,6 +205,37 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Build the code that writes the value of `e` into the output array `r` of a generated
+function (dynamics, boundary or path constraint).
+
+When `e` is a vector literal without splat, `[e₁, e₂, …]`, the generated code evaluates the
+`n` entries into local variables, checks that `r` has `n` entries, then assigns them one by
+one: the temporary vector that `@views r[:] .= [e₁, e₂, …]` allocates at every call is
+avoided. The entries are evaluated before any assignment, so the result is the same when `r`
+shares memory with an input. Any other expression is broadcast, as before.
+"""
+function __fill(r, e)
+    if e isa Expr &&
+        e.head == :vect &&
+        !isempty(e.args) &&
+        !any(a -> a isa Expr && a.head in (:..., :parameters, :kw, :(=)), e.args)
+        n = length(e.args)
+        vals = [__symgen(:val) for _ in 1:n]
+        evals = [:($(vals[i]) = @views $(e.args[i])) for i in 1:n]
+        sets = [:($r[$i] = $(vals[i])) for i in 1:n]
+        msg = "the output of the generated function has $n entries, not "
+        return quote
+            $(evals...)
+            length($r) == $n || throw(DimensionMismatch($msg * string(length($r))))
+            $(sets...)
+        end
+    end
+    return :(@views $r[:] .= $e)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Render a tuple of symbols as the human-readable list `":a, :b or :c"` used in the
 `expected` field of generated errors.
 """
@@ -985,7 +1016,7 @@ function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
             args = [r, x0, xf, p.v]
             quote
                 function $fun($(args...))
-                    @views $r[:] .= $ee2
+                    $(__fill(r, ee2))
                     return nothing
                 end
                 $pref.constraint!(
@@ -1011,7 +1042,7 @@ function p_constraint_fun!(p, p_ocp, e1, e2, e3, c_type, label)
             args = [r, p.t, xt, ut, p.v]
             quote
                 function $fun($(args...))
-                    @views $r[:] .= $ee2
+                    $(__fill(r, ee2))
                     return nothing
                 end
                 $pref.constraint!(
@@ -1205,7 +1236,7 @@ function p_dynamics_fun!(p, p_ocp, x, t, e)
     args = [r, p.t, xt, ut, p.v]
     code = quote
         function $fun($(args...))
-            @views $r[:] .= $e
+            $(__fill(r, e))
             return nothing
         end
         $pref.dynamics!($p_ocp, $fun)
@@ -1304,7 +1335,7 @@ function p_dynamics_coord_fun!(p, p_ocp, x, i, t, e)
     args = [r, p.t, xt, ut, p.v]
     code = quote
         function $fun($(args...))
-            @views $r[:] .= $e # note that i can be a full range for :fun, still todo for :exa 
+            $(__fill(r, e)) # note that i can be a full range for :fun, still todo for :exa
             return nothing
         end
         $pref.dynamics!($p_ocp, $i, $fun)
