@@ -41,9 +41,7 @@ function test_onepass_fun_bis()
 
         # Structured CTBase exceptions already carry their own diagnostic context
         structured = CTBase.IncorrectArgument(
-            "invalid scheme";
-            got="gauss_legendre_2",
-            expected=":euler or :midpoint",
+            "invalid scheme"; got="gauss_legendre_2", expected=":euler or :midpoint"
         )
         wrapped_structured = CTParser.__wrap(:(throw($structured)), 6, "dynamics")
         err, captured = capture_stdout(() -> eval(wrapped_structured))
@@ -365,23 +363,20 @@ function test_onepass_fun_bis()
         # the example of the issue: no generated name, no index on a scalar
         c(t) = 1.0
         _, trace = capture_stdout() do
-            CTParser.def_fun(
-                :(
-                    begin
-                        tf ∈ R, variable
-                        t ∈ [0, tf], time
-                        x = (q, v) ∈ R², state
-                        u ∈ R, control
-                        q̇ = v(t)
-                        v̇ = u(t) - c(t) * v(t)
-                        ẋ(t) == [q̇, v̇]
-                        -1 ≤ u(t) ≤ 1
-                        u(t) ≤ 2, (bound)
-                        ∫(u(t)^2) → min
-                    end
-                );
-                log=true,
-            )
+            CTParser.def_fun(:(
+                begin
+                    tf ∈ R, variable
+                    t ∈ [0, tf], time
+                    x = (q, v) ∈ R², state
+                    u ∈ R, control
+                    q̇ = v(t)
+                    v̇ = u(t) - c(t) * v(t)
+                    ẋ(t) == [q̇, v̇]
+                    -1 ≤ u(t) ≤ 1
+                    u(t) ≤ 2, (bound)
+                    ∫(u(t)^2) → min
+                end
+            ); log=true)
         end
         @test !occursin("##", trace)
         @test occursin("time: t, initial time: 0, final time: tf", trace)
@@ -395,19 +390,16 @@ function test_onepass_fun_bis()
 
         # a one-dimensional state, written ∂(y)(t) == …
         _, trace = capture_stdout() do
-            CTParser.def_fun(
-                :(
-                    begin
-                        t ∈ [0, 1], time
-                        y ∈ R, state
-                        w ∈ R, control
-                        ∂(y)(t) == w(t)
-                        y(0) == 0
-                        y(1) → min
-                    end
-                );
-                log=true,
-            )
+            CTParser.def_fun(:(
+                begin
+                    t ∈ [0, 1], time
+                    y ∈ R, state
+                    w ∈ R, control
+                    ∂(y)(t) == w(t)
+                    y(0) == 0
+                    y(1) → min
+                end
+            ); log=true)
         end
         @test !occursin("##", trace)
         @test occursin("dynamics: ∂(y)(t) == w(t)", trace)
@@ -596,29 +588,38 @@ function test_onepass_fun_bis()
         # the example of the issue: the sides are in the wrong order
         err = bound_error(:(1 ≤ x₂(t)))
         @test err isa ParsingError
-        @test occursin("The upper bound `x₂(t)` of this constraint depends on the state", err.msg)
+        @test occursin(
+            "The upper bound `x₂(t)` of this constraint depends on the state", err.msg
+        )
         @test occursin("Line 5: 1 ≤ x₂(t)", err.msg)
-        @test err.suggestion == "put the expression that depends on the state first: write `x₂(t) ≥ 1`"
+        @test err.suggestion ==
+            "put the expression that depends on the state first: write `x₂(t) ≥ 1`"
         # ... and the other way round for a lower bound
         err = bound_error(:(1 ≥ x₂(t)))
         @test err isa ParsingError
         @test occursin("The lower bound `x₂(t)`", err.msg)
-        @test err.suggestion == "put the expression that depends on the state first: write `x₂(t) ≤ 1`"
+        @test err.suggestion ==
+            "put the expression that depends on the state first: write `x₂(t) ≤ 1`"
 
         # an equality: the term moves to the constrained side
         err = bound_error(:(x₂(0) == v))
         @test err isa ParsingError
         @test occursin("depends on the variable", err.msg)
-        @test err.suggestion == "move the term to the constrained side: write `x₂(0) - v == 0`"
+        @test err.suggestion ==
+            "move the term to the constrained side: write `x₂(0) - v == 0`"
 
         # both sides depend on something: the term moves to the constrained side
         err = bound_error(:(x₁(t) ≤ u(t)))
         @test err isa ParsingError
-        @test occursin("The upper bound `u(t)` of this constraint depends on the control", err.msg)
-        @test err.suggestion == "move the term to the constrained side: write `x₁(t) - u(t) ≤ 0`"
+        @test occursin(
+            "The upper bound `u(t)` of this constraint depends on the control", err.msg
+        )
+        @test err.suggestion ==
+            "move the term to the constrained side: write `x₁(t) - u(t) ≤ 0`"
         err = bound_error(:(u(t) ≥ x₁(t)))
         @test occursin("The lower bound `x₁(t)`", err.msg)
-        @test err.suggestion == "move the term to the constrained side: write `x₁(t) - u(t) ≤ 0`"
+        @test err.suggestion ==
+            "move the term to the constrained side: write `x₁(t) - u(t) ≤ 0`"
 
         # a bound that depends on the time
         err = bound_error(:(x₁(t) ≤ t))
@@ -628,13 +629,17 @@ function test_onepass_fun_bis()
         # a two-sided constraint: the dependent bound is named
         err = bound_error(:(0 ≤ x₂(0) ≤ v))
         @test err isa ParsingError
-        @test occursin("The upper bound `v` of this constraint depends on the variable", err.msg)
-        @test err.suggestion == "move the term to the constrained side: write `x₂(0) - v ≤ 0`"
+        @test occursin(
+            "The upper bound `v` of this constraint depends on the variable", err.msg
+        )
+        @test err.suggestion ==
+            "move the term to the constrained side: write `x₂(0) - v ≤ 0`"
 
         # a labelled constraint is read the same way
         err = bound_error(:((1 ≤ x₂(t), c1)))
         @test err isa ParsingError
-        @test err.suggestion == "put the expression that depends on the state first: write `x₂(t) ≥ 1`"
+        @test err.suggestion ==
+            "put the expression that depends on the state first: write `x₂(t) ≥ 1`"
 
         # the operands of a constraint statement, in the roles of p_constraint!
         parts = CTParser.__constraint_parts

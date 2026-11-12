@@ -62,7 +62,9 @@ function test_onepass_exa()
         z = [sin(i) for i in 1:NLPModels.get_nvar(m_euler)]
         @test NLPModels.cons(m_euler, z) != NLPModels.cons(m_trapeze, z)
         # an unknown scheme, or a value that is not a symbol, is still an IncorrectArgument
-        @test_throws CTBase.IncorrectArgument discretise_exa(global_dyn; scheme=:euler_sideways)
+        @test_throws CTBase.IncorrectArgument discretise_exa(
+            global_dyn; scheme=:euler_sideways
+        )
         @test_throws CTBase.IncorrectArgument discretise_exa(global_dyn; scheme="euler")
     end
 
@@ -90,7 +92,9 @@ function test_onepass_exa()
     # Several tests bound the same component more than once, on purpose (the range tests,
     # the constraint tests): CTModels then warns "Multiple bound declarations … Intersection
     # applied". Only that warning is dropped; any other one still shows (#231).
-    intersection_warning = DropLogger(CoreLogging.global_logger(), r"^Multiple bound declarations")
+    intersection_warning = DropLogger(
+        CoreLogging.global_logger(), r"^Multiple bound declarations"
+    )
     CoreLogging.with_logger(intersection_warning) do
         for scheme in l_scheme
             __test_onepass_exa(; scheme=scheme, print_level=MadNLP.WARN)
@@ -1610,9 +1614,9 @@ function __test_onepass_exa(
 
         N = 200
         t = (tfs * 0):N
-        xs = _xs.(t);
+        xs = _xs.(t)
         xs = stack(xs[:])
-        us = _us.(t);
+        us = _us.(t)
         us = stack(us[:])
 
         m, _ = discretise_exa_full(
@@ -2060,13 +2064,13 @@ function __test_onepass_exa(
 
         F0(x) = begin
             r, v, m = x
-            D = Cd * v^2 * exp(-β*(r - 1))
-            return [v, -D/m - 1/r^2, 0]
+            D = Cd * v^2 * exp(-β * (r - 1))
+            return [v, -D / m - 1 / r^2, 0]
         end
 
         F1(x) = begin
             r, v, m = x
-            return [0, Tmax/m, -b*Tmax]
+            return [0, Tmax / m, -b * Tmax]
         end
 
         N = 250

@@ -171,11 +171,11 @@ it in a `throw(ParsingError(...))` expression using the current
 The optional `suggestion` keyword says how to fix the error; it is stored in the
 `suggestion` field of the `ParsingError`.
 """
-__throw(mess, n, line; suggestion=nothing) = begin
+function __throw(mess, n, line; suggestion=nothing)
     e_pref = e_prefix()
     info = string("\nLine ", n, ": ", line, "\n", mess)
     isnothing(suggestion) && return :(throw($e_pref.ParsingError($info)))
-    return :(throw($e_pref.ParsingError($info; suggestion=$suggestion)))
+    return :(throw($e_pref.ParsingError($info; suggestion=($suggestion))))
 end
 
 """
@@ -333,7 +333,7 @@ function _unknown_scheme_error()
         $e_pref.IncorrectArgument(
             "unknown numerical scheme";
             got=string(scheme),
-            expected=$(_or_list(EXA_SCHEMES)),
+            expected=($(_or_list(EXA_SCHEMES))),
             suggestion="pass one of the supported schemes to the :exa backend",
             context="scheme keyword of the :exa model builder",
         ),
@@ -386,10 +386,11 @@ function parse!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
                 p_control!(p, p_ocp, a, m; components_names=names, log, backend)
             :([$names] ∈ R^$m, control) =>
                 p_control!(p, p_ocp, a, m; components_names=names, log, backend)
-            _ =>
-                __is_malformed_declaration(e1) ?
-                __throw_malformed_declaration(p, a, e1) :
+            _ => if __is_malformed_declaration(e1)
+                __throw_malformed_declaration(p, a, e1)
+            else
                 p_alias!(p, p_ocp, a, e1; log, backend) # alias
+            end # alias
         end
         # variable                    
         :($v ∈ R^$q, variable) => p_variable!(p, p_ocp, v, q; log, backend)
@@ -645,8 +646,7 @@ function p_variable!(
     p, p_ocp, v, q; components_names=nothing, log=false, backend=__default_parsing_backend()
 )
     log && println("variable: $v, dim: $q")
-    __is_named_scalar(components_names, q) &&
-        return __throw_named_scalar(p, "variable", v)
+    __is_named_scalar(components_names, q) && return __throw_named_scalar(p, "variable", v)
     v isa Symbol || return __throw("forbidden variable name: $v", p.lnum, p.line)
     vv = QuoteNode(v)
     if q == 1
@@ -759,8 +759,7 @@ function p_state!(
     p, p_ocp, x, n; components_names=nothing, log=false, backend=__default_parsing_backend()
 )
     log && println("state: $x, dim: $n")
-    __is_named_scalar(components_names, n) &&
-        return __throw_named_scalar(p, "state", x)
+    __is_named_scalar(components_names, n) && return __throw_named_scalar(p, "state", x)
     x isa Symbol || return __throw("forbidden state name: $x", p.lnum, p.line)
     p.aliases[Symbol(Unicode.normalize(string(x, "̇")))] = :(∂($x))
     xx = QuoteNode(x)
@@ -828,8 +827,7 @@ function p_control!(
     p, p_ocp, u, m; components_names=nothing, log=false, backend=__default_parsing_backend()
 )
     log && println("control: $u, dim: $m")
-    __is_named_scalar(components_names, m) &&
-        return __throw_named_scalar(p, "control", u)
+    __is_named_scalar(components_names, m) && return __throw_named_scalar(p, "control", u)
     (p.is_global_dyn || p.is_coord_dyn) &&
         return __throw("control must be declared before dynamics", p.lnum, p.line)
     !isnothing(p.criterion) &&
@@ -922,8 +920,7 @@ function p_constraint!(
             (p.t, "the time"),
         )
             isnothing(sym) && continue
-            has(b, sym) &&
-                return __throw_dependent_bound(p, e1, e2, e3, side, b, what)
+            has(b, sym) && return __throw_dependent_bound(p, e1, e2, e3, side, b, what)
         end
     end
     xut = __symgen(:xut)
@@ -1782,7 +1779,7 @@ function def_fun(e; log=false)
         $p_ocp = $pref.PreModel()
         $code
         $pref.definition!($p_ocp, $ee)
-        $pref.time_dependence!($p_ocp; autonomous=$p.is_autonomous) # not $(p.xxxx) as this info is known statically
+        $pref.time_dependence!($p_ocp; autonomous=($p.is_autonomous)) # not $(p.xxxx) as this info is known statically
     end
 
     if is_active_backend(:exa)
