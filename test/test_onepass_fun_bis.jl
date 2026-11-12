@@ -457,6 +457,201 @@ function test_onepass_fun_bis()
         @test p2.criterion == :max
     end
 
+    @testset "state and control must be evaluated at a time (#193, #139)" begin
+        println("stray state and control (bis)")
+
+        # the error raised by the statement `line` in an otherwise valid problem
+        function stray_error(line; dynamics=:(ẋ(t) == [x₂(t), u(t)]), cost=:(x₁(1) → min))
+            body = quote
+                t ∈ [0, 1], time
+                x ∈ R², state
+                u ∈ R, control
+            end
+            push!(body.args, dynamics)
+            push!(body.args, :(x(0) == [0, 0]))
+            isnothing(line) || push!(body.args, line)
+            push!(body.args, cost)
+            return try
+                Core.eval(Main, :(CTParser.@def $body))
+                nothing
+            catch e
+                e
+            end
+        end
+
+        # a state or a control used without a time (#193)
+        for (err, kind, name) in (
+            (stray_error(nothing; cost=:(x₁(1) + u → min)), "control", "u"),
+            (stray_error(nothing; cost=:(x₁ → min)), "state", "x"),
+            (stray_error(nothing; dynamics=:(ẋ(t) == [x₂(t) + x₁, u(t)])), "state", "x"),
+            (stray_error(nothing; dynamics=:(ẋ(t) == [x₂(t), u])), "control", "u"),
+            (stray_error(nothing; cost=:(∫(x₁(t)^2 + u) → min)), "control", "u"),
+            (stray_error(:(x₁(t) + u ≤ 1)), "control", "u"),
+            (stray_error(:(x₁(0) + u == 0)), "control", "u"),
+            (stray_error(:(x₂(t)^2 + x ≤ 1)), "state", "x"),
+        )
+            @test err isa ParsingError
+            @test occursin("The $kind `$name` is used here without being evaluated at a time", err.msg)
+            @test occursin("write `$name(t)`", err.suggestion)
+            @test occursin("Line ", err.msg)
+        end
+
+        # ... the line shown is the one of the user
+        err = stray_error(:(x₁(t) + u ≤ 1))
+        @test occursin("x₁(t) + u ≤ 1", err.msg)
+
+        # a state evaluated at a time that is not t, t0 or tf (#139)
+        for (err, args) in (
+            (stray_error(:(x(0.5) == [0, 0])), "0.5"),
+            (stray_error(:(x(s) == [0, 0])), "s"),
+            (stray_error(:(x(t0) == [0, 0])), "t0"),
+            (stray_error(:(x(0, 1) == [0, 0])), "0, 1"),
+            (stray_error(nothing; cost=:(x₁(0.5) → min)), "0.5"),
+        )
+            @test err isa ParsingError
+            @test occursin("The state `x` is evaluated at `$args`", err.msg)
+            @test occursin("neither the time `t`, nor the initial time, nor the final time", err.msg)
+            @test err.suggestion == "evaluate the state at `t`, `0` or `1`"
+        end
+
+        # ... and a control at a time that is not t
+        err = stray_error(:(x₁(0) + u(0) ≤ 1))
+        @test err isa ParsingError
+        @test occursin("The control `u` is evaluated at `0`, which is not the time `t`", err.msg)
+        @test err.suggestion == "write `u(t)`"
+
+        # the control is evaluated at the time t only, in every kind of statement: unlike the
+        # state, it has no value to give at the initial or the final time (decision of the
+        # maintainer, see #139)
+        for (err, args) in (
+            (stray_error(:(u(1) ≤ 1)), "1"),
+            (stray_error(:(u(0) == 0)), "0"),
+            (stray_error(:(u₁(0) ≤ 1)), "0"),
+            (stray_error(:(x₁(1) + u(1) ≤ 3)), "1"),
+            (stray_error(nothing; cost=:(x₁(1) + u(1) → min)), "1"),
+            (stray_error(nothing; cost=:(∫(u(0)^2) → min)), "0"),
+            (stray_error(nothing; cost=:(u(1)^2 + ∫(u(t)^2) → min)), "1"),
+            (stray_error(nothing; dynamics=:(ẋ(t) == [x₂(t), u(0)])), "0"),
+        )
+            @test err isa ParsingError
+            @test occursin("The control `u` is evaluated at `$args`, which is not the time `t`", err.msg)
+            @test err.suggestion == "write `u(t)`"
+        end
+
+        # a call without argument has no time
+        err = stray_error(:(x() == [0, 0]))
+        @test err isa ParsingError
+        @test occursin("The state `x` is used here without being evaluated at a time", err.msg)
+
+        # the one-dimensional elements are scalars named by the user
+        err = try
+            @eval @def begin
+                t ∈ [0, 1], time
+                y ∈ R, state
+                w ∈ R, control
+                ẏ(t) == w
+                y(0) == 0
+                y(1) → min
+            end
+            nothing
+        catch e
+            e
+        end
+        @test err isa ParsingError
+        @test occursin("The control `w` is used here without being evaluated at a time", err.msg)
+        @test !occursin("##", err.msg)
+
+        # what is valid is unchanged
+        ocp = @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R², state
+            u ∈ R, control
+            ẋ(t) == [x₂(t), u(t)]
+            x(0) == [0, 0]
+            x₁(1) + x₂(0) ≤ 3
+            x₁(t) + u(t) ≤ 5
+            -1 ≤ u(t) ≤ 1
+            ∫(x₁(t)^2 + u(t)^2) + x₁(1) → min
+        end
+        @test state_dimension(ocp) == 2
+        @test control_dimension(ocp) == 1
+        t0 = 0
+        tf = 1
+        ocp = @eval @def begin
+            t ∈ [$t0, $tf], time
+            x ∈ R², state
+            u ∈ R, control
+            ẋ(t) == [x₂(t), u(t)]
+            x($t0) == [0, 0]
+            x($tf) == [1, 0]
+            ∫(u(t)^2) → min
+        end
+        @test state_dimension(ocp) == 2
+    end
+
+    @testset "stray check with an undeclared state or control (#193)" begin
+        println("stray check, undeclared state or control (bis)")
+
+        # a parser whose times are declared but whose state and control are not: this is what
+        # remains after the declaration of the state or of the control has been rejected
+        function parser(; x=nothing, u=nothing)
+            p = CTParser.ParsingInfo()
+            p.t = :t
+            p.t0 = 0
+            p.tf = 1
+            p.x = x
+            p.u = u
+            return p
+        end
+
+        # Unit: nothing to look for when neither is declared, whatever the times
+        p = parser()
+        @test isnothing(CTParser.__stray_error(p, :(x(0) == 0)))
+        @test isnothing(CTParser.__stray_error(p, :(x(1) + u(t) ≤ 1)))
+        @test isnothing(CTParser.__stray_error(p, :(x + u)))
+
+        # Unit: only the declared one is looked for
+        p = parser(; x=:x)
+        @test isnothing(CTParser.__stray_error(p, :(x(0) + u == 0)))
+        @test CTParser.__stray_error(p, :(x + 1 ≤ 0)) isa Expr
+        p = parser(; u=:u)
+        @test isnothing(CTParser.__stray_error(p, :(x(0) + u(t) == 0)))
+        @test CTParser.__stray_error(p, :(u + 1 ≤ 0)) isa Expr
+
+        # Unit: the times are optional too
+        p = CTParser.ParsingInfo()
+        @test isnothing(CTParser.__stray_error(p, :(x(0) + u(t) == 0)))
+
+        # Integration: a rejected declaration gives its own ParsingError, not a MethodError
+        # raised by the check of the statements that follow it (initial and final conditions,
+        # Mayer and Lagrange costs, dynamics)
+        @test_throws ParsingError @eval @def begin
+            t ∈ [0, 1], time
+            x = (q,) ∈ R, state
+            u ∈ R, control
+            ẋ(t) == u(t)
+            x(0) == 0
+            x(1) → min
+        end
+        @test_throws ParsingError @eval @def begin
+            t ∈ [0, 1], time
+            x = (q,) ∈ R, state
+            u ∈ R, control
+            ẋ(t) == u(t)
+            x(0) == 0
+            x(1) == 1
+            ∫(u(t)^2) → min
+        end
+        @test_throws ParsingError @eval @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u = (z,) ∈ R, control
+            ẋ(t) == z(t)
+            x(0) == 0
+            x(1) → min
+        end
+    end
+
     @testset "p_mayer! precondition errors" begin
         println("p_mayer! preconditions (bis)")
 

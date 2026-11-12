@@ -1060,7 +1060,7 @@ function __test_onepass_exa(
             ∂(x₁)(t) == x₁(t)
             ∂(x₂)(t) == x₁(t)
             ∂(x₃)(t) == x₁(t)
-            x₁ → min
+            x₁(1) → min
         end
         @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
     end
@@ -1083,7 +1083,7 @@ function __test_onepass_exa(
             ∂(x₃)(t) == x₁(t)
             ∂(x₄)(t) == x₁(t)
             ∂(x₅)(t) == x₁(t)
-            x₁ → min
+            x₁(1) → min
         end
         @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
     end
@@ -1105,7 +1105,7 @@ function __test_onepass_exa(
             ∂(x₂)(t) == x₁(t)
             ∂(x₃)(t) == x₁(t)
             ∂(x₄)(t) == x₁(t)
-            x₁ → min
+            x₁(1) → min
         end
         @test discretise_exa(o; backend=backend, scheme=scheme) isa ExaModels.ExaModel
     end
@@ -1353,7 +1353,7 @@ function __test_onepass_exa(
             u ∈ R, control
             x(0) == [-1, 0, 0]
             x[1:2](1) == [0, 0]
-            3 ≤ x[1] + u(t) ≤ [1, 2] # wrong dim 
+            3 ≤ x[1](t) + u(t) ≤ [1, 2] # wrong dim 
             ∂(x₁)(t) == x₂(t)
             ∂(x₂)(t) == u(t)
             ∂(x₃)(t) == 0.5u(t)^2
@@ -1373,7 +1373,7 @@ function __test_onepass_exa(
             u ∈ R, control
             x(0) == [-1, 0, 0]
             x[1:2](1) == [0, 0]
-            [3, 4] ≤ x[1] + u(t) ≤ [1, 2] # wrong dim 
+            [3, 4] ≤ x[1](t) + u(t) ≤ [1, 2] # wrong dim 
             ∂(x₁)(t) == x₂(t)
             ∂(x₂)(t) == u(t)
             ∂(x₃)(t) == 0.5u(t)^2
