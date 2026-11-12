@@ -21,13 +21,18 @@ docs/          # Documentation site (DocumenterVitepress)
 linear-algebra glue its expression nodes need (`dot`, `*` on node vectors/matrices,
 `det`, `norm`, `Null` zero elimination) but never declares that extension in its
 `[extensions]`, so Julia never loads it. Until upstream wires it up, CTParser carries
-a port of it in `ext/CTParserExaModels/`, triggered by `ExaModels` + `LinearAlgebra`,
+a port of it in `ext/CTParserExaModels/`, triggered by `LinearAlgebra`,
 with two companions for sparse and static constants (`CTParserExaModelsSparseArrays`,
 `CTParserExaModelsStaticArrays`). Its type piracy is accepted: every pirated method is
 listed in `test/extension_piracies.jl` and checked by `TST8` (`test/test_aqua.jl`).
-Delete the three extensions and their weakdeps when upstream fixes it — see
+Delete the three extensions and their weakdeps when upstream fixes it (`ExaModels`
+itself stays a dependency: the code `@def` emits calls it) — see
 [#325](https://github.com/control-toolbox/CTParser.jl/issues/325) and
 [#365](https://github.com/control-toolbox/CTParser.jl/issues/365).
+
+The code `@def` and `@init` emit refers to `CTModels`, `ExaModels` and `CTBase` by
+module object (`FUN`, `EXA`, `ERR` in `src/defaults.jl`), never by name, so it works
+from any caller module ([#356](https://github.com/control-toolbox/CTParser.jl/issues/356)).
 
 ---
 

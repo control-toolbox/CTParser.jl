@@ -80,10 +80,9 @@ optimal control problem. Internally, `@def` can target different
   is lowered to an `ExaModels.ExaModel` suitable for large-scale NLP
   solvers.
 
-The active backends and their prefixes are controlled by
-`prefix_fun()`, `prefix_exa()` and the corresponding setters. This
-allows other packages (such as `OptimalControl.jl`) to plug in custom
-model types while reusing the same parsing layer.
+The expressions emitted by `@def` refer to `CTModels`, `ExaModels` and
+`CTBase` by module object, not by name, so they work from any caller
+module — `import OptimalControl` as well as `using OptimalControl`.
 
 ### The `@init` macro for initial guesses
 
@@ -104,7 +103,6 @@ block can mix:
 - **constants and aliases**, e.g. `a = 1.0; v(t) := a` or `tf := 1.0`.
 
 `@init` itself only rewrites this DSL into a `NamedTuple` of symbolic
-specifications. The actual construction and validation of a
-backend-specific initial guess object is delegated to the module
-selected by `init_prefix()` (by défaut `CTModels`), via
+specifications. The actual construction and validation of the initial
+guess object is delegated to `CTModels`, via
 `build_initial_guess` et `validate_initial_guess`.

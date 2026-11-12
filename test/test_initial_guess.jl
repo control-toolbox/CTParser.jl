@@ -528,14 +528,6 @@ function test_initial_guess() # debug
         end
     end
 
-    @testset "init_prefix: getter and setter" begin
-        old_pref = CTParser.init_prefix()
-        CTParser.init_prefix!(:MyBackend)
-        @test CTParser.init_prefix() == :MyBackend
-        CTParser.init_prefix!(old_pref)
-        @test CTParser.init_prefix() == old_pref
-    end
-
     # ============================================================================
     # Tests for custom time names (time_name != "t")
     # ============================================================================
