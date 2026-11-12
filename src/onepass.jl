@@ -281,6 +281,7 @@ function parse!(p, p_ocp, e; log=false, backend=__default_parsing_backend())
     p.expr = e
     p.line = string(__as_written(e))
     __is_equation_with_assign(e) && return __throw_equation_with_assign(p, e)
+    __is_alias_redefinition(p, e) && return __throw_alias_redefinition(p, e)
     for a in keys(p.aliases)
         e = subs(e, a, p.aliases[a])
     end
@@ -491,6 +492,34 @@ function __throw_equation_with_assign(p, e)
         p.lnum,
         p.line;
         suggestion="write `$lhs == $rhs`",
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Tell whether the statement `e` is `name = body` where `name` is an alias already defined.
+
+It is tested before the aliases are substituted: afterwards `c = 7` has become `5 = 7`, and
+the name of the alias is lost.
+"""
+function __is_alias_redefinition(p, e)
+    return e isa Expr && e.head == :(=) && e.args[1] isa Symbol && haskey(p.aliases, e.args[1])
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the `ParsingError` expression for the redefinition of an alias, see
+[`__is_alias_redefinition`](@ref).
+"""
+function __throw_alias_redefinition(p, e)
+    a = e.args[1]
+    return __throw(
+        "the alias `$a` is already defined",
+        p.lnum,
+        p.line;
+        suggestion="rename the second alias, or remove the first one",
     )
 end
 
