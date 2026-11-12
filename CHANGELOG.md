@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-11-12
+
 ### 💥 Breaking Changes
 
 #### Prefix API removed
@@ -59,18 +61,6 @@ See [BREAKING.md](BREAKING.md).
 - **`ext/CTParserExaModels.jl` is split into `ext/CTParserExaModels/`**: the module file and `types.jl`, `scalar.jl`, `checks.jl`, `arrays.jl`, `expansions.jl`. The array aliases name their type variables, so that a method prints the same signature on every Julia version.
 - **One helper per generated error in `src/onepass.jl`.** The bound-length check, the unknown-scheme error and the backend checks were copied 7, 3 and 6 times; the list of `:exa` schemes is now a single constant, `EXA_SCHEMES`.
 
-### 📚 Documentation
-
-- **A page on the constraints of `@def` and the rule on their bounds** (a bound cannot depend on the state, the control, the variable or the time, and what to write instead).
-- **Two pages on the syntax of `@def`: declarations (dimension, names of the components, what is refused and why) and aliases versus equations (`=` against `==`).**
-- **A page on dimensions and the automatic names of the components**: `R^n` against `Rⁿ` ([#60](https://github.com/control-toolbox/CTParser.jl/issues/60)), the digit exponents up to `R²⁰`, and the limit of the automatic names `xᵢ` / `xi` to `i ≤ 9` for a symbolic dimension.
-- **A page on the trace mode of `@def`**: how to enable it, what each line shows, and which names are shown.
-- **A page on the state and the control as functions of time**: where each can be evaluated, what is refused and why.
-
-### 📦 Dependencies
-
-- **`CTModels` (`0.19, 0.20, 0.21`) and `ExaModels` (`0.12`) become direct dependencies**, ExaModels moved from `[weakdeps]`: the generated code calls both by module object. ExaModels is now loaded with CTParser, including for users of the functional backend only. The three extensions are kept and now triggered by `LinearAlgebra` (plus `SparseArrays` or `StaticArrays` for the companions) instead of `ExaModels` + `LinearAlgebra`.
-
 ### 🧪 Testing
 
 - **`test/test_hygiene.jl` reproduces [#356](https://github.com/control-toolbox/CTParser.jl/issues/356) in nested modules** (packages loaded, names unbound), for `@def` on both backends and `@init`, with the typed errors raised from generated code, and in a module whose `CTModels`, `ExaModels` and `CTBase` are bound to unrelated values. `test/test_prefix.jl` is deleted and `test_prefix_bis.jl` becomes `test_backends.jl`, with a contract on `FUN` / `EXA` / `ERR` and a guard that the removed API does not come back.
@@ -90,6 +80,20 @@ See [BREAKING.md](BREAKING.md).
 - **[#343](https://github.com/control-toolbox/CTParser.jl/issues/343) is covered on both backends** for the state, the control and the time, on the upper-bound side and with its message; the documented work-around is also tested on `:exa`.
 - **A sentinel in `test/test_exa_linalg.jl` fails as soon as ExaModels declares its own `ExaModelsOptimalControl` extension**, the signal to delete `ext/CTParserExaModels/` ([#325](https://github.com/control-toolbox/CTParser.jl/issues/325)).
 - **Standard-output capture is one helper, `capture_stdout` in `test/utils.jl`.**
+
+### 📚 Documentation
+
+- **A page on the constraints of `@def` and the rule on their bounds** (a bound cannot depend on the state, the control, the variable or the time, and what to write instead).
+- **Two pages on the syntax of `@def`: declarations (dimension, names of the components, what is refused and why) and aliases versus equations (`=` against `==`).**
+- **A page on dimensions and the automatic names of the components**: `R^n` against `Rⁿ` ([#60](https://github.com/control-toolbox/CTParser.jl/issues/60)), the digit exponents up to `R²⁰`, and the limit of the automatic names `xᵢ` / `xi` to `i ≤ 9` for a symbolic dimension.
+- **A page on the trace mode of `@def`**: how to enable it, what each line shows, and which names are shown.
+- **A page on the state and the control as functions of time**: where each can be evaluated, what is refused and why.
+
+### 📦 Dependencies
+
+- **`CTModels` (`0.19, 0.20, 0.21`) and `ExaModels` (`0.12`) become direct dependencies**, ExaModels moved from `[weakdeps]`: the generated code calls both by module object. ExaModels is now loaded with CTParser, including for users of the functional backend only. The three extensions are kept and now triggered by `LinearAlgebra` (plus `SparseArrays` or `StaticArrays` for the companions) instead of `ExaModels` + `LinearAlgebra`.
+
+- **`DocStringExtensions` 0.10 is supported** alongside 0.9 ([#384](https://github.com/control-toolbox/CTParser.jl/pull/384)).
 
 ### ✅ Compatibility
 

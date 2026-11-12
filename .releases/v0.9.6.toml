@@ -1,0 +1,164 @@
+# The request of the release of CTParser v0.9.6, for the release workflow of CTActions.
+# Written by `release.jl facts`, completed by the agent after the human's validation, checked
+# by `release.jl request` and again by the workflow. The proposal is in .releases/v0.9.6.md.
+
+[release]
+package = "CTParser"
+version = "0.9.6"
+kind = "stable"
+mode = "supervised"
+requested_by = "ocots"
+reference = "0.8.15"
+base = "34c9b2d1fc779917d03345fde9e881793e55841a"
+
+[versions]
+ct_agents = "v0.4.0"
+ct_conventions = "v0.10.0"
+ctactions = "f707bb3"
+
+[facts]
+expected_version = "0.9.6"
+breaking = true
+feature = true
+rel4 = true
+rel7 = 23
+jump = "betas"
+labels = ["run breakage", "run ci github-runner", "run ci kkt-runner", "run documentation", "documentation push preview"]
+
+[[review]]
+id = "pr-292"
+what = "#292 Widen compatibility bounds for CTBase, Parameters, and CTModels — touches Project.toml, docs; not cited in the changelog since `v0.8.15`"
+verdict = "covered"
+note = "compat widening of 0.9.0: the Dependencies table of 0.9.0 lists CTBase, CTModels (test) and Parameters"
+
+[[review]]
+id = "pr-405"
+what = "#405 perf(fun): no allocation on a vector literal in the generated functions — touches src; not cited in the changelog since `v0.8.15`"
+verdict = "covered"
+note = "Enhancements of [Unreleased]: the :fun functions no longer allocate on a vector literal (#21, the issue this PR fixes)"
+
+[[review]]
+id = "dep-CTModels"
+what = "`CTModels`: absent → deps"
+verdict = "covered"
+note = "[Unreleased] Dependencies: CTModels becomes a direct dependency"
+
+[[review]]
+id = "dep-ExaModels"
+what = "`ExaModels`: absent → deps"
+verdict = "covered"
+note = "[Unreleased] Dependencies: ExaModels moved from [weakdeps] to [deps]"
+
+[[review]]
+id = "dep-LinearAlgebra"
+what = "`LinearAlgebra`: absent → weakdeps"
+verdict = "covered"
+note = "the trigger of the CTParserExaModels extension (0.9.0 entry, and [Unreleased] Dependencies: the three extensions now triggered by LinearAlgebra)"
+
+[[review]]
+id = "dep-SparseArrays"
+what = "`SparseArrays`: absent → weakdeps"
+verdict = "covered"
+note = "[Unreleased] Enhancements: the companion extension CTParserExaModelsSparseArrays"
+
+[[review]]
+id = "dep-StaticArrays"
+what = "`StaticArrays`: absent → weakdeps"
+verdict = "covered"
+note = "[Unreleased] Enhancements: the companion extension CTParserExaModelsStaticArrays"
+
+[[review]]
+id = "compat-CTBase"
+what = "`[compat]` of `CTBase`: `0.18` → `0.29, 0.30`"
+verdict = "covered"
+note = "0.29 in the Dependencies table of 0.9.0, 0.30 in 0.9.4-beta (#342)"
+
+[[review]]
+id = "compat-CTModels"
+what = "`[compat]` of `CTModels`: `none` → `0.19, 0.20, 0.21`"
+verdict = "covered"
+note = "[Unreleased] Dependencies: CTModels 0.19, 0.20, 0.21"
+
+[[review]]
+id = "compat-DocStringExtensions"
+what = "`[compat]` of `DocStringExtensions`: `0.9` → `0.9, 0.10`"
+verdict = "added"
+note = "no entry: added to [Unreleased] Dependencies, citing #384 (widened to 0.9, 0.10)"
+
+[[review]]
+id = "compat-ExaModels"
+what = "`[compat]` of `ExaModels`: `none` → `0.12`"
+verdict = "covered"
+note = "[Unreleased] Dependencies: ExaModels 0.12"
+
+[[review]]
+id = "compat-LinearAlgebra"
+what = "`[compat]` of `LinearAlgebra`: `none` → `1`"
+verdict = "not-user-facing"
+note = "a standard library: the bound comes with declaring it a weak dependency, covered by the extension entries"
+
+[[review]]
+id = "compat-OrderedCollections"
+what = "`[compat]` of `OrderedCollections`: `1` → `1, 2`"
+verdict = "covered"
+note = "the Dependencies table of 0.9.0: 1 → 1, 2"
+
+[[review]]
+id = "compat-Parameters"
+what = "`[compat]` of `Parameters`: `0.12` → `0.13`"
+verdict = "covered"
+note = "the Dependencies table of 0.9.0: 0.12, 0.13 → 0.13"
+
+[[review]]
+id = "compat-SparseArrays"
+what = "`[compat]` of `SparseArrays`: `none` → `1`"
+verdict = "not-user-facing"
+note = "a standard library: the bound comes with declaring it a weak dependency, covered by the extension entries"
+
+[[review]]
+id = "compat-StaticArrays"
+what = "`[compat]` of `StaticArrays`: `none` → `1`"
+verdict = "covered"
+note = "the bound of the new weak dependency of CTParserExaModelsStaticArrays, covered by its entry in [Unreleased] Enhancements"
+
+[[review]]
+id = "wording-795a7732"
+what = "under `### 🐛 Bug Fixes`, “no longer”: trace mode shows the names the user wrote (#354)"
+verdict = "covered"
+note = "a fix of what trace mode prints; no API changes: rightly a bug fix"
+
+[[review]]
+id = "wording-7fbc06a7"
+what = "under `### 🐛 Bug Fixes`, “deprecated”: the :exa backend accepts the scheme aliases of :adnlp (#355)"
+verdict = "covered"
+note = "additive: aliases now accepted, the deprecated ones resolved as in :adnlp; nothing refused that was accepted"
+
+[[review]]
+id = "wording-52fa1414"
+what = "under `### 🐛 Bug Fixes`, “no longer”: mixing ExaModels.Constant with a folded zero or one no longer raises an ambiguity error (#364)"
+verdict = "covered"
+note = "an error removed: a fix"
+
+[[review]]
+id = "wording-5e4fb264"
+what = "under `### 🐛 Bug Fixes`, “no longer”: a bound-length error names its @def line again (#338)"
+verdict = "covered"
+note = "a fix of an error message"
+
+[[review]]
+id = "wording-980b6eed"
+what = "under `### 🛠 Enhancements`, “no longer”: the :fun functions no longer allocate on a vector literal (#21)"
+verdict = "covered"
+note = "performance only, same results: rightly an enhancement"
+
+[[review]]
+id = "wording-3bcf411d"
+what = "under `### 🛠 Enhancements`, “no longer”: tr of a matrix of nodes is LinearAlgebra's own; DimensionMismatch instead of CTBase.IncorrectArgument"
+verdict = "covered"
+note = "near-breaking (the exception type of a call that already failed changes): documented in the non-breaking note of BREAKING.md (CHG4)"
+
+[[review]]
+id = "wording-6b47cbbd"
+what = "under `### 🔄 Refactoring`, “renamed”: the function behind @def_exa is renamed def_exa_code (#389)"
+verdict = "covered"
+note = "internal: CTParser exports nothing and declares no `public`; def_exa (the function) is neither documented nor called by OptimalControl, CTDirect or CTSolvers (checked); the macro @def_exa is unchanged"
