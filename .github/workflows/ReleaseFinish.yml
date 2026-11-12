@@ -1,0 +1,25 @@
+name: Release finish
+
+# Phases 4 to 8 of a release, once a release manager adds `release: supervised` or
+# `release: autonomous` to the release PR; see CTActions docs/workflows/release-finish.md.
+
+on:
+  pull_request:
+    types: [labeled]
+  workflow_run:
+    workflows: [CI, Documentation, Breakage, Release gate, Release tag]
+    types: [completed]
+    branches: ['release/v*', main]
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+
+jobs:
+  call:
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: read
+      actions: write
+      checks: read
+    uses: control-toolbox/CTActions/.github/workflows/release-finish.yml@main
