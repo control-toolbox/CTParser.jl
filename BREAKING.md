@@ -3,7 +3,7 @@
 Breaking changes in CTParser releases, and how to migrate. Tracked from the 0.8.15
 baseline onward; see [CHANGELOG.md](CHANGELOG.md) for the full record.
 
-## Unreleased
+## [0.9.6] - 2026-11-12
 
 - **The prefix API is removed** ([#356](https://github.com/control-toolbox/CTParser.jl/issues/356)):
   `prefix_fun`, `prefix_fun!`, `prefix_exa`, `prefix_exa!`, `e_prefix`, `e_prefix!`,
@@ -25,7 +25,7 @@ CTParser.prefix_exa()  # :MyModule
 # Swapping the implementation through a prefix is no longer possible.
 ```
 
-## Non-breaking note (Unreleased)
+## Non-breaking note (0.9.6)
 
 - **The ExaModels linear-algebra extension throws `CTBase` errors instead of
   `AssertionError` / `ErrorException`.** A dimension mismatch between two operands
