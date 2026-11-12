@@ -22,4 +22,7 @@ jobs:
       pull-requests: read
       actions: write
       checks: read
-    uses: control-toolbox/CTActions/.github/workflows/release-finish.yml@main
+    # TRIAL: the branch of control-toolbox/CTActions#154; back to @main once it is merged
+    uses: control-toolbox/CTActions/.github/workflows/release-finish.yml@feat/128-release-finish
+    with:
+      ctactions_ref: feat/128-release-finish
