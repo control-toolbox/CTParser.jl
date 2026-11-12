@@ -1012,6 +1012,63 @@ function test_onepass_fun_bis()
         @test control_dimension(ocp) == 1
     end
 
+    @testset "parse! alias redefinition (#420)" begin
+        println("parse! alias redefinition (bis)")
+
+        function pinfo_c5()
+            p = CTParser.ParsingInfo()
+            p.aliases[:c] = 5
+            return p
+        end
+
+        @test CTParser.__is_alias_redefinition(
+            pinfo_c5(), :(c = 7)
+        )
+        @test !CTParser.__is_alias_redefinition(CTParser.ParsingInfo(), :(c = 7))
+        @test !CTParser.__is_alias_redefinition(
+            pinfo_c5(), :(d = 7)
+        )
+        @test !CTParser.__is_alias_redefinition(
+            pinfo_c5(), :(c == 7)
+        )
+
+        for second in ("c = 7", "c = 5")
+            err = try
+                @eval @def begin
+                    t ∈ [0, 1], time
+                    x ∈ R, state
+                    u ∈ R, control
+                    c = 5
+                    $(Meta.parse(second))
+                    ẋ(t) == u(t) + c
+                    x(0) == 0
+                    x(1) → min
+                end
+                nothing
+            catch e
+                e
+            end
+            @test err isa ParsingError
+            @test occursin("the alias `c` is already defined", err.msg)
+            @test occursin("Line 5: $second", err.msg)
+            @test !occursin("forbidden alias name", err.msg)
+            @test occursin("rename the second alias", err.suggestion)
+        end
+
+        # distinct aliases are fine
+        ocp = @def begin
+            t ∈ [0, 1], time
+            x ∈ R, state
+            u ∈ R, control
+            c = 5
+            d = 7
+            ẋ(t) == u(t) + c + d
+            x(0) == 0
+            x(1) → min
+        end
+        @test state_dimension(ocp) == 1
+    end
+
     @testset "parse! `=` written instead of `==` (#353)" begin
         println("parse! equation with = (bis)")
 

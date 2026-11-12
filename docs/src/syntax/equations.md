@@ -44,6 +44,20 @@ ParsingError
 This holds for the derivative of the whole state (`ẋ(t)`, `∂(x)(t)`, `derivative(x)(t)`), for a
 component (`ẋ₁(t)`), and for any other equation such as a boundary condition `x(0) = 0`.
 
+## An alias is defined once
+
+An alias cannot be redefined: a second `c = …` after `c = …` is refused with a `ParsingError` that
+names the alias, even when the value is the same.
+
+```text
+ParsingError
+│  Line 5: c = 7
+│  the alias `c` is already defined
+│
+│  Hint  rename the second alias, or remove the first one
+└─
+```
+
 ## Reading the line in an error
 
 An error names the line of the block it comes from, `Line n: …`, printed as the statement was
