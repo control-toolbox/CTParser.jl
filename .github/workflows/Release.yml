@@ -32,3 +32,6 @@ jobs:
     with:
       version: ${{ inputs.version }}
       ctactions_ref: feat/128-release-finish
+    # the App's key is a secret of the environment `release`: it reaches the reusable
+    # workflow's jobs only when inherited (CTActions docs/workflows/release.md#caller)
+    secrets: inherit
