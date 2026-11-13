@@ -27,11 +27,9 @@ jobs:
       pull-requests: read
       actions: write
       checks: read
-    # TRIAL: the branch of control-toolbox/CTActions#154; back to @main once it is merged
-    uses: control-toolbox/CTActions/.github/workflows/release.yml@feat/128-release-finish
+    uses: control-toolbox/CTActions/.github/workflows/release.yml@main
     with:
       version: ${{ inputs.version }}
-      ctactions_ref: feat/128-release-finish
     # the App's key is a secret of the environment `release`: it reaches the reusable
     # workflow's jobs only when inherited (CTActions docs/workflows/release.md#caller)
     secrets: inherit
