@@ -3,6 +3,10 @@
 Breaking changes in CTParser releases, and how to migrate. Tracked from the 0.8.15
 baseline onward; see [CHANGELOG.md](CHANGELOG.md) for the full record.
 
+## Non-breaking note (Unreleased)
+
+- **Documentation and CI only**: the pins of ct-conventions and ct-agents. **No breaking change**; no migration required.
+
 ## [0.9.6] - 2026-11-12
 
 - **The prefix API is removed** ([#356](https://github.com/control-toolbox/CTParser.jl/issues/356)):
