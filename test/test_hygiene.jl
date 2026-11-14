@@ -23,64 +23,64 @@ const SHOWTIMING = isdefined(Main, :TestData) ? Main.TestData.SHOWTIMING : true
 # user with exactly this. The OCP, the initial guess and the ExaModels builder
 # must all be constructible.
 module Bare
-using CTParser: @def, @init, @def_exa
+    using CTParser: @def, @init, @def_exa
 
-const ocp = @def begin
-    t ∈ [0, 1], time
-    x = (q, v) ∈ R², state
-    u ∈ R, control
-    x(0) == [-1, 0]
-    ẋ(t) == [v(t), u(t)]
-    ∫(0.5u(t)^2) → min
-end
+    const ocp = @def begin
+        t ∈ [0, 1], time
+        x = (q, v) ∈ R², state
+        u ∈ R, control
+        x(0) == [-1, 0]
+        ẋ(t) == [v(t), u(t)]
+        ∫(0.5u(t)^2) → min
+    end
 
-const ig = @init ocp begin
-    u(t) := t
-end
+    const ig = @init ocp begin
+        u(t) := t
+    end
 
-# @def_exa skips the :fun build, so a block without dynamics yields the :exa
-# builder itself; its dyn_check emits ERR.ParsingError when called.
-const build_nodyn = @def_exa begin
-    t ∈ [0, 1], time
-    x ∈ R, state
-    u ∈ R, control
-    ∫(u(t)^2) → min
-end
+    # @def_exa skips the :fun build, so a block without dynamics yields the :exa
+    # builder itself; its dyn_check emits ERR.ParsingError when called.
+    const build_nodyn = @def_exa begin
+        t ∈ [0, 1], time
+        x ∈ R, state
+        u ∈ R, control
+        ∫(u(t)^2) → min
+    end
 
-# __throw emits ERR.ParsingError at macro-expansion time; the throw expression
-# runs in this module when the function is called.
-broken_init(ocp) = @init ocp begin
-    (q + v) := 1.0
-end
+    # __throw emits ERR.ParsingError at macro-expansion time; the throw expression
+    # runs in this module when the function is called.
+    broken_init(ocp) = @init ocp begin
+        (q + v) := 1.0
+    end
 end # module Bare
 
 # Shadowed namespace: the same names are bound to unrelated values. If the
 # generated code still resolved them by name, `CTModels.PreModel()` would mean
 # `42.PreModel()`. The interpolated module objects must win over any binding.
 module Shadowed
-const CTModels = 42
-const ExaModels = "nope"
-const CTBase = nothing
+    const CTModels = 42
+    const ExaModels = "nope"
+    const CTBase = nothing
 
-using CTParser: @def, @init
+    using CTParser: @def, @init
 
-const ocp = @def begin
-    t ∈ [0, 1], time
-    x ∈ R, state
-    u ∈ R, control
-    ẋ(t) == u(t)
-    ∫(u(t)^2) → min
-end
+    const ocp = @def begin
+        t ∈ [0, 1], time
+        x ∈ R, state
+        u ∈ R, control
+        ẋ(t) == u(t)
+        ∫(u(t)^2) → min
+    end
 
-const ig = @init ocp begin
-    u(t) := 0.0
-end
+    const ig = @init ocp begin
+        u(t) := 0.0
+    end
 
-# Same as Bare.broken_init: the expansion-time ParsingError must resolve CTBase
-# by object, not through the junk binding above.
-broken_init(ocp) = @init ocp begin
-    (q + v) := 1.0
-end
+    # Same as Bare.broken_init: the expansion-time ParsingError must resolve CTBase
+    # by object, not through the junk binding above.
+    broken_init(ocp) = @init ocp begin
+        (q + v) := 1.0
+    end
 end # module Shadowed
 
 function test_hygiene()

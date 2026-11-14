@@ -35,7 +35,7 @@ const MatExaNode = StridedMatrix{T} where {T<:ExaNode}
 const RealSparseVector = SparseArrays.SparseVectorUnion{T} where {T<:Real}
 
 function _dimension_mismatch(op, reason)
-    throw(
+    return throw(
         CTBase.PreconditionError(
             "operand dimensions do not match for $op";
             reason=reason,
@@ -93,7 +93,10 @@ const RealSparseMatrix = Union{
     Union{
         SparseArrays.AbstractSparseMatrixCSC{T,Ti},
         SubArray{
-            T,2,<:SparseArrays.AbstractSparseMatrixCSC{T,Ti},Tuple{Base.Slice{Base.OneTo{Int}},I}
+            T,
+            2,
+            <:SparseArrays.AbstractSparseMatrixCSC{T,Ti},
+            Tuple{Base.Slice{Base.OneTo{Int}},I},
         } where {I<:AbstractUnitRange},
     } where {T<:Real,Ti},
     LinearAlgebra.Adjoint{<:Real,<:SparseArrays.AbstractSparseMatrixCSC},
@@ -103,9 +106,7 @@ const RealSparseMatrix = Union{
 function Base.:*(A::MatExaNode, B::RealSparseMatrix)
     size(A, 2) == size(B, 1) ||
         _dimension_mismatch("*", "matrices of sizes $(size(A)) and $(size(B))")
-    return [
-        _row_dot(A, i, view(B, :, j)) for i in 1:size(A, 1), j in 1:size(B, 2)
-    ]
+    return [_row_dot(A, i, view(B, :, j)) for i in 1:size(A, 1), j in 1:size(B, 2)]
 end
 
 function _row_dot(A, i, b)

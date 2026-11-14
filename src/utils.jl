@@ -171,7 +171,7 @@ function subs2(e, x, y, j; k=__symgen(:k))
                 _ => f
             end
         end
-    expr_it(e, foo(x, y, j), x -> x)
+    return expr_it(e, foo(x, y, j), x -> x)
 end
 
 """
@@ -200,7 +200,7 @@ function subs3(e, x, y, i, j)
             _ => f
         end
     end
-    expr_it(e, foo(x, y, i, j), x -> x)
+    return expr_it(e, foo(x, y, i, j), x -> x)
 end
 
 """
@@ -247,7 +247,7 @@ function subs2m(e, x, y, j; k=__symgen(:k))
                 _ => f
             end
         end
-    expr_it(e, foo(x, y, j), x -> x)
+    return expr_it(e, foo(x, y, j), x -> x)
 end
 
 """
@@ -320,7 +320,7 @@ function replace_call(e, x::Vector{<:Union{Nothing,Symbol}}, t, y)
                 _ => ee
             end
         end
-    expr_it(e, foo(x, t, y), x -> x)
+    return expr_it(e, foo(x, t, y), x -> x)
 end
 
 """
@@ -406,7 +406,7 @@ function has(e, x, t)
                 end
             end
         end
-    expr_it(e, foo(x, t), x -> x) == :yes
+    return expr_it(e, foo(x, t), x -> x) == :yes
 end
 
 """

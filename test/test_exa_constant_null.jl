@@ -139,7 +139,9 @@ function test_exa_constant_null()
         Test.@testset "no ambiguity left on scalar node arithmetic" begin
             Test.@test EXT isa Module
             pairs = Test.detect_ambiguities(EXT; recursive=true)
-            with_exa = [(a, b) for (a, b) in pairs if other_method(a, b).module === ExaModels]
+            with_exa = [
+                (a, b) for (a, b) in pairs if other_method(a, b).module === ExaModels
+            ]
             Test.@test isempty(with_exa)
             # What is left pairs a method of the extension on *arrays* of nodes with a
             # method on another array type (LinearAlgebra's structured matrices,
@@ -149,7 +151,13 @@ function test_exa_constant_null()
             scalar = [(a, b) for (a, b) in pairs if !has_array_arg(ext_method(a, b))]
             Test.@test isempty(scalar) || begin
                 for (a, b) in scalar
-                    println(stderr, "  ambiguous: ", ext_method(a, b), "  vs  ", other_method(a, b))
+                    println(
+                        stderr,
+                        "  ambiguous: ",
+                        ext_method(a, b),
+                        "  vs  ",
+                        other_method(a, b),
+                    )
                 end
                 false
             end

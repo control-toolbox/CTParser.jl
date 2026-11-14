@@ -145,10 +145,15 @@ function test_exa_extensions()
         # ------------------------------------------------------------------
         Test.@testset "incompatible dimensions raise a PreconditionError" begin
             v = variable_nodes(3)
-            Test.@test_throws CTBase.PreconditionError LinearAlgebra.dot(SparseArrays.spzeros(2), v)
-            Test.@test_throws CTBase.PreconditionError variable_matrix(2, 2) * SparseArrays.spzeros(3)
+            Test.@test_throws CTBase.PreconditionError LinearAlgebra.dot(
+                SparseArrays.spzeros(2), v
+            )
+            Test.@test_throws CTBase.PreconditionError variable_matrix(2, 2) *
+                SparseArrays.spzeros(3)
             Test.@test_throws CTBase.PreconditionError v + StaticArrays.SVector(1.0, 2.0)
-            Test.@test_throws CTBase.PreconditionError StaticArrays.SMatrix{2,2}(1.0, 2.0, 3.0, 4.0) * v
+            Test.@test_throws CTBase.PreconditionError StaticArrays.SMatrix{2,2}(
+                1.0, 2.0, 3.0, 4.0
+            ) * v
         end
     end
 end
