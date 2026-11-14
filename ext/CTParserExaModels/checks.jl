@@ -10,7 +10,7 @@
 # ============================================================================
 
 function _dimension_mismatch(op, reason)
-    throw(
+    return throw(
         CTBase.PreconditionError(
             "operand dimensions do not match for $op";
             reason=reason,
@@ -21,7 +21,7 @@ function _dimension_mismatch(op, reason)
 end
 
 function _bad_operand(op, got, expected)
-    throw(
+    return throw(
         CTBase.IncorrectArgument(
             "unsupported operand for $op";
             got=got,

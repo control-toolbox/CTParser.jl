@@ -101,7 +101,7 @@ function test_utils()
 
             # Test 13: Multiple substitutions with symbolic j
             e = :(x0[1:3] + xf[2:4])
-            result = subs2(subs2(e, :x0, :x, :j; k=:k1), :xf, :x, :(j+1); k=:k2)
+            result = subs2(subs2(e, :x0, :x, :j; k=:k1), :xf, :x, :(j + 1); k=:k2)
             @test result == :([x[k1, j] for k1 in 1:3] + [x[k2, j + 1] for k2 in 2:4])
         end
 

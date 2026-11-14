@@ -37,7 +37,7 @@ const RealStaticMatrix = StaticArrays.StaticArray{S,<:Real,2} where {S<:Tuple}
 const RealStaticMatrixNM = StaticArrays.StaticArray{Tuple{N,M},<:Real,2} where {N,M}
 
 function _dimension_mismatch(op, reason)
-    throw(
+    return throw(
         CTBase.PreconditionError(
             "operand dimensions do not match for $op";
             reason=reason,
@@ -48,17 +48,18 @@ function _dimension_mismatch(op, reason)
 end
 
 function _entrywise(op, a, b)
-    size(a) == size(b) ||
-        _dimension_mismatch(string(op), "sizes $(size(a)) and $(size(b))")
+    size(a) == size(b) || _dimension_mismatch(string(op), "sizes $(size(a)) and $(size(b))")
     return [op(a[I], b[I]) for I in CartesianIndices(size(a))]
 end
 
-for op in (:+, :-), (TA, TB) in [
-    (RealStaticVector, VecExaNode),
-    (VecExaNode, RealStaticVector),
-    (RealStaticMatrix, MatExaNode),
-    (MatExaNode, RealStaticMatrix),
-]
+for op in (:+, :-),
+    (TA, TB) in [
+        (RealStaticVector, VecExaNode),
+        (VecExaNode, RealStaticVector),
+        (RealStaticMatrix, MatExaNode),
+        (MatExaNode, RealStaticMatrix),
+    ]
+
     @eval Base.$op(a::$TA, b::$TB) = _entrywise($op, a, b)
 end
 

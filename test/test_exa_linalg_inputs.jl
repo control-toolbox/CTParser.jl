@@ -40,11 +40,27 @@ function matrices3()
     S = M3 + M3'
     return [
         ("Matrix", M3, M3),
-        ("Diagonal", LinearAlgebra.Diagonal([2.0, -1.0, 0.5]), [2.0 0 0; 0 -1.0 0; 0 0 0.5]),
+        (
+            "Diagonal",
+            LinearAlgebra.Diagonal([2.0, -1.0, 0.5]),
+            [2.0 0 0; 0 -1.0 0; 0 0 0.5],
+        ),
         ("Symmetric", LinearAlgebra.Symmetric(S), S),
-        ("UpperTriangular", LinearAlgebra.UpperTriangular(M3), Matrix(LinearAlgebra.UpperTriangular(M3))),
-        ("LowerTriangular", LinearAlgebra.LowerTriangular(M3), Matrix(LinearAlgebra.LowerTriangular(M3))),
-        ("Tridiagonal", LinearAlgebra.Tridiagonal(M3), Matrix(LinearAlgebra.Tridiagonal(M3))),
+        (
+            "UpperTriangular",
+            LinearAlgebra.UpperTriangular(M3),
+            Matrix(LinearAlgebra.UpperTriangular(M3)),
+        ),
+        (
+            "LowerTriangular",
+            LinearAlgebra.LowerTriangular(M3),
+            Matrix(LinearAlgebra.LowerTriangular(M3)),
+        ),
+        (
+            "Tridiagonal",
+            LinearAlgebra.Tridiagonal(M3),
+            Matrix(LinearAlgebra.Tridiagonal(M3)),
+        ),
         ("sparse", SparseArrays.sparse(M3), M3),
         ("SMatrix", StaticArrays.SMatrix{3,3}(M3), M3),
         ("transpose", transpose(M3), Matrix(transpose(M3))),
@@ -75,8 +91,16 @@ function matrices2()
         ("Matrix", M2, M2),
         ("Diagonal", LinearAlgebra.Diagonal([-1.0, 0.5]), [-1.0 0; 0 0.5]),
         ("Symmetric", LinearAlgebra.Symmetric(S), S),
-        ("UpperTriangular", LinearAlgebra.UpperTriangular(M2), Matrix(LinearAlgebra.UpperTriangular(M2))),
-        ("LowerTriangular", LinearAlgebra.LowerTriangular(M2), Matrix(LinearAlgebra.LowerTriangular(M2))),
+        (
+            "UpperTriangular",
+            LinearAlgebra.UpperTriangular(M2),
+            Matrix(LinearAlgebra.UpperTriangular(M2)),
+        ),
+        (
+            "LowerTriangular",
+            LinearAlgebra.LowerTriangular(M2),
+            Matrix(LinearAlgebra.LowerTriangular(M2)),
+        ),
         ("sparse", SparseArrays.sparse(M2), M2),
         ("SMatrix", StaticArrays.SMatrix{2,2}(M2), M2),
         ("transpose", transpose(M2), Matrix(transpose(M2))),
@@ -172,7 +196,8 @@ function same_solution(ocp, reference; scheme)
 end
 
 function test_exa_linalg_inputs()
-    Test.@testset "Linear algebra inputs with :exa" verbose = VERBOSE showtiming = SHOWTIMING begin
+    Test.@testset "Linear algebra inputs with :exa" verbose = VERBOSE showtiming =
+        SHOWTIMING begin
 
         # ------------------------------------------------------------------
         # Unit: constants of every kind with a vector of variable nodes
@@ -203,7 +228,9 @@ function test_exa_linalg_inputs()
             Test.@test evaluate(v' * A * v) ≈ POINT' * D * POINT
         end
 
-        Test.@testset "dot(q, x), dot(x, q) and q' * x for a $name vector" for (name, q, D) in vectors3()
+        Test.@testset "dot(q, x), dot(x, q) and q' * x for a $name vector" for (
+            name, q, D
+        ) in vectors3()
             v = variable_nodes(3)
             Test.@test evaluate(LinearAlgebra.dot(q, v)) ≈ LinearAlgebra.dot(D, POINT)
             Test.@test evaluate(LinearAlgebra.dot(v, q)) ≈ LinearAlgebra.dot(POINT, D)
@@ -219,14 +246,16 @@ function test_exa_linalg_inputs()
         # ------------------------------------------------------------------
         # Integration: the same constants in a `@def`, built and solved
         # ------------------------------------------------------------------
-        Test.@testset "@def with a $name matrix in the dynamics ($scheme)" for (name, A, D) in
-                                                                               matrices2(),
+        Test.@testset "@def with a $name matrix in the dynamics ($scheme)" for (
+                name, A, D
+            ) in matrices2(),
             scheme in (:euler, :trapeze)
 
             Test.@test same_solution(lq_problem(A, Q2), lq_problem(D, Q2); scheme=scheme)
         end
 
-        Test.@testset "@def with a $name vector in the cost ($scheme)" for (name, q, D) in vectors2(),
+        Test.@testset "@def with a $name vector in the cost ($scheme)" for (name, q, D) in
+                                                                           vectors2(),
             scheme in (:euler, :trapeze)
 
             Test.@test same_solution(lq_problem(M2, q), lq_problem(M2, D); scheme=scheme)

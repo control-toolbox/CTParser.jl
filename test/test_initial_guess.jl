@@ -711,7 +711,7 @@ function test_initial_guess() # debug
         @test u0[1] ≈ cos(0.0)
         @test u0[2] ≈ sin(0.0)
         @test u1[1] ≈ cos(π)
-        @test u1[2] ≈ sin(π) atol=1e-10
+        @test u1[2] ≈ sin(π) atol = 1e-10
     end
 
     @testset "time variable substitution (s = t)" begin
